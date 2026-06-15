@@ -21,11 +21,11 @@ export default function RegisterForm() {
           <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
             <User className="h-5 w-5 text-gray-400" />
           </div>
-          <input 
-            type="text" 
-            required 
-            placeholder="Nguyễn Văn A" 
-            className="w-full border border-[#e0e3e6] rounded-lg pl-11 pr-4 py-3 focus:outline-none focus:border-[#003d9b] bg-white text-[#181c1e] placeholder:text-gray-400" 
+          <input
+            type="text"
+            required
+            placeholder="Nguyễn Văn A"
+            className="w-full border border-[#e0e3e6] rounded-lg pl-11 pr-4 py-3 focus:outline-none focus:border-[#003d9b] bg-white text-[#181c1e] placeholder:text-gray-400"
           />
         </div>
       </div>
@@ -37,11 +37,11 @@ export default function RegisterForm() {
             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
               <Mail className="h-5 w-5 text-gray-400" />
             </div>
-            <input 
-              type="email" 
-              required 
-              placeholder="email@example.com" 
-              className="w-full border border-[#e0e3e6] rounded-lg pl-11 pr-4 py-3 focus:outline-none focus:border-[#003d9b] bg-white text-[#181c1e] placeholder:text-gray-400" 
+            <input
+              type="email"
+              required
+              placeholder="email@example.com"
+              className="w-full border border-[#e0e3e6] rounded-lg pl-11 pr-4 py-3 focus:outline-none focus:border-[#003d9b] bg-white text-[#181c1e] placeholder:text-gray-400"
             />
           </div>
         </div>
@@ -52,11 +52,11 @@ export default function RegisterForm() {
             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
               <Phone className="h-5 w-5 text-gray-400" />
             </div>
-            <input 
-              type="tel" 
-              required 
-              placeholder="090 123 4567" 
-              className="w-full border border-[#e0e3e6] rounded-lg pl-11 pr-4 py-3 focus:outline-none focus:border-[#003d9b] bg-white text-[#181c1e] placeholder:text-gray-400" 
+            <input
+              type="tel"
+              required
+              placeholder="090 123 4567"
+              className="w-full border border-[#e0e3e6] rounded-lg pl-11 pr-4 py-3 focus:outline-none focus:border-[#003d9b] bg-white text-[#181c1e] placeholder:text-gray-400"
             />
           </div>
         </div>
@@ -68,15 +68,15 @@ export default function RegisterForm() {
           <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
             <Lock className="h-5 w-5 text-gray-400" />
           </div>
-          <input 
-            type={showPassword ? "text" : "password"} 
-            required 
-            placeholder="••••••••" 
-            className="w-full border border-[#e0e3e6] rounded-lg pl-11 pr-11 py-3 focus:outline-none focus:border-[#003d9b] bg-white text-[#181c1e] placeholder:text-gray-400" 
+          <input
+            type={showPassword ? "text" : "password"}
+            required
+            placeholder="••••••••"
+            className="w-full border border-[#e0e3e6] rounded-lg pl-11 pr-11 py-3 focus:outline-none focus:border-[#003d9b] bg-white text-[#181c1e] placeholder:text-gray-400"
           />
-          <button 
-            type="button" 
-            onClick={() => setShowPassword(!showPassword)} 
+          <button
+            type="button"
+            onClick={() => setShowPassword(!showPassword)}
             className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600"
           >
             {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
@@ -90,15 +90,15 @@ export default function RegisterForm() {
           <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
             <Lock className="h-5 w-5 text-gray-400" />
           </div>
-          <input 
-            type={showConfirmPassword ? "text" : "password"} 
-            required 
-            placeholder="••••••••" 
-            className="w-full border border-[#e0e3e6] rounded-lg pl-11 pr-11 py-3 focus:outline-none focus:border-[#003d9b] bg-white text-[#181c1e] placeholder:text-gray-400" 
+          <input
+            type={showConfirmPassword ? "text" : "password"}
+            required
+            placeholder="••••••••"
+            className="w-full border border-[#e0e3e6] rounded-lg pl-11 pr-11 py-3 focus:outline-none focus:border-[#003d9b] bg-white text-[#181c1e] placeholder:text-gray-400"
           />
-          <button 
-            type="button" 
-            onClick={() => setShowConfirmPassword(!showConfirmPassword)} 
+          <button
+            type="button"
+            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
             className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600"
           >
             {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
@@ -108,7 +108,7 @@ export default function RegisterForm() {
 
       <div className="flex items-start gap-3 mt-2">
         <div className="flex items-center h-5 mt-[2px]">
-            <input type="checkbox" required className="w-4 h-4 text-[#0052cc] border-[#e0e3e6] rounded focus:ring-[#0052cc]" />
+          <input type="checkbox" required className="w-4 h-4 text-[#0052cc] border-[#e0e3e6] rounded focus:ring-[#0052cc]" />
         </div>
         <p className="text-sm text-[#434654] leading-relaxed">
           Tôi đồng ý với các <Link to="/terms" className="text-[#003d9b] hover:underline font-medium">Điều khoản dịch vụ</Link> và <Link to="/privacy" className="text-[#003d9b] hover:underline font-medium">Chính sách bảo mật</Link>.
