@@ -17,6 +17,7 @@ import {
   EyeOff
 } from 'lucide-react';
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import Logo from '../../../components/common/Logo';
 
 export default function ProfilePage() {
@@ -59,10 +60,10 @@ export default function ProfilePage() {
             <Users size={18} />
             <span className="font-medium text-[14px] leading-[20px]">Khách hàng</span>
           </a>
-          <a href="#" className="flex gap-[12px] items-center px-[16px] py-[12px] rounded-[8px] w-full text-[#434654] hover:bg-gray-200 transition-colors">
+          <Link to="/customer/cars" className="flex gap-[12px] items-center px-[16px] py-[12px] rounded-[8px] w-full text-[#434654] hover:bg-gray-200 transition-colors">
             <Briefcase size={18} />
             <span className="font-medium text-[14px] leading-[20px]">Dịch vụ</span>
-          </a>
+          </Link>
           <a href="#" className="flex gap-[12px] items-center px-[16px] py-[12px] rounded-[8px] w-full text-[#434654] hover:bg-gray-200 transition-colors">
             <BarChart size={18} />
             <span className="font-medium text-[14px] leading-[20px]">Báo cáo</span>
