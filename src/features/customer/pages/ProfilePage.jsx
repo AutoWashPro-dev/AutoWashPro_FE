@@ -17,6 +17,7 @@ import {
   EyeOff
 } from 'lucide-react';
 import { useState } from 'react';
+import Logo from '../../../components/common/Logo';
 
 export default function ProfilePage() {
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
@@ -29,8 +30,8 @@ export default function ProfilePage() {
       <div className="fixed bg-[#f1f4f7] flex flex-col gap-[8px] h-full items-start left-0 p-[16px] top-0 w-[280px]">
         <div className="flex flex-col items-start pb-[32px] w-full">
           <div className="flex flex-col gap-[4px] items-start px-[8px] w-full">
-            <div className="flex flex-col items-start w-full">
-              <p className="font-black text-[#003d9b] text-[24px] leading-[32px]">AutoWash Pro</p>
+            <div className="flex flex-col items-start w-full pb-2">
+              <Logo />
             </div>
             <div className="flex flex-col items-start w-full">
               <p className="font-normal text-[#434654] text-[12px] leading-[16px]">Quản lý dịch vụ</p>
