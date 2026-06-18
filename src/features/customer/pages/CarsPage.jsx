@@ -49,18 +49,14 @@ export default function CarsPage() {
             <Calendar size={18} />
             <span className="font-medium text-[14px] leading-[20px]">Đặt lịch</span>
           </a>
-          <Link to="/customer/cars" className="bg-[#0052cc] flex gap-[12px] items-center px-[16px] py-[12px] rounded-[8px] w-full text-[#c4d2ff] shadow-sm">
-            <Car size={18} className="text-white" />
-            <span className="font-bold text-[14px] leading-[20px] text-white">Quản lý xe</span>
-          </Link>
           <a href="#" className="flex gap-[12px] items-center px-[16px] py-[12px] rounded-[8px] w-full text-[#434654] hover:bg-gray-200 transition-colors">
             <Users size={18} />
             <span className="font-medium text-[14px] leading-[20px]">Khách hàng</span>
           </a>
-          <a href="#" className="flex gap-[12px] items-center px-[16px] py-[12px] rounded-[8px] w-full text-[#434654] hover:bg-gray-200 transition-colors">
-            <Briefcase size={18} />
-            <span className="font-medium text-[14px] leading-[20px]">Dịch vụ</span>
-          </a>
+          <Link to="/customer/cars" className="bg-[#0052cc] flex gap-[12px] items-center px-[16px] py-[12px] rounded-[8px] w-full text-[#c4d2ff] shadow-sm">
+            <Briefcase size={18} className="text-white" />
+            <span className="font-bold text-[14px] leading-[20px] text-white">Dịch vụ</span>
+          </Link>
           <a href="#" className="flex gap-[12px] items-center px-[16px] py-[12px] rounded-[8px] w-full text-[#434654] hover:bg-gray-200 transition-colors">
             <BarChart size={18} />
             <span className="font-medium text-[14px] leading-[20px]">Báo cáo</span>
