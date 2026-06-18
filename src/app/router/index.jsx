@@ -9,6 +9,7 @@ import LoginPage from '../../features/auth/pages/LoginPage';
 import RegisterPage from '../../features/auth/pages/RegisterPage';
 import DashboardPage from '../../features/customer/pages/DashboardPage';
 import ProfilePage from '../../features/customer/pages/ProfilePage';
+import CarsPage from '../../features/customer/pages/CarsPage';
 
 const router = createBrowserRouter([
   {
@@ -42,6 +43,10 @@ const router = createBrowserRouter([
   {
     path: '/customer/profile',
     element: <PrivateRoute><ProfilePage /></PrivateRoute>,
+  },
+  {
+    path: '/customer/cars',
+    element: <PrivateRoute><CarsPage /></PrivateRoute>,
   },
 ]);
 
