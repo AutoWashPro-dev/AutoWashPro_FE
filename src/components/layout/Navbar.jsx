@@ -14,7 +14,10 @@ export default function Navbar({ isAuthenticated }) {
         </nav>
         <div className="flex items-center space-x-4">
           {isAuthenticated ? (
-            <Link to="/customer/dashboard" className="text-blue-600 font-medium">Dashboard</Link>
+            <div className="flex items-center space-x-4">
+              <Link to="/customer/dashboard" className="text-blue-600 font-medium hover:text-blue-800">Dashboard</Link>
+              <Link to="/customer/profile" className="text-gray-600 font-medium hover:text-blue-600">Hồ sơ</Link>
+            </div>
           ) : (
             <>
               <Link to="/login" className="text-gray-600 hover:text-blue-600 font-medium">Đăng nhập</Link>

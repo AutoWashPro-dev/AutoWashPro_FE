@@ -8,6 +8,7 @@ import HomePage from '../../features/home/pages/HomePage';
 import LoginPage from '../../features/auth/pages/LoginPage';
 import RegisterPage from '../../features/auth/pages/RegisterPage';
 import DashboardPage from '../../features/customer/pages/DashboardPage';
+import ProfilePage from '../../features/customer/pages/ProfilePage';
 
 const router = createBrowserRouter([
   {
@@ -35,6 +36,10 @@ const router = createBrowserRouter([
       {
         path: 'dashboard',
         element: <DashboardPage />,
+      },
+      {
+        path: 'profile',
+        element: <ProfilePage />,
       },
     ],
   },
