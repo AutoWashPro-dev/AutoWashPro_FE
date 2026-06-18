@@ -48,10 +48,10 @@ export default function ProfilePage() {
         </div>
 
         <nav className="flex flex-1 flex-col gap-[4px] items-start w-full">
-          <a href="#" className="flex gap-[12px] items-center px-[16px] py-[12px] rounded-[8px] w-full text-[#434654] hover:bg-gray-200 transition-colors">
+          <Link to="/customer/dashboard" className="flex gap-[12px] items-center px-[16px] py-[12px] rounded-[8px] w-full text-[#434654] hover:bg-gray-200 transition-colors">
             <LayoutDashboard size={18} />
             <span className="font-medium text-[14px] leading-[20px]">Tổng quan</span>
-          </a>
+          </Link>
           <a href="#" className="flex gap-[12px] items-center px-[16px] py-[12px] rounded-[8px] w-full text-[#434654] hover:bg-gray-200 transition-colors">
             <Calendar size={18} />
             <span className="font-medium text-[14px] leading-[20px]">Đặt lịch</span>
