@@ -34,10 +34,10 @@ export default function CarsPage() {
         </div>
 
         <div className="flex flex-col items-start pb-[24px] w-full">
-          <button className="bg-[#003d9b] hover:bg-[#003380] transition-colors flex gap-[8px] items-center justify-center px-[16px] py-[12px] rounded-[8px] w-full text-white shadow-sm">
+          <Link to="/customer/booking" className="bg-[#003d9b] hover:bg-[#003380] transition-colors flex gap-[8px] items-center justify-center px-[16px] py-[12px] rounded-[8px] w-full text-white shadow-sm">
             <CalendarPlus size={18} />
             <span className="font-medium text-[14px] leading-[20px]">Đặt lịch mới</span>
-          </button>
+          </Link>
         </div>
 
         <nav className="flex flex-1 flex-col gap-[4px] items-start w-full">
@@ -45,10 +45,10 @@ export default function CarsPage() {
             <LayoutDashboard size={18} />
             <span className="font-medium text-[14px] leading-[20px]">Tổng quan</span>
           </Link>
-          <a href="#" className="flex gap-[12px] items-center px-[16px] py-[12px] rounded-[8px] w-full text-[#434654] hover:bg-gray-200 transition-colors">
+          <Link to="/customer/booking" className="flex gap-[12px] items-center px-[16px] py-[12px] rounded-[8px] w-full text-[#434654] hover:bg-gray-200 transition-colors">
             <Calendar size={18} />
             <span className="font-medium text-[14px] leading-[20px]">Đặt lịch</span>
-          </a>
+          </Link>
           <Link to="/customer/loyalty" className="flex gap-[12px] items-center px-[16px] py-[12px] rounded-[8px] w-full text-[#434654] hover:bg-gray-200 transition-colors">
             <Users size={18} />
             <span className="font-medium text-[14px] leading-[20px]">Khách hàng</span>
@@ -146,10 +146,10 @@ export default function CarsPage() {
               </div>
 
               <div className="border-[#e5e8eb] border-t flex flex-col gap-[8px] pt-[17px] w-full">
-                <button className="bg-[#f1f4f7] hover:bg-[#e5e7eb] transition-colors flex gap-[8px] items-center justify-center py-[10px] rounded-[8px] w-full text-[#003d9b]">
+                <Link to="/customer/booking" className="bg-[#f1f4f7] hover:bg-[#e5e7eb] transition-colors flex gap-[8px] items-center justify-center py-[10px] rounded-[8px] w-full text-[#003d9b]">
                   <Calendar size={18} />
                   <span className="font-medium text-[14px] leading-[20px]">Đặt lịch ngay cho xe này</span>
-                </button>
+                </Link>
                 <div className="flex gap-[8px] w-full">
                   <button className="bg-white border border-[#c3c6d6] hover:bg-gray-50 transition-colors flex flex-1 gap-[4px] items-center justify-center py-[9px] rounded-[8px] text-[#181c1e]">
                     <Edit2 size={14} />
