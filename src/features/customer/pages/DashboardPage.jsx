@@ -136,12 +136,12 @@ export default function DashboardPage() {
           <div className="col-span-12 lg:col-span-6 flex flex-col gap-4">
             <h3 className="text-[#181c1e] text-2xl font-semibold">Thao tác nhanh</h3>
             <div className="grid grid-cols-2 gap-4 flex-1">
-              <button className="bg-white border border-[#e5e7eb] rounded-xl flex flex-col items-center justify-center gap-3 p-6 hover:shadow-md transition group min-h-[140px]">
+              <Link to="/customer/booking" className="bg-white border border-[#e5e7eb] rounded-xl flex flex-col items-center justify-center gap-3 p-6 hover:shadow-md transition group min-h-[140px]">
                 <div className="w-14 h-14 rounded-full bg-[#0052cc] flex items-center justify-center group-hover:scale-105 transition-transform">
                   <Calendar className="w-6 h-6 text-white" />
                 </div>
                 <span className="text-[#181c1e] font-semibold text-sm">Đặt lịch mới</span>
-              </button>
+              </Link>
               <Link to="/customer/cars" className="bg-white border border-[#e5e7eb] rounded-xl flex flex-col items-center justify-center gap-3 p-6 hover:shadow-md transition group min-h-[140px]">
                 <div className="w-14 h-14 rounded-full bg-[#d6e0f3] flex items-center justify-center group-hover:scale-105 transition-transform">
                   <Car className="w-6 h-6 text-[#181c1e]" />
