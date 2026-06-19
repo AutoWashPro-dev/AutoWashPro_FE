@@ -1,6 +1,7 @@
-import { createBrowserRouter } from 'react-router-dom';
+import { createBrowserRouter, Navigate } from 'react-router-dom';
 import PublicLayout from '../../layouts/PublicLayout';
 import CustomerLayout from '../../layouts/CustomerLayout';
+import DashboardLayout from '../../layouts/DashboardLayout';
 import PrivateRoute from '../../routes/PrivateRoute';
 
 // Pages
@@ -11,6 +12,7 @@ import DashboardPage from '../../features/customer/pages/DashboardPage';
 import ProfilePage from '../../features/customer/pages/ProfilePage';
 import CarsPage from '../../features/customer/pages/CarsPage';
 import LoyaltyPage from '../../features/customer/pages/LoyaltyPage';
+import BookingPage from '../../features/booking/pages/BookingPage';
 
 const router = createBrowserRouter([
   {
@@ -39,20 +41,30 @@ const router = createBrowserRouter([
         path: 'dashboard',
         element: <DashboardPage />,
       },
+      {
+        path: 'profile',
+        element: <ProfilePage />,
+      },
+      {
+        path: 'cars',
+        element: <CarsPage />,
+      },
+      {
+        path: 'loyalty',
+        element: <LoyaltyPage />,
+      },
     ],
   },
   {
-    path: '/customer/profile',
-    element: <PrivateRoute><ProfilePage /></PrivateRoute>,
-  },
-  {
-    path: '/customer/cars',
-    element: <PrivateRoute><CarsPage /></PrivateRoute>,
-  },
-  {
-    path: '/customer/loyalty',
-    element: <PrivateRoute><LoyaltyPage /></PrivateRoute>,
-  },
+    path: '/customer',
+    element: <PrivateRoute><DashboardLayout /></PrivateRoute>,
+    children: [
+      {
+        path: 'booking',
+        element: <BookingPage />,
+      },
+    ]
+  }
 ]);
 
 export default router;
