@@ -56,10 +56,10 @@ export default function ProfilePage() {
             <Calendar size={18} />
             <span className="font-medium text-[14px] leading-[20px]">Đặt lịch</span>
           </a>
-          <a href="#" className="flex gap-[12px] items-center px-[16px] py-[12px] rounded-[8px] w-full text-[#434654] hover:bg-gray-200 transition-colors">
+          <Link to="/customer/loyalty" className="flex gap-[12px] items-center px-[16px] py-[12px] rounded-[8px] w-full text-[#434654] hover:bg-gray-200 transition-colors">
             <Users size={18} />
             <span className="font-medium text-[14px] leading-[20px]">Khách hàng</span>
-          </a>
+          </Link>
           <Link to="/customer/cars" className="flex gap-[12px] items-center px-[16px] py-[12px] rounded-[8px] w-full text-[#434654] hover:bg-gray-200 transition-colors">
             <Briefcase size={18} />
             <span className="font-medium text-[14px] leading-[20px]">Dịch vụ</span>
