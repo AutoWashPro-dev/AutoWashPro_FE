@@ -10,6 +10,7 @@ import RegisterPage from '../../features/auth/pages/RegisterPage';
 import DashboardPage from '../../features/customer/pages/DashboardPage';
 import ProfilePage from '../../features/customer/pages/ProfilePage';
 import CarsPage from '../../features/customer/pages/CarsPage';
+import LoyaltyPage from '../../features/customer/pages/LoyaltyPage';
 
 const router = createBrowserRouter([
   {
@@ -47,6 +48,10 @@ const router = createBrowserRouter([
   {
     path: '/customer/cars',
     element: <PrivateRoute><CarsPage /></PrivateRoute>,
+  },
+  {
+    path: '/customer/loyalty',
+    element: <PrivateRoute><LoyaltyPage /></PrivateRoute>,
   },
 ]);
 
