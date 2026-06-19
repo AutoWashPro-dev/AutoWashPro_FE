@@ -21,12 +21,12 @@ export default function DashboardPage() {
               <Bell className="w-5 h-5 text-gray-600" />
               <span className="absolute top-2 right-2 w-2.5 h-2.5 bg-red-600 border-2 border-white rounded-full"></span>
             </button>
-            <div className="bg-white border border-gray-200 flex gap-3 items-center px-4 py-2.5 rounded-full">
+            <Link to="/customer/profile" className="bg-white border border-gray-200 flex gap-3 items-center px-4 py-2.5 rounded-full hover:bg-gray-50 transition cursor-pointer">
               <div className="bg-blue-100 rounded-full w-8 h-8 flex items-center justify-center text-blue-700 font-bold">
-                A
+                B
               </div>
               <span className="text-[#181c1e] font-medium text-sm">Beo</span>
-            </div>
+            </Link>
           </div>
         </div>
 
@@ -34,14 +34,14 @@ export default function DashboardPage() {
         <div className="grid grid-cols-12 gap-6">
 
           {/* Loyalty Points Widget (Span 4) */}
-          <div className="col-span-12 lg:col-span-4 bg-white border border-gray-200 rounded-xl p-6 flex flex-col justify-between min-h-[220px] relative overflow-hidden shadow-[0px_4px_20px_0px_rgba(31,41,55,0.08)]">
+          <Link to="/customer/loyalty" className="col-span-12 lg:col-span-4 bg-white border border-gray-200 rounded-xl p-6 flex flex-col justify-between min-h-[220px] relative overflow-hidden shadow-[0px_4px_20px_0px_rgba(31,41,55,0.08)] hover:shadow-[0px_8px_30px_0px_rgba(31,41,55,0.12)] transition-shadow cursor-pointer block">
             <div className="absolute -top-8 -right-8 w-32 h-32 bg-[#003d9b]/5 rounded-full blur-[20px]"></div>
             <div className="flex justify-between items-start z-10">
               <div className="flex flex-col gap-1">
                 <span className="text-[#434654] text-sm font-medium tracking-[0.7px] uppercase">
                   Hạng thành viên
                 </span>
-                <span className="text-[#003d9b] text-2xl font-bold">
+                <span className="text-[#003d9b] text-2xl font-bold group-hover:text-blue-700 transition-colors">
                   Thành viên Vàng
                 </span>
               </div>
@@ -62,7 +62,7 @@ export default function DashboardPage() {
                 Còn 550 điểm để lên hạng Platinum
               </div>
             </div>
-          </div>
+          </Link>
 
           {/* Queue Tracking Widget (Span 8) */}
           <div className="col-span-12 lg:col-span-8 bg-white border border-gray-200 rounded-xl p-6 flex flex-col justify-between min-h-[220px] shadow-[0px_4px_10px_rgba(31,41,55,0.08)]">
@@ -142,12 +142,12 @@ export default function DashboardPage() {
                 </div>
                 <span className="text-[#181c1e] font-semibold text-sm">Đặt lịch mới</span>
               </button>
-              <button className="bg-white border border-[#e5e7eb] rounded-xl flex flex-col items-center justify-center gap-3 p-6 hover:shadow-md transition group min-h-[140px]">
+              <Link to="/customer/cars" className="bg-white border border-[#e5e7eb] rounded-xl flex flex-col items-center justify-center gap-3 p-6 hover:shadow-md transition group min-h-[140px]">
                 <div className="w-14 h-14 rounded-full bg-[#d6e0f3] flex items-center justify-center group-hover:scale-105 transition-transform">
                   <Car className="w-6 h-6 text-[#181c1e]" />
                 </div>
                 <span className="text-[#181c1e] font-semibold text-sm">Quản lý xe</span>
-              </button>
+              </Link>
             </div>
           </div>
 
