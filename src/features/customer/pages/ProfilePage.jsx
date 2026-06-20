@@ -26,68 +26,9 @@ export default function ProfilePage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   return (
-    <div className="content-stretch flex items-start justify-center pl-[280px] relative size-full min-h-screen bg-gray-50">
-      {/* SideNavBar */}
-      <div className="fixed bg-[#f1f4f7] flex flex-col gap-[8px] h-full items-start left-0 p-[16px] top-0 w-[280px]">
-        <div className="flex flex-col items-start pb-[32px] w-full">
-          <div className="flex flex-col gap-[4px] items-start px-[8px] w-full">
-            <div className="flex flex-col items-start w-full pb-2">
-              <Logo />
-            </div>
-            <div className="flex flex-col items-start w-full">
-              <p className="font-normal text-[#434654] text-[12px] leading-[16px]">Quản lý dịch vụ</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex flex-col items-start pb-[24px] w-full">
-          <Link to="/customer/booking" className="bg-[#0052cc] hover:bg-[#0047b3] transition-colors flex gap-[8px] items-center justify-center px-[16px] py-[12px] rounded-[8px] w-full text-white">
-            <CalendarPlus size={18} />
-            <span className="font-medium text-[14px] leading-[20px]">Đặt lịch mới</span>
-          </Link>
-        </div>
-
-        <nav className="flex flex-1 flex-col gap-[4px] items-start w-full">
-          <Link to="/customer/dashboard" className="flex gap-[12px] items-center px-[16px] py-[12px] rounded-[8px] w-full text-[#434654] hover:bg-gray-200 transition-colors">
-            <LayoutDashboard size={18} />
-            <span className="font-medium text-[14px] leading-[20px]">Tổng quan</span>
-          </Link>
-          <Link to="/customer/booking" className="flex gap-[12px] items-center px-[16px] py-[12px] rounded-[8px] w-full text-[#434654] hover:bg-gray-200 transition-colors">
-            <Calendar size={18} />
-            <span className="font-medium text-[14px] leading-[20px]">Đặt lịch</span>
-          </Link>
-          <Link to="/customer/loyalty" className="flex gap-[12px] items-center px-[16px] py-[12px] rounded-[8px] w-full text-[#434654] hover:bg-gray-200 transition-colors">
-            <Users size={18} />
-            <span className="font-medium text-[14px] leading-[20px]">Khách hàng</span>
-          </Link>
-          <Link to="/customer/cars" className="flex gap-[12px] items-center px-[16px] py-[12px] rounded-[8px] w-full text-[#434654] hover:bg-gray-200 transition-colors">
-            <Briefcase size={18} />
-            <span className="font-medium text-[14px] leading-[20px]">Dịch vụ</span>
-          </Link>
-          <a href="#" className="flex gap-[12px] items-center px-[16px] py-[12px] rounded-[8px] w-full text-[#434654] hover:bg-gray-200 transition-colors">
-            <BarChart size={18} />
-            <span className="font-medium text-[14px] leading-[20px]">Báo cáo</span>
-          </a>
-          <a href="#" className="bg-[#0052cc] flex gap-[12px] items-center px-[16px] py-[12px] rounded-[8px] w-full text-[#c4d2ff]">
-            <Settings size={18} />
-            <span className="font-bold text-[14px] leading-[20px] text-white">Cài đặt</span>
-          </a>
-        </nav>
-
-        <div className="border-[#c3c6d6] border-t flex flex-col gap-[4px] items-start pt-[17px] w-full">
-          <a href="#" className="flex gap-[12px] items-center px-[16px] py-[12px] rounded-[8px] w-full text-[#434654] hover:bg-gray-200 transition-colors">
-            <HelpCircle size={18} />
-            <span className="font-medium text-[14px] leading-[20px]">Trợ giúp</span>
-          </a>
-          <a href="#" className="flex gap-[12px] items-center px-[16px] py-[12px] rounded-[8px] w-full text-[#434654] hover:bg-gray-200 transition-colors">
-            <LogOut size={18} />
-            <span className="font-medium text-[14px] leading-[20px]">Đăng xuất</span>
-          </a>
-        </div>
-      </div>
-
+    <div className="flex-1 bg-gray-50 p-8 min-h-screen">
       {/* Main Content */}
-      <div className="flex flex-1 flex-col gap-[32px] items-start max-w-[1440px] p-[32px] w-full">
+      <div className="flex flex-col gap-[32px] items-start max-w-[1440px] mx-auto w-full">
         {/* Header */}
         <div className="flex flex-col gap-[8px] items-start w-full">
           <div className="flex flex-col items-start w-full">
@@ -184,7 +125,7 @@ export default function ProfilePage() {
                 {/* Form Fields */}
                 <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-[24px] w-full">
                   <div className="flex flex-col gap-[8px] w-full">
-                    <label className="font-medium text-[#434654] text-[14px] leading-[20px]">Họ tên</label>
+                     <label className="font-medium text-[#434654] text-[14px] leading-[20px]">Họ tên</label>
                     <input
                       type="text"
                       className="bg-[#f7fafd] border border-[#6b7280] rounded-[8px] px-[17px] py-[14px] font-normal text-[#181c1e] text-[16px] w-full focus:outline-none focus:ring-2 focus:ring-[#0052cc] focus:border-transparent"
