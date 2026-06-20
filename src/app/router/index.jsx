@@ -37,6 +37,17 @@ const router = createBrowserRouter([
     path: '/customer',
     element: <PrivateRoute><CustomerLayout /></PrivateRoute>,
     children: [
+      // Only generic customer pages not in the dashboard should go here, if any
+    ],
+  },
+  {
+    path: '/customer',
+    element: <PrivateRoute><DashboardLayout /></PrivateRoute>,
+    children: [
+      {
+        path: 'dashboard',
+        element: <DashboardPage />,
+      },
       {
         path: 'profile',
         element: <ProfilePage />,
@@ -48,16 +59,6 @@ const router = createBrowserRouter([
       {
         path: 'loyalty',
         element: <LoyaltyPage />,
-      },
-    ],
-  },
-  {
-    path: '/customer',
-    element: <PrivateRoute><DashboardLayout /></PrivateRoute>,
-    children: [
-      {
-        path: 'dashboard',
-        element: <DashboardPage />,
       },
       {
         path: 'booking',
