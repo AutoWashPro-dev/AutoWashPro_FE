@@ -26,7 +26,7 @@ export default function LoginForm() {
           <input type="checkbox" className="w-4 h-4 text-[#003d9b] border-[#c3c6d6] rounded" />
           <span className="text-sm text-[#434654]">Ghi nhớ</span>
         </label>
-        <a href="#" className="text-sm text-[#003d9b] hover:underline font-medium">Quên mật khẩu?</a>
+        <Link to="/forgot-password" className="text-sm text-[#003d9b] hover:underline font-medium">Quên mật khẩu?</Link>
       </div>
       <button type="submit" className="bg-[#003d9b] text-white font-medium py-3 rounded-lg hover:bg-[#002f7a] transition shadow-sm mt-4">
         Đăng nhập
