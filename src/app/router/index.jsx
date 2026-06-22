@@ -8,6 +8,7 @@ import PrivateRoute from '../../routes/PrivateRoute';
 import HomePage from '../../features/home/pages/HomePage';
 import LoginPage from '../../features/auth/pages/LoginPage';
 import RegisterPage from '../../features/auth/pages/RegisterPage';
+import ForgotPasswordPage from '../../features/auth/pages/ForgotPasswordPage';
 import DashboardPage from '../../features/customer/pages/DashboardPage';
 import ProfilePage from '../../features/customer/pages/ProfilePage';
 import CarsPage from '../../features/customer/pages/CarsPage';
@@ -30,6 +31,10 @@ const router = createBrowserRouter([
       {
         path: 'register',
         element: <RegisterPage />,
+      },
+      {
+        path: 'forgot-password',
+        element: <ForgotPasswordPage />,
       },
     ],
   },

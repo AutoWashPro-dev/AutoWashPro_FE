@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink, Link } from 'react-router-dom';
+import { NavLink, Link, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   CalendarPlus, 
@@ -13,8 +13,12 @@ import {
   X
 } from 'lucide-react';
 import Logo from '../common/Logo';
+import useAuthStore from '../../app/store/authStore';
 
 export default function SideNavBar({ isOpen, onClose }) {
+  const logout = useAuthStore(state => state.logout);
+  const navigate = useNavigate();
+
   const navItems = [
     { name: 'Tổng quan', path: '/customer/dashboard', icon: LayoutDashboard },
     { name: 'Đặt lịch', path: '/customer/booking', icon: Calendar },
@@ -23,6 +27,14 @@ export default function SideNavBar({ isOpen, onClose }) {
     { name: 'Báo cáo', path: '/customer/reports', icon: BarChart },
     { name: 'Cài đặt', path: '/customer/profile', icon: Settings },
   ];
+
+  const handleLogout = (e) => {
+    e.preventDefault();
+    if (logout) {
+      logout();
+    }
+    navigate('/login');
+  };
 
   return (
     <>
@@ -93,10 +105,10 @@ export default function SideNavBar({ isOpen, onClose }) {
             <HelpCircle size={18} />
             <span className="font-medium text-[14px] leading-[20px]">Trợ giúp</span>
           </a>
-          <a href="#" className="flex gap-[12px] items-center px-[16px] py-[12px] rounded-[8px] w-full text-text-muted hover:bg-red-50 hover:text-red-600 transition-colors">
+          <button onClick={handleLogout} className="flex gap-[12px] items-center px-[16px] py-[12px] rounded-[8px] w-full text-text-muted hover:bg-red-50 hover:text-red-600 transition-colors cursor-pointer">
             <LogOut size={18} />
             <span className="font-medium text-[14px] leading-[20px]">Đăng xuất</span>
-          </a>
+          </button>
         </div>
       </div>
     </>
