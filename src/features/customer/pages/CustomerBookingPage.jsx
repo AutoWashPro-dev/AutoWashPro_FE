@@ -1,0 +1,650 @@
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { 
+  Calendar as CalendarIcon, 
+  Clock, 
+  Sparkles, 
+  Plus, 
+  CheckCircle,
+  FileText,
+  AlertCircle,
+  HelpCircle,
+  History,
+  Trash2
+} from 'lucide-react';
+import VehicleCard from '../components/VehicleCard';
+
+export default function CustomerBookingPage() {
+  const navigate = useNavigate();
+  const [bookingTab, setBookingTab] = useState('new'); // 'new' hoặc 'history'
+
+  // Mẫu dữ liệu xe máy của khách hàng
+  const [vehicles, setVehicles] = useState([
+    { vehicleId: 1, licensePlate: "51K-123.45", model: "Ducati Panigale", vehicleType: "PKL", isDefault: false },
+    { vehicleId: 2, licensePlate: "29H-555.55", model: "Vespa GTS", vehicleType: "Scooter", isDefault: true }
+  ]);
+
+  // Gói dịch vụ cốt lõi (Core Packages) và giá cơ bản (Base Price)
+  const corePackages = [
+    { id: 1, name: "Gói Rửa Basic", basePrice: 50000, duration: "15 phút", description: "Rửa vỏ ngoài, rửa xích, xịt gầm nhẹ, thổi khô và lau sạch gương kính." },
+    { id: 2, name: "Gói Rửa Premium", basePrice: 90000, duration: "30 phút", description: "Rửa Basic kết hợp tẩy ố dàn nhựa, dưỡng đen lốp và phủ sáp bóng nhẹ bảo vệ dàn áo." },
+    { id: 3, name: "Gói Rửa Deluxe", basePrice: 150000, duration: "45 phút", description: "Vệ sinh chuyên sâu xích đĩa, phủ ceramic bóng kính cao cấp, dọn khoang máy bụi đất lâu ngày." }
+  ];
+
+  // Tiện ích cộng thêm (Add-ons)
+  const addonServices = [
+    { id: 10, name: "Hút bụi & Dọn cốp xe", price: 30000, description: "Hút sạch bụi cát và lau hóa chất bảo vệ nhựa lòng cốp xe." },
+    { id: 11, name: "Dưỡng lốp bóng loáng", price: 20000, description: "Xịt dung dịch làm đen và dưỡng cao su lốp chống nứt nẻ." },
+    { id: 12, name: "Vệ sinh sên (xích) chuyên dụng", price: 40000, description: "Tẩy nhớt bám sên cũ bằng chai xịt Motul và tra mỡ dưỡng sên mới." }
+  ];
+
+  // Khung giờ gốc mẫu để so khớp
+  const defaultTimeSlots = [
+    { time: "08:00", available: true },
+    { time: "09:00", available: true },
+    { time: "10:00", available: true },
+    { time: "11:00", available: true },
+    { time: "12:00", available: true },
+    { time: "13:00", available: true },
+    { time: "14:00", available: true },
+    { time: "15:00", available: true },
+    { time: "16:00", available: true }
+  ];
+
+  // Các State quản lý lựa chọn của Khách hàng
+  const [selectedVehicle, setSelectedVehicle] = useState(vehicles.find(v => v.isDefault) || vehicles[0]);
+  const [selectedPackage, setSelectedPackage] = useState(null);
+  const [selectedAddons, setSelectedAddons] = useState([]);
+  const [selectedDate, setSelectedDate] = useState("");
+  const [selectedTime, setSelectedTime] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [userHistory, setUserHistory] = useState([]);
+
+  const [timeSlots, setTimeSlots] = useState([]);
+
+  // Khởi tạo DB autowash_slots mẫu nếu chưa có
+  const initializeSlotsDb = () => {
+    if (!localStorage.getItem('autowash_slots')) {
+      const initialSlots = [
+        { id: 'SL-01', time: '08:00 - 09:00', maxCapacity: 8, isActive: true },
+        { id: 'SL-02', time: '09:00 - 10:00', maxCapacity: 8, isActive: true },
+        { id: 'SL-03', time: '10:00 - 11:00', maxCapacity: 8, isActive: true },
+        { id: 'SL-04', time: '11:00 - 12:00', maxCapacity: 8, isActive: true },
+        { id: 'SL-05', time: '12:00 - 13:00', maxCapacity: 6, isActive: true },
+        { id: 'SL-06', time: '13:00 - 14:00', maxCapacity: 8, isActive: true },
+        { id: 'SL-07', time: '14:00 - 15:00', maxCapacity: 8, isActive: true },
+        { id: 'SL-08', time: '15:00 - 16:00', maxCapacity: 8, isActive: true },
+        { id: 'SL-09', time: '16:00 - 17:00', maxCapacity: 8, isActive: true }
+      ];
+      localStorage.setItem('autowash_slots', JSON.stringify(initialSlots));
+    }
+  };
+
+  // Tính toán động trạng thái các khung giờ
+  useEffect(() => {
+    initializeSlotsDb();
+    
+    try {
+      const adminSlots = JSON.parse(localStorage.getItem('autowash_slots') || '[]');
+      const bookingsDb = JSON.parse(localStorage.getItem('autowash_bookings') || '{}');
+      const dayBookings = bookingsDb[selectedDate] || [];
+
+      const computedSlots = defaultTimeSlots.map(slot => {
+        const config = adminSlots.find(as => as.time.startsWith(slot.time));
+        
+        if (!config || !config.isActive) {
+          return { ...slot, available: false, reason: "T.DỪNG" };
+        }
+
+        const count = dayBookings.filter(b => b.slotTime === slot.time && b.status?.toLowerCase() !== 'canceled').length;
+        if (count >= config.maxCapacity) {
+          return { ...slot, available: false, reason: "ĐẦY" };
+        }
+
+        return { ...slot, available: true, count, maxCapacity: config.maxCapacity };
+      });
+
+      setTimeSlots(computedSlots);
+    } catch (error) {
+      console.error("Lỗi tính toán slots khả dụng:", error);
+      setTimeSlots(defaultTimeSlots);
+    }
+  }, [selectedDate, bookingTab]);
+
+  // Hệ số ngày giới hạn được đặt trước theo hạng VIP (Platinum = 14 ngày)
+  const todayStr = new Date().toISOString().split('T')[0];
+  const bookingWindowDays = 14; 
+  const maxDateStr = new Date(Date.now() + bookingWindowDays * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+  // Load danh sách lịch sử đơn của khách (C-01) từ localStorage
+  const loadUserHistory = () => {
+    try {
+      const bookingsDb = JSON.parse(localStorage.getItem('autowash_bookings') || '{}');
+      const list = [];
+      Object.keys(bookingsDb).forEach(dateKey => {
+        const dayList = bookingsDb[dateKey] || [];
+        dayList.forEach(b => {
+          if (b.custId === 'C-01') {
+            list.push({
+              id: b.id,
+              date: dateKey,
+              time: b.slotTime,
+              packageName: b.service?.name || 'Rửa xe',
+              licensePlate: b.vehicle?.plate || 'Chưa rõ',
+              model: b.vehicle?.model || 'Xe máy',
+              finalAmount: b.finalAmount,
+              status: b.status
+            });
+          }
+        });
+      });
+      // Sắp xếp giảm dần theo ngày và giờ đặt
+      return list.sort((a, b) => (b.date + ' ' + b.time).localeCompare(a.date + ' ' + a.time));
+    } catch (e) {
+      console.error(e);
+      return [];
+    }
+  };
+
+  useEffect(() => {
+    setUserHistory(loadUserHistory());
+  }, [bookingTab]);
+
+  // Hủy lịch hẹn đặt trước trực tiếp từ bảng lịch sử
+  const handleCancelBooking = (bookingId, bookingDate) => {
+    const confirmCancel = window.confirm(`Bạn có chắc chắn muốn hủy lịch hẹn ${bookingId} không?`);
+    if (!confirmCancel) return;
+
+    try {
+      const bookingsDb = JSON.parse(localStorage.getItem('autowash_bookings') || '{}');
+      if (bookingsDb[bookingDate]) {
+        bookingsDb[bookingDate] = bookingsDb[bookingDate].map(b => 
+          b.id === bookingId ? { ...b, status: 'Canceled' } : b
+        );
+        localStorage.setItem('autowash_bookings', JSON.stringify(bookingsDb));
+        alert("Hủy lịch hẹn thành công!");
+        setUserHistory(loadUserHistory());
+      }
+    } catch (error) {
+      console.error("Lỗi hủy đặt lịch:", error);
+    }
+  };
+
+  // Tính toán giá gói dịch vụ (Đồng giá xe máy toàn hệ thống)
+  const calculatePackagePrice = (basePrice) => {
+    return basePrice;
+  };
+
+  // Xử lý bật/tắt tiện ích cộng thêm
+  const handleToggleAddon = (addonId) => {
+    if (selectedAddons.includes(addonId)) {
+      setSelectedAddons(selectedAddons.filter(id => id !== addonId));
+    } else {
+      setSelectedAddons([...selectedAddons, addonId]);
+    }
+  };
+
+  // Tính tổng tiền tạm tính
+  const calculateTotalAmount = () => {
+    let total = 0;
+    if (selectedPackage) {
+      total += calculatePackagePrice(selectedPackage.basePrice);
+    }
+    selectedAddons.forEach(addonId => {
+      const addon = addonServices.find(a => a.id === addonId);
+      if (addon) total += addon.price;
+    });
+    return total;
+  };
+
+  // Đăng ký xe mới nhanh tại màn hình đặt lịch
+  const handleAddQuickVehicle = () => {
+    const plate = prompt("Nhập biển số xe máy mới (Ví dụ: 29-H1 999.99):");
+    if (!plate) return;
+    const model = prompt("Nhập dòng xe (Ví dụ: Honda SH, Yamaha Exciter):") || "Xe máy mới";
+    const type = prompt("Nhập phân loại xe (Nhập: PKL, Scooter hoặc Manual):") || "Scooter";
+
+    const newVeh = {
+      vehicleId: Date.now(),
+      licensePlate: plate,
+      model: model,
+      vehicleType: type,
+      isDefault: false
+    };
+
+    setVehicles([...vehicles, newVeh]);
+    setSelectedVehicle(newVeh);
+  };
+
+  // Gửi đơn đặt lịch lên hệ thống
+  const handleConfirmBooking = () => {
+    if (!selectedVehicle) {
+      alert("Vui lòng chọn 1 chiếc xe máy để dọn rửa.");
+      return;
+    }
+    if (!selectedPackage) {
+      alert("Vui lòng chọn 1 gói dịch vụ dọn rửa chính.");
+      return;
+    }
+    if (!selectedDate || !selectedTime) {
+      alert("Vui lòng chọn ngày và giờ hẹn mong muốn.");
+      return;
+    }
+
+    setIsSubmitting(true);
+    
+    // Giả lập gửi API tạo đơn dọn xe và lưu trực tiếp vào localStorage
+    setTimeout(() => {
+      setIsSubmitting(false);
+      
+      const bookingNum = Math.floor(9835 + Math.random() * 100);
+      const bookingCode = `AW-${bookingNum}`;
+
+      try {
+        const bookings = JSON.parse(localStorage.getItem('autowash_bookings') || '{}');
+        
+        const newBooking = {
+          id: bookingCode,
+          slotTime: selectedTime,
+          custId: 'C-01', // Mã khách hàng của Nguyễn Minh Anh trùng khớp 100%
+          vehicle: {
+            type: 'Xe máy',
+            model: selectedVehicle.model,
+            plate: selectedVehicle.licensePlate
+          },
+          service: {
+            name: selectedPackage.name + (selectedAddons.length > 0 ? ' + ' + selectedAddons.map(id => addonServices.find(a => a.id === id)?.name).join(', ') : ''),
+            price: calculateTotalAmount()
+          },
+          status: 'Pending',
+          createdTime: 'Hôm nay, ' + new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' via Mobile App',
+          paymentMethod: null,
+          pointsRedeemed: 0,
+          discount: 0,
+          finalAmount: calculateTotalAmount(),
+          estimatedDuration: selectedPackage.id === 1 ? 15 : selectedPackage.id === 2 ? 30 : 45,
+          source: 'APP',
+          paymentStatus: 'UNPAID'
+        };
+
+        if (!bookings[selectedDate]) {
+          bookings[selectedDate] = [];
+        }
+        bookings[selectedDate].push(newBooking);
+        localStorage.setItem('autowash_bookings', JSON.stringify(bookings));
+
+        // Lưu thông báo mới cho khách hàng (Customer Notification)
+        const notifs = JSON.parse(localStorage.getItem('autowash_cust_notifications') || '[]');
+        const newNotif = {
+          id: Date.now(),
+          text: `Bạn đã đặt lịch dọn rửa xe thành công! Mã đơn: ${bookingCode} vào lúc ${selectedTime} ngày ${selectedDate}. Vui lòng đến đúng giờ để chuẩn bị dọn rửa.`,
+          time: "Vừa xong",
+          read: false
+        };
+        localStorage.setItem('autowash_cust_notifications', JSON.stringify([newNotif, ...notifs]));
+
+        // Lưu thông báo mới cho Admin (Admin Notification - Kết nối E2E)
+        const adminNotifs = JSON.parse(localStorage.getItem('autowash_admin_notifications') || '[]');
+        const newAdminNotif = {
+          id: Date.now(),
+          type: "BOOKING",
+          title: "Lịch đặt mới từ App",
+          desc: `Khách hàng Nguyễn Minh Anh vừa đặt lịch dọn rửa đơn ${bookingCode} vào lúc ${selectedTime} ngày ${selectedDate}.`,
+          time: "Vừa xong",
+          read: false
+        };
+        localStorage.setItem('autowash_admin_notifications', JSON.stringify([newAdminNotif, ...adminNotifs]));
+
+      } catch (error) {
+        console.error("Lỗi đồng bộ dữ liệu đặt lịch sang localStorage:", error);
+      }
+
+      alert(`Đặt lịch thành công! Mã đơn của bạn là: ${bookingCode}. Hãy đến trạm đúng giờ hẹn.`);
+      setBookingTab('history'); // Đổi sang tab lịch sử đặt lịch ngay
+    }, 1200);
+  };
+
+  // Format tiền tệ VNĐ
+  const formatVnd = (val) => {
+    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
+  };
+
+  return (
+    <div className="space-y-6 pb-12 text-left">
+      
+      {/* THANH TAB CHỌN PHÂN HỆ ĐẶT LỊCH / LỊCH SỬ ĐƠN */}
+      <div className="flex border-b border-slate-200 bg-white p-2 rounded-2xl">
+        <button
+          onClick={() => setBookingTab('new')}
+          className={`flex items-center gap-2 px-6 py-3 font-bold text-sm rounded-xl transition-all ${
+            bookingTab === 'new'
+              ? 'bg-blue-50 text-blue-600'
+              : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+          }`}
+        >
+          <CalendarIcon size={16} /> Đặt lịch rửa xe mới
+        </button>
+        <button
+          onClick={() => setBookingTab('history')}
+          className={`flex items-center gap-2 px-6 py-3 font-bold text-sm rounded-xl transition-all ${
+            bookingTab === 'history'
+              ? 'bg-blue-50 text-blue-600'
+              : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+          }`}
+        >
+          <History size={16} /> Lịch sử đặt lịch ({userHistory.length})
+        </button>
+      </div>
+
+      {bookingTab === 'new' ? (
+        /* ========================================================================================= */
+        /* TAB 1: GIAO DIỆN ĐẶT LỊCH MỚI (NEW BOOKING) */
+        /* ========================================================================================= */
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          
+          <div className="lg:col-span-2 space-y-8">
+            {/* SECTION 1: CHỌN XE MÁY */}
+            <section className="bg-white border border-slate-150 rounded-2xl p-6 shadow-sm space-y-4">
+              <div className="flex justify-between items-center">
+                <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wider flex items-center gap-2">
+                  <span className="w-6 h-6 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold">1</span>
+                  Chọn phương tiện dọn rửa
+                </h3>
+                <button 
+                  onClick={handleAddQuickVehicle}
+                  className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-bold"
+                >
+                  <Plus size={14} /> Đăng ký xe mới
+                </button>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {vehicles.map(veh => (
+                  <VehicleCard 
+                    key={veh.vehicleId}
+                    vehicle={veh}
+                    isDefault={selectedVehicle?.vehicleId === veh.vehicleId}
+                    isSelectable={true}
+                    onSelect={(v) => setSelectedVehicle(v)}
+                  />
+                ))}
+              </div>
+            </section>
+
+            {/* SECTION 2: CHỌN GÓI RỬA CHÍNH */}
+            <section className="bg-white border border-slate-150 rounded-2xl p-6 shadow-sm space-y-4">
+              <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wider flex items-center gap-2">
+                <span className="w-6 h-6 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold">2</span>
+                Chọn gói dịch vụ chính
+              </h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {corePackages.map(pkg => {
+                  const currentPrice = calculatePackagePrice(pkg.basePrice);
+                  const isSelected = selectedPackage?.id === pkg.id;
+
+                  return (
+                    <div 
+                      key={pkg.id}
+                      onClick={() => setSelectedPackage(pkg)}
+                      className={`border rounded-2xl p-5 cursor-pointer transition-all flex flex-col justify-between h-56 text-left relative ${
+                        isSelected 
+                          ? 'border-blue-500 bg-blue-50/10 shadow-md ring-1 ring-blue-500' 
+                          : 'border-slate-200 hover:border-blue-300 hover:shadow'
+                      }`}
+                    >
+                      {isSelected && (
+                        <div className="absolute top-3 right-3 text-blue-600">
+                          <CheckCircle size={18} fill="currentColor" className="text-blue-600 fill-blue-100" />
+                        </div>
+                      )}
+                      <div>
+                        <h4 className="font-bold text-slate-800 text-sm">{pkg.name}</h4>
+                        <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded mt-1 inline-block">
+                          ⏰ {pkg.duration}
+                        </span>
+                        <p className="text-xs text-slate-500 mt-3 leading-relaxed line-clamp-3">{pkg.description}</p>
+                      </div>
+                      
+                      <div className="mt-4">
+                        <span className="font-mono text-base font-black text-blue-600">
+                          {formatVnd(currentPrice)}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+
+            {/* SECTION 3: CHỌN TIỆN ÍCH CỘNG THÊM */}
+            <section className="bg-white border border-slate-150 rounded-2xl p-6 shadow-sm space-y-4">
+              <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wider flex items-center gap-2">
+                <span className="w-6 h-6 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold">3</span>
+                Tiện ích cộng thêm (Add-ons)
+              </h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {addonServices.map(addon => {
+                  const isChecked = selectedAddons.includes(addon.id);
+
+                  return (
+                    <div 
+                      key={addon.id}
+                      onClick={() => handleToggleAddon(addon.id)}
+                      className={`border rounded-xl p-4 cursor-pointer transition-all flex justify-between items-center ${
+                        isChecked 
+                          ? 'border-blue-500 bg-blue-50/15' 
+                          : 'border-slate-200 hover:border-blue-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-3">
+                        <input 
+                          type="checkbox" 
+                          checked={isChecked}
+                          onChange={() => {}}
+                          className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 border-slate-300 pointer-events-none"
+                        />
+                        <div>
+                          <h4 className="font-bold text-slate-800 text-xs">{addon.name}</h4>
+                          <p className="text-[10px] text-slate-400 mt-0.5">{addon.description}</p>
+                        </div>
+                      </div>
+                      <span className="font-mono text-xs font-bold text-slate-700 shrink-0">
+                        +{formatVnd(addon.price)}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+
+            {/* SECTION 4: CHỌN NGÀY & KHUNG GIỜ HẸN HẠN ĐỊNH THEO TIER */}
+            <section className="bg-white border border-slate-150 rounded-2xl p-6 shadow-sm space-y-5">
+              <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wider flex items-center gap-2">
+                <span className="w-6 h-6 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold">4</span>
+                Chọn Ngày & Giờ rửa xe
+              </h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Ngày hẹn dọn xe</label>
+                  <input 
+                    type="date"
+                    min={todayStr}
+                    max={maxDateStr}
+                    value={selectedDate}
+                    onChange={(e) => setSelectedDate(e.target.value)}
+                    className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+                  />
+                  <span className="text-[10px] text-slate-400 block mt-2 leading-relaxed">
+                    * Hạng **PLATINUM MEMBER** của bạn được ưu tiên đặt trước tối đa **{bookingWindowDays} ngày** (Mức trần cao nhất hệ thống).
+                  </span>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Khung giờ hoạt động</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {timeSlots.map(slot => (
+                      <button
+                        key={slot.time}
+                        disabled={!slot.available}
+                        onClick={() => setSelectedTime(slot.time)}
+                        className={`py-2 px-1 text-[11px] font-bold rounded-xl border transition-all flex flex-col items-center justify-center min-h-[50px] ${
+                          selectedTime === slot.time
+                            ? 'bg-blue-600 text-white border-blue-600'
+                            : slot.available
+                              ? 'bg-white text-slate-700 border-slate-200 hover:border-blue-500 hover:text-blue-600'
+                              : 'bg-slate-100 text-slate-350 border-slate-150 cursor-not-allowed'
+                        }`}
+                      >
+                        <span>{slot.time}</span>
+                        {slot.reason && (
+                          <span className="text-[8px] font-extrabold uppercase mt-0.5 text-red-500">
+                            {slot.reason}
+                          </span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </section>
+
+          </div>
+
+          <div className="space-y-6">
+            <div className="bg-white border border-slate-150 rounded-2xl p-6 shadow-sm sticky top-20">
+              <h3 className="font-bold text-slate-800 text-base border-b pb-4 mb-4 flex items-center gap-2">
+                <FileText size={18} className="text-blue-600" /> Tóm tắt lịch hẹn dọn xe
+              </h3>
+
+              <div className="space-y-4 text-xs">
+                <div className="flex justify-between items-start">
+                  <span className="text-slate-400 font-medium">Xe dọn rửa:</span>
+                  <span className="text-slate-800 font-bold text-right">
+                    {selectedVehicle ? `${selectedVehicle.model} (${selectedVehicle.licensePlate})` : 'Chưa chọn'}
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-start">
+                  <span className="text-slate-400 font-medium">Gói dọn rửa:</span>
+                  <span className="text-slate-800 font-bold text-right">
+                    {selectedPackage ? selectedPackage.name : 'Chưa chọn'}
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-start">
+                  <span className="text-slate-400 font-medium">Tiện ích kèm:</span>
+                  <span className="text-slate-800 font-bold text-right">
+                    {selectedAddons.length > 0 
+                      ? selectedAddons.map(id => addonServices.find(a => a.id === id)?.name).join(', ') 
+                      : 'Không chọn'}
+                  </span>
+                </div>
+
+                <div className="flex justify-between items-start">
+                  <span className="text-slate-400 font-medium">Lịch hẹn dọn:</span>
+                  <span className="text-slate-800 font-bold text-right">
+                    {selectedDate && selectedTime ? `${selectedTime} ngày ${selectedDate}` : 'Chưa chọn'}
+                  </span>
+                </div>
+
+                <div className="border-t my-4"></div>
+
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-800 font-bold text-sm">Tổng hóa đơn tạm tính:</span>
+                  <span className="font-mono text-lg font-black text-blue-600">
+                    {formatVnd(calculateTotalAmount())}
+                  </span>
+                </div>
+
+                <button 
+                  disabled={isSubmitting}
+                  onClick={handleConfirmBooking}
+                  className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold shadow-md shadow-blue-200 transition-all flex items-center justify-center gap-2 disabled:bg-blue-400"
+                >
+                  {isSubmitting ? 'Đang tạo đơn hẹn...' : 'Xác nhận Đặt lịch ngay'}
+                </button>
+
+                <div className="flex items-start gap-2 bg-slate-50 p-3 rounded-xl border border-slate-100 mt-4 text-[10px] text-slate-500 leading-relaxed">
+                  <AlertCircle size={14} className="text-blue-500 shrink-0 mt-0.5" />
+                  <span>
+                    Không cần thanh toán trước! Bạn chỉ cần đến trạm đúng giờ hẹn để check-in và thực hiện rửa xe, tích điểm VIP.
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      ) : (
+        /* ========================================================================================= */
+        /* TAB 2: LỊCH SỬ ĐẶT LỊCH DỌN XE CỦA KHÁCH HÀNG */
+        /* ========================================================================================= */
+        <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
+          <h3 className="font-bold text-slate-800 text-sm border-b pb-3 mb-4">Nhật ký lịch trình đặt hẹn rửa xe máy</h3>
+          
+          {userHistory.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs text-left text-slate-655 border-collapse">
+                <thead>
+                  <tr className="border-b border-slate-100 text-slate-400 uppercase text-[10px] font-bold">
+                    <th className="py-3 px-2">Mã Đơn hẹn</th>
+                    <th className="py-3 px-2">Thời gian hẹn</th>
+                    <th className="py-3 px-2">Phương tiện</th>
+                    <th className="py-3 px-2">Dịch vụ dọn rửa</th>
+                    <th className="py-3 px-2 text-right">Tổng tiền</th>
+                    <th className="py-3 px-2 text-center">Trạng thái</th>
+                    <th className="py-3 px-2 text-right">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {userHistory.map(b => (
+                    <tr key={b.id} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
+                      <td className="py-4 px-2 font-mono font-bold text-blue-600">{b.id}</td>
+                      <td className="py-4 px-2 font-mono">
+                        {b.date} <span className="text-slate-400 font-sans">vào</span> {b.time}
+                      </td>
+                      <td className="py-4 px-2 font-medium">{b.model} ({b.licensePlate})</td>
+                      <td className="py-4 px-2">{b.packageName}</td>
+                      <td className="py-4 px-2 text-right font-mono font-bold text-slate-800">{formatVnd(b.finalAmount)}</td>
+                      <td className="py-4 px-2 text-center">
+                        <span className={`px-2.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
+                          b.status?.toLowerCase() === 'completed'
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-250'
+                            : b.status?.toLowerCase() === 'pending'
+                              ? 'bg-yellow-50 text-yellow-700 border border-yellow-250'
+                              : 'bg-red-50 text-red-700 border border-red-250'
+                        }`}>
+                          {b.status}
+                        </span>
+                      </td>
+                      <td className="py-4 px-2 text-right">
+                        {b.status?.toLowerCase() === 'pending' ? (
+                          <button 
+                            onClick={() => handleCancelBooking(b.id, b.date)}
+                            className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1.5 rounded transition-all flex items-center gap-1 text-[10px] font-bold ml-auto"
+                          >
+                            <Trash2 size={12} /> Hủy lịch hẹn
+                          </button>
+                        ) : (
+                          <span className="text-slate-300">-</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="text-center py-12 text-slate-400">
+              Chưa ghi nhận lịch hẹn nào trong lịch sử.
+            </div>
+          )}
+        </div>
+      )}
+
+    </div>
+  );
+}
