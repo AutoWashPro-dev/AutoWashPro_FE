@@ -153,25 +153,6 @@ export const authApi = {
     }
   },
 
-  /**
-   * Kích hoạt tài khoản được tạo lúc Booking
-   * @param {Object} data - { token, newPassword, confirmPassword }
-   */
-  claimAccount: async (data) => {
-    try {
-      const response = await api.post('/customer/auth/email/claim', data);
-      return response.data;
-    } catch (error) {
-      console.warn('Backend API claim account error or offline, falling back to mock:', error.message);
-      if (error.response) {
-        throw new Error(error.response.data?.message || `Lỗi xử lý từ máy chủ (${error.response.status})`);
-      }
-      return {
-        success: true,
-        message: 'Account claimed and activated successfully. You can now login.',
-      };
-    }
-  },
 
   /**
    * Lấy thông tin hồ sơ Khách hàng
