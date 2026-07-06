@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Search, Bell, ChevronDown, CheckCircle, PlusCircle, AlertTriangle } from 'lucide-react';
+import { notificationApi } from '../services/notificationApi';
 
 export default function AdminHeader() {
   const [showNotifications, setShowNotifications] = useState(false);
@@ -8,27 +9,22 @@ export default function AdminHeader() {
   const location = useLocation();
   const isBookingsPage = location.pathname.includes('/bookings');
 
-  // Nạp dữ liệu thông báo admin từ localStorage khi chuyển trang hoặc khi tab khác cập nhật (E2E)
+  // Nạp dữ liệu thông báo từ API thực (chuyển tiếp sang localStorage fallback nếu offline)
   useEffect(() => {
-    const defaultNotifs = [
-      { id: 1, type: "CHECKIN", title: "Khách check-in thành công", desc: "Xe 29A-999.99 vừa check-in lúc 15:15.", time: "10 phút trước", read: false },
-      { id: 2, type: "BOOKING", title: "Lịch đặt mới từ App", desc: "Khách Nguyễn Văn A vừa đặt lịch lúc 15:30.", time: "20 phút trước", read: false },
-      { id: 3, type: "FEEDBACK", title: "Phản hồi tiêu cực", desc: "Khách hàng phản hồi 1 sao lúc 15:10.", time: "Hôm qua", read: true }
-    ];
-
-    const loadNotifications = () => {
-      const saved = localStorage.getItem('autowash_admin_notifications');
-      if (saved) {
-        setNotifications(JSON.parse(saved));
-      } else {
-        localStorage.setItem('autowash_admin_notifications', JSON.stringify(defaultNotifs));
-        setNotifications(defaultNotifs);
+    const loadNotifications = async () => {
+      try {
+        const data = await notificationApi.getStaffNotifications(20);
+        setNotifications(data);
+        localStorage.setItem('autowash_admin_notifications', JSON.stringify(data));
+      } catch (err) {
+        console.error('Failed to load admin notifications:', err);
       }
     };
 
     loadNotifications();
 
-    // Đăng ký sự kiện storage để đồng bộ tức thì giữa 2 tab trình duyệt (Admin & Customer)
+    // Đăng ký sự kiện storage và làm mới tự động mỗi 10 giây để nhận thông báo thời gian thực / E2E
+    const interval = setInterval(loadNotifications, 10000);
     const handleStorage = (e) => {
       if (e.key === 'autowash_admin_notifications') {
         loadNotifications();
@@ -37,24 +33,27 @@ export default function AdminHeader() {
 
     window.addEventListener('storage', handleStorage);
     return () => {
+      clearInterval(interval);
       window.removeEventListener('storage', handleStorage);
     };
   }, [location.pathname]);
 
-  const handleMarkAllRead = () => {
-    const updated = notifications.map(n => ({ ...n, read: true }));
+  const handleMarkAllRead = async () => {
+    await notificationApi.markAllAsRead();
+    const updated = notifications.map(n => ({ ...n, read: true, isRead: true }));
     setNotifications(updated);
     localStorage.setItem('autowash_admin_notifications', JSON.stringify(updated));
     setShowNotifications(false);
   };
 
-  const hasUnread = notifications.some(n => !n.read);
+  const hasUnread = notifications.some(n => !(n.isRead ?? n.read));
 
   // Chọn icon dựa theo loại thông báo
   const getIcon = (type) => {
     switch (type) {
       case 'CHECKIN':
       case 'COMPLETED':
+      case 'BOOKING_CONFIRMED':
         return (
           <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0">
             <CheckCircle className="w-4.5 h-4.5 text-emerald-600" />
@@ -62,6 +61,8 @@ export default function AdminHeader() {
         );
       case 'BOOKING':
       case 'NEW':
+      case 'NEW_BOOKING':
+      case 'SYSTEM_ALERT':
         return (
           <div className="w-8 h-8 rounded-lg bg-cyan-100 flex items-center justify-center shrink-0">
             <PlusCircle className="w-4.5 h-4.5 text-cyan-600" />
@@ -127,16 +128,16 @@ export default function AdminHeader() {
               <div className="mt-3 space-y-3 max-h-80 overflow-y-auto no-scrollbar">
                 {notifications.map(notif => (
                   <div 
-                    key={notif.id} 
+                    key={notif.notificationId || notif.id} 
                     className={`flex gap-3 p-2 rounded-xl hover:bg-slate-50 transition-all border border-transparent hover:border-slate-100 text-left ${
-                      !notif.read ? 'bg-blue-50/10 font-medium' : ''
+                      !(notif.isRead ?? notif.read) ? 'bg-blue-50/10 font-medium' : ''
                     }`}
                   >
                     {getIcon(notif.type)}
                     <div>
                       <h4 className="text-xs font-bold text-slate-800">{notif.title}</h4>
-                      <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">{notif.desc}</p>
-                      <span className="text-[9px] text-slate-400 mt-1 block font-semibold">{notif.time}</span>
+                      <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">{notif.content || notif.desc}</p>
+                      <span className="text-[9px] text-slate-400 mt-1 block font-semibold">{notif.createdAtFormatted || notif.time}</span>
                     </div>
                   </div>
                 ))}

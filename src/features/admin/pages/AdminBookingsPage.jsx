@@ -25,6 +25,7 @@ import {
   History,
   ClipboardList
 } from 'lucide-react';
+import { bookingAdminApi } from '../services/bookingAdminApi';
 
 export default function AdminBookingsPage() {
   // 1. Initialize localStorage databases if not exists to enable E2E integration
@@ -150,6 +151,21 @@ export default function AdminBookingsPage() {
 
   useEffect(() => {
     loadDataFromStorage();
+    const fetchApiBookings = async () => {
+      try {
+        const apiList = await bookingAdminApi.getBookings(selectedDate);
+        if (apiList && apiList.length > 0) {
+          setBookingsDb(prev => ({
+            ...prev,
+            [selectedDate]: apiList
+          }));
+        }
+      } catch (err) {
+        console.error('Failed to fetch bookings from API:', err);
+      }
+    };
+    fetchApiBookings();
+
     // Listen for custom storage events to synchronize screens
     window.addEventListener('storage', loadDataFromStorage);
     return () => window.removeEventListener('storage', loadDataFromStorage);

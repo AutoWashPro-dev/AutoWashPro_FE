@@ -9,8 +9,12 @@ import {
   EyeOff, 
   ArrowRight, 
   ShieldCheck, 
-  HelpCircle,
-  LogIn
+  Car, 
+  CheckCircle2,
+  ChevronRight,
+  Droplets,
+  Wrench,
+  HelpCircle
 } from 'lucide-react';
 
 export default function LoginPage() {
@@ -26,7 +30,7 @@ export default function LoginPage() {
     setError('');
     
     if (!loginId.trim() || !password) {
-      setError('Vui lòng nhập đầy đủ thông tin đăng nhập.');
+      setError('Vui lòng nhập đầy đủ thông tin tài khoản và mật khẩu.');
       return;
     }
 
@@ -34,15 +38,12 @@ export default function LoginPage() {
     try {
       const res = await authApi.login({ loginId: loginId.trim(), password });
       
-      // Lưu token và thông tin user vào localStorage
       localStorage.setItem('autowash_token', res.accessToken);
       localStorage.setItem('autowash_user', JSON.stringify(res.user || res));
       
-      // [OMNI-LOGIN] Tự động chuyển trang theo lệnh từ Backend (res.redirectUrl)
       if (res.redirectUrl) {
         navigate(res.redirectUrl, { replace: true });
       } else {
-        // Fallback an toàn nếu backend cũ chưa trả redirectUrl
         const userType = res.userType || res.user?.userType || 'CUSTOMER';
         const roles = res.roles || res.user?.roles || [];
         if (userType === 'STAFF' || roles.some(r => r.includes('ADMIN') || r.includes('MANAGER') || r.includes('STAFF'))) {
@@ -58,172 +59,243 @@ export default function LoginPage() {
     }
   };
 
-  const fillDemo = (demoId, demoPass) => {
-    setLoginId(demoId);
-    setPassword(demoPass);
-    setError('');
-  };
-
   return (
-    <div className="min-h-screen bg-[#f8f9fc] text-slate-800 flex flex-col justify-center py-12 sm:px-6 lg:px-8 relative overflow-hidden">
-      {/* Background soft blobs */}
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl pointer-events-none -translate-x-1/2 -translate-y-1/2" />
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none translate-x-1/2 translate-y-1/2" />
+    <div className="min-h-screen bg-gradient-to-br from-sky-50 via-blue-50/70 to-indigo-100/50 flex items-center justify-center p-4 sm:p-6 lg:p-8 selection:bg-blue-600 selection:text-white relative overflow-hidden font-sans text-slate-800">
       
-      <div className="sm:mx-auto sm:w-full sm:max-w-md relative z-10">
-        <div className="flex justify-center items-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-[#0047AB] flex items-center justify-center shadow-lg shadow-[#0047AB]/25">
-            <Sparkles className="w-7 h-7 text-white animate-pulse" />
-          </div>
-          <span className="text-3xl font-black tracking-tight text-[#181c1e]">
-            AutoWash <span className="text-[#0047AB]">Pro</span>
-          </span>
-        </div>
-        <h2 className="mt-4 text-center text-xl font-bold tracking-tight text-slate-800">
-          Cổng Đăng Nhập Đa Năng <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-blue-50 text-[#0047AB] border border-blue-200 ml-1">Omni-Login</span>
-        </h2>
-        <p className="mt-1.5 text-center text-sm text-slate-500">
-          Nhập Số điện thoại, Email hoặc Username để truy cập hệ thống
-        </p>
+      {/* Bright, sparkling ambient water bubbles */}
+      <div className="absolute top-10 left-10 w-80 h-80 bg-sky-300/30 rounded-full blur-3xl pointer-events-none animate-pulse" style={{ animationDuration: '7s' }} />
+      <div className="absolute bottom-10 right-10 w-96 h-96 bg-blue-400/20 rounded-full blur-3xl pointer-events-none" />
+      
+      {/* Decorative floating icons */}
+      <div className="absolute top-12 left-1/4 text-sky-400/30 pointer-events-none animate-bounce" style={{ animationDuration: '5s' }}>
+        <Droplets className="w-10 h-10" />
+      </div>
+      <div className="absolute bottom-12 right-1/3 text-blue-500/20 pointer-events-none animate-bounce" style={{ animationDuration: '6s' }}>
+        <Sparkles className="w-12 h-12" />
       </div>
 
-      <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md relative z-10">
-        <div className="bg-white py-8 px-6 shadow-xl shadow-slate-200/80 sm:rounded-3xl sm:px-10 border border-slate-200/80">
-          <form className="space-y-6" onSubmit={handleLogin}>
-            {error && (
-              <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-600 text-sm flex items-center gap-2 font-medium">
-                <span className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
-                <span>{error}</span>
-              </div>
-            )}
-
-            <div>
-              <label htmlFor="loginId" className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">
-                Tài khoản đăng nhập
-              </label>
-              <div className="relative rounded-xl shadow-sm">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                  <User className="h-5 w-5 text-slate-400" />
-                </div>
-                <input
-                  id="loginId"
-                  type="text"
-                  value={loginId}
-                  onChange={(e) => setLoginId(e.target.value)}
-                  placeholder="SĐT (0902...), Email hoặc Username"
-                  className="block w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0047AB]/20 focus:border-[#0047AB] transition text-sm font-medium"
-                  required
-                />
-              </div>
-            </div>
-
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label htmlFor="password" className="block text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  Mật khẩu
-                </label>
-                <Link
-                  to="/forgot-password"
-                  className="text-xs font-bold text-[#0047AB] hover:text-blue-700 transition"
-                >
-                  Quên mật khẩu?
-                </Link>
-              </div>
-              <div className="relative rounded-xl shadow-sm">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-                  <Lock className="h-5 w-5 text-slate-400" />
-                </div>
-                <input
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="block w-full pl-11 pr-11 py-3 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#0047AB]/20 focus:border-[#0047AB] transition text-sm font-medium"
-                  required
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 focus:outline-none"
-                >
-                  {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                </button>
-              </div>
-            </div>
-
-            <div className="flex items-center">
-              <input
-                id="remember-me"
-                type="checkbox"
-                defaultChecked
-                className="h-4 w-4 rounded border-slate-300 text-[#0047AB] focus:ring-[#0047AB]"
-              />
-              <label htmlFor="remember-me" className="ml-2 block text-sm font-medium text-slate-600">
-                Ghi nhớ phiên đăng nhập bảo mật
-              </label>
-            </div>
-
-            <div>
-              <button
-                type="submit"
-                disabled={isLoading}
-                className="w-full flex justify-center items-center gap-2 py-3.5 px-4 border border-transparent rounded-xl shadow-lg shadow-[#0047AB]/20 text-sm font-bold text-white bg-[#0047AB] hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-[#0047AB] transition-all transform active:scale-[0.99] disabled:opacity-50 cursor-pointer"
-              >
-                {isLoading ? (
-                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <>
-                    <span>Đăng Nhập Ngay</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </>
-                )}
-              </button>
-            </div>
-          </form>
-
-          {/* Quick Demo Section */}
-          <div className="mt-6 pt-6 border-t border-slate-150">
-            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500 mb-3">
-              <ShieldCheck className="w-4 h-4 text-[#0047AB]" />
-              <span>Tài khoản kiểm thử nhanh (Demo Access):</span>
-            </div>
-            <div className="grid grid-cols-2 gap-2.5">
-              <button
-                type="button"
-                onClick={() => fillDemo('0902000001', 'Customer@123')}
-                className="p-3 rounded-xl bg-slate-50 hover:bg-blue-50/60 border border-slate-200 hover:border-[#0047AB]/30 text-left transition group cursor-pointer"
-              >
-                <div className="text-xs font-bold text-slate-700 group-hover:text-[#0047AB] flex items-center justify-between">
-                  <span>Khách Hàng</span>
-                  <span className="text-[10px] font-bold px-1.5 py-0.5 bg-blue-100 text-[#0047AB] rounded">SĐT</span>
-                </div>
-                <div className="text-[11px] text-slate-500 font-mono mt-0.5">0902000001</div>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => fillDemo('admin', 'Admin@123')}
-                className="p-3 rounded-xl bg-slate-50 hover:bg-indigo-50/60 border border-slate-200 hover:border-indigo-500/30 text-left transition group cursor-pointer"
-              >
-                <div className="text-xs font-bold text-slate-700 group-hover:text-indigo-600 flex items-center justify-between">
-                  <span>Quản Trị</span>
-                  <span className="text-[10px] font-bold px-1.5 py-0.5 bg-indigo-100 text-indigo-700 rounded">Admin</span>
-                </div>
-                <div className="text-[11px] text-slate-500 font-mono mt-0.5">admin</div>
-              </button>
-            </div>
+      {/* Main Content Container - Compact & Perfectly Balanced */}
+      <div className="w-full max-w-6xl mx-auto flex flex-col lg:flex-row items-center justify-between gap-8 lg:gap-12 relative z-10 py-4">
+        
+        {/* Left Section: Bright & Sparkling Overview (60%) */}
+        <div className="w-full lg:w-7/12 flex flex-col justify-center space-y-5">
+          
+          {/* Top Badge */}
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/90 border border-blue-200/80 shadow-sm backdrop-blur-md w-fit">
+            <span className="flex h-2 w-2 relative">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-600" />
+            </span>
+            <span className="text-xs font-bold text-blue-700 tracking-wide flex items-center gap-1.5">
+              <span>CỔNG ĐĂNG NHẬP CHUNG</span>
+              <span className="text-slate-300">|</span>
+              <span className="text-sky-600 font-medium">Khách Hàng & Quản Trị</span>
+            </span>
           </div>
 
-          <div className="mt-6 text-center">
-            <p className="text-sm text-slate-500">
-              Bạn chưa có tài khoản Khách hàng?{' '}
-              <Link to="/register" className="font-bold text-[#0047AB] hover:text-blue-700 underline underline-offset-4 transition">
-                Đăng ký thành viên ngay
-              </Link>
+          {/* Heading */}
+          <div className="space-y-2.5">
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight leading-tight text-slate-900">
+              Hệ Thống Rửa Xe <br />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 via-sky-500 to-indigo-600 flex items-center gap-2.5">
+                <span>Sáng Bóng Chuẩn VIP</span>
+                <Sparkles className="w-8 h-8 text-sky-500 inline animate-spin" style={{ animationDuration: '10s' }} />
+              </span>
+            </h1>
+            <p className="text-slate-600 text-sm sm:text-base max-w-lg font-normal leading-relaxed">
+              Chào mừng đến với <strong className="text-blue-700 font-bold">AutoWash Pro</strong>! Cổng truy cập hợp nhất giúp Khách hàng đặt lịch chăm sóc xe và Quản lý điều hành xưởng chuyên nghiệp.
             </p>
           </div>
+
+          {/* Compact Role Explanations (2 columns side-by-side) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1 max-w-xl">
+            
+            {/* Customer Card */}
+            <div className="p-4 rounded-2xl bg-white/80 border border-blue-100/80 shadow-md shadow-blue-500/5 backdrop-blur-md flex flex-col gap-1.5 hover:border-blue-400/50 hover:shadow-lg transition-all duration-300">
+              <div className="flex items-center justify-between">
+                <div className="w-8 h-8 rounded-xl bg-sky-500/10 border border-sky-200 flex items-center justify-center text-sky-600">
+                  <Car className="w-4 h-4" />
+                </div>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 uppercase tracking-wider">
+                  Khách Hàng
+                </span>
+              </div>
+              <h3 className="font-bold text-sm text-slate-900 mt-1">Đặt Lịch & Tích Điểm</h3>
+              <p className="text-[11px] text-slate-600 leading-normal">
+                Nhập <strong className="text-blue-600 font-semibold">Số Điện Thoại</strong> để đặt lịch rửa xe siêu tốc, tích điểm VIP và theo dõi xe real-time.
+              </p>
+            </div>
+
+            {/* Admin/Staff Card */}
+            <div className="p-4 rounded-2xl bg-white/80 border border-indigo-100/80 shadow-md shadow-indigo-500/5 backdrop-blur-md flex flex-col gap-1.5 hover:border-indigo-400/50 hover:shadow-lg transition-all duration-300">
+              <div className="flex items-center justify-between">
+                <div className="w-8 h-8 rounded-xl bg-indigo-500/10 border border-indigo-200 flex items-center justify-center text-indigo-600">
+                  <Wrench className="w-4 h-4" />
+                </div>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 uppercase tracking-wider">
+                  Quản Trị / POS
+                </span>
+              </div>
+              <h3 className="font-bold text-sm text-slate-900 mt-1">Điều Hành & Vận Hành</h3>
+              <p className="text-[11px] text-slate-600 leading-normal">
+                Nhập <strong className="text-indigo-600 font-semibold">Username</strong> để quản lý hàng chờ, check-in, cấu hình dịch vụ và xem doanh thu.
+              </p>
+            </div>
+
+          </div>
+
+          {/* Compact Highlights Bar */}
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 pt-1 text-xs font-medium text-slate-600">
+            <div className="flex items-center gap-1.5">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>Quy trình tự động 100%</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>Dung dịch rửa xe cao cấp</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              <span>Bảo hành sáng bóng</span>
+            </div>
+          </div>
+
         </div>
+
+        {/* Right Section: Compact & Balanced Login Card (40%) */}
+        <div className="w-full lg:w-5/12 max-w-md">
+          <div className="bg-white/95 backdrop-blur-2xl p-6 sm:p-8 shadow-2xl shadow-blue-900/10 rounded-3xl border border-white relative overflow-hidden">
+            
+            {/* Top Aqua-Blue Gloss Accent Bar */}
+            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-sky-400 via-blue-600 to-indigo-600" />
+
+            {/* Compact Header */}
+            <div className="flex flex-col items-center text-center mb-6">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 via-sky-500 to-indigo-600 flex items-center justify-center shadow-md shadow-blue-500/20 mb-3">
+                <Droplets className="w-6 h-6 text-white" />
+              </div>
+              <h2 className="text-xl font-black text-slate-900 tracking-tight">
+                Đăng Nhập Tài Khoản
+              </h2>
+              <div className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 bg-blue-50/80 border border-blue-200/80 px-2.5 py-0.5 rounded-full">
+                <span>⚡ Omni-Login: Nhận diện tự động</span>
+              </div>
+            </div>
+
+            {/* Form */}
+            <form className="space-y-4" onSubmit={handleLogin}>
+              {error && (
+                <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-xs flex items-center gap-2 font-semibold animate-shake">
+                  <div className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
+                  <span>{error}</span>
+                </div>
+              )}
+
+              <div className="space-y-1">
+                <label htmlFor="loginId" className="block text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">
+                  Tài khoản đăng nhập
+                </label>
+                <div className="relative rounded-xl shadow-sm">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                    <User className="h-4 w-4 text-blue-500" />
+                  </div>
+                  <input
+                    id="loginId"
+                    type="text"
+                    value={loginId}
+                    onChange={(e) => setLoginId(e.target.value)}
+                    placeholder="SĐT Khách hàng hoặc Username..."
+                    className="block w-full pl-10 pr-3 py-3 bg-slate-50 border border-slate-200/80 rounded-xl text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-600 transition text-sm font-medium"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <label htmlFor="password" className="block text-[11px] font-extrabold text-slate-700 uppercase tracking-wider">
+                    Mật khẩu
+                  </label>
+                  <Link
+                    to="/forgot-password"
+                    className="text-[11px] font-bold text-blue-600 hover:text-blue-800 transition"
+                  >
+                    Quên mật khẩu?
+                  </Link>
+                </div>
+                <div className="relative rounded-xl shadow-sm">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+                    <Lock className="h-4 w-4 text-blue-500" />
+                  </div>
+                  <input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="block w-full pl-10 pr-10 py-3 bg-slate-50 border border-slate-200/80 rounded-xl text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-600 transition text-sm font-medium"
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-slate-400 hover:text-slate-600 focus:outline-none cursor-pointer"
+                  >
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center pt-0.5">
+                <input
+                  id="remember-me"
+                  type="checkbox"
+                  defaultChecked
+                  className="h-3.5 w-3.5 rounded border-slate-300 text-blue-600 focus:ring-blue-600 cursor-pointer"
+                />
+                <label htmlFor="remember-me" className="ml-2 block text-xs font-medium text-slate-600 cursor-pointer select-none">
+                  Ghi nhớ đăng nhập trên máy này
+                </label>
+              </div>
+
+              <div className="pt-1">
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="w-full flex justify-center items-center gap-2 py-3.5 px-4 border border-transparent rounded-xl shadow-lg shadow-blue-600/25 text-sm font-bold text-white bg-gradient-to-r from-blue-600 via-sky-600 to-indigo-600 hover:from-blue-700 hover:via-sky-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-600 transition-all duration-300 transform active:scale-[0.98] disabled:opacity-50 cursor-pointer group"
+                >
+                  {isLoading ? (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <span>Đăng Nhập Ngay</span>
+                      <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform duration-300" />
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+
+            {/* Compact Footer / Register Link */}
+            <div className="mt-5 pt-4 border-t border-slate-100 text-center">
+              <p className="text-xs font-medium text-slate-600">
+                Chưa có tài khoản Khách hàng?{' '}
+                <Link to="/register" className="font-bold text-blue-600 hover:text-indigo-600 transition inline-flex items-center gap-0.5 ml-0.5">
+                  <span>Đăng ký thành viên</span>
+                  <ChevronRight className="w-3.5 h-3.5" />
+                </Link>
+              </p>
+            </div>
+
+            {/* Compact Security Trust badge */}
+            <div className="mt-4 flex items-center justify-center gap-1 text-[10px] font-semibold text-slate-400">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
+              <span>Bảo mật 256-bit Encryption Chuẩn SSL</span>
+            </div>
+
+          </div>
+        </div>
+
       </div>
     </div>
   );

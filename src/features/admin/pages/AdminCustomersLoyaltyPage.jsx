@@ -29,6 +29,7 @@ import {
   Edit,
   Trash2
 } from 'lucide-react';
+import { loyaltyApi } from '../services/loyaltyApi';
 
 export default function AdminCustomersLoyaltyPage() {
   // 1. Navigation Active Tab
@@ -209,6 +210,19 @@ const seedDatabase = () => {
 
   useEffect(() => {
     loadAllStorage();
+    const loadApiCustomers = async () => {
+      try {
+        const data = await loyaltyApi.getCustomers();
+        if (data && data.length > 0) {
+          setCustomers(data);
+          localStorage.setItem('autowash_customers', JSON.stringify(data));
+        }
+      } catch (err) {
+        console.error('Failed to load customers from API:', err);
+      }
+    };
+    loadApiCustomers();
+
     window.addEventListener('storage', loadAllStorage);
     return () => window.removeEventListener('storage', loadAllStorage);
   }, []);

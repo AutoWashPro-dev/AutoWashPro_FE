@@ -19,6 +19,7 @@ import {
   Edit,
   X
 } from 'lucide-react';
+import { loyaltyApi } from '../services/loyaltyApi';
 
 const seedDatabase = () => {
   if (!localStorage.getItem('autowash_loyalty_settings')) {
@@ -110,17 +111,24 @@ export default function AdminSettingsPage() {
     { key: 'Platinum', name: 'Platinum', minSpend: 10000000, pointMultiplier: 2.0, bookingWindow: 14, isActive: true }
   ]);
 
-  // Load configuration from storage
+  // Load configuration from storage and backend API
   useEffect(() => {
     seedDatabase();
     const settings = localStorage.getItem('autowash_loyalty_settings');
-    const tierMatrix = localStorage.getItem('autowash_tiers');
     if (settings) {
       setLoyaltySettings(JSON.parse(settings));
     }
-    if (tierMatrix) {
-      setTiers(JSON.parse(tierMatrix));
-    }
+    const loadTiers = async () => {
+      try {
+        const data = await loyaltyApi.getAllTiers();
+        setTiers(data);
+        localStorage.setItem('autowash_tiers', JSON.stringify(data));
+      } catch (err) {
+        const tierMatrix = localStorage.getItem('autowash_tiers');
+        if (tierMatrix) setTiers(JSON.parse(tierMatrix));
+      }
+    };
+    loadTiers();
   }, []);
 
   // Modal editing rule
@@ -171,8 +179,9 @@ export default function AdminSettingsPage() {
   };
 
   // Save tier edit
-  const handleSaveTierEdit = (e) => {
+  const handleSaveTierEdit = async (e) => {
     e.preventDefault();
+    await loyaltyApi.updateTierConfig(editingTier.id || editingTier.key, editTierForm);
     const updated = tiers.map(t => {
       if (t.key === editingTier.key) {
         return {

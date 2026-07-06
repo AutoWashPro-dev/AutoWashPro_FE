@@ -14,6 +14,15 @@ import {
   TrendingUp,
   Cpu
 } from 'lucide-react';
+import { serviceCatalogApi } from '../services/serviceCatalogApi';
+
+const formatDayOfWeek = (dow) => {
+  if (!dow || dow === 'ALL') return 'Mọi ngày (T2 - CN)';
+  if (dow === 'WEEKDAY') return 'Ngày thường (T2 - T6)';
+  if (dow === 'WEEKEND') return 'Cuối tuần (T7 - CN)';
+  const map = { MON: 'Thứ 2', TUE: 'Thứ 3', WED: 'Thứ 4', THU: 'Thứ 5', FRI: 'Thứ 6', SAT: 'Thứ 7', SUN: 'Chủ Nhật' };
+  return map[dow] || dow;
+};
 
 export default function AdminServicesSlotsPage() {
   // 1. Navigation Active Tab
@@ -37,28 +46,36 @@ export default function AdminServicesSlotsPage() {
   ]);
 
   const [slots, setSlots] = useState([
-    { id: 'SL-01', time: '08:00 - 09:00', maxCapacity: 8, isActive: true },
-    { id: 'SL-02', time: '09:00 - 10:00', maxCapacity: 8, isActive: true },
-    { id: 'SL-03', time: '10:00 - 11:00', maxCapacity: 8, isActive: true },
-    { id: 'SL-04', time: '11:00 - 12:00', maxCapacity: 8, isActive: true },
-    { id: 'SL-05', time: '12:00 - 13:00', maxCapacity: 6, isActive: true },
-    { id: 'SL-06', time: '13:00 - 14:00', maxCapacity: 8, isActive: true },
-    { id: 'SL-07', time: '14:00 - 15:00', maxCapacity: 8, isActive: true },
-    { id: 'SL-08', time: '15:00 - 16:00', maxCapacity: 8, isActive: true },
-    { id: 'SL-09', time: '16:00 - 17:00', maxCapacity: 8, isActive: true },
-    { id: 'SL-10', time: '17:00 - 18:00', maxCapacity: 8, isActive: true },
-    { id: 'SL-11', time: '18:00 - 19:00', maxCapacity: 6, isActive: true },
-    { id: 'SL-12', time: '19:00 - 20:00', maxCapacity: 4, isActive: false }
+    { id: 'SL-01', time: '08:00 - 09:00', maxCapacity: 8, isActive: true, dayOfWeek: 'ALL' },
+    { id: 'SL-02', time: '09:00 - 10:00', maxCapacity: 8, isActive: true, dayOfWeek: 'ALL' },
+    { id: 'SL-03', time: '10:00 - 11:00', maxCapacity: 8, isActive: true, dayOfWeek: 'ALL' },
+    { id: 'SL-04', time: '11:00 - 12:00', maxCapacity: 8, isActive: true, dayOfWeek: 'ALL' },
+    { id: 'SL-05', time: '12:00 - 13:00', maxCapacity: 6, isActive: true, dayOfWeek: 'ALL' },
+    { id: 'SL-06', time: '13:00 - 14:00', maxCapacity: 8, isActive: true, dayOfWeek: 'ALL' },
+    { id: 'SL-07', time: '14:00 - 15:00', maxCapacity: 8, isActive: true, dayOfWeek: 'ALL' },
+    { id: 'SL-08', time: '15:00 - 16:00', maxCapacity: 8, isActive: true, dayOfWeek: 'ALL' },
+    { id: 'SL-09', time: '16:00 - 17:00', maxCapacity: 8, isActive: true, dayOfWeek: 'ALL' },
+    { id: 'SL-10', time: '17:00 - 18:00', maxCapacity: 10, isActive: true, dayOfWeek: 'WEEKEND' },
+    { id: 'SL-11', time: '18:00 - 19:00', maxCapacity: 10, isActive: true, dayOfWeek: 'WEEKEND' }
   ]);
 
-  // Nạp cấu hình slots từ localStorage nếu có
+  // Nạp cấu hình services và slots từ Backend API
   useEffect(() => {
-    const savedSlots = localStorage.getItem('autowash_slots');
-    if (savedSlots) {
-      setSlots(JSON.parse(savedSlots));
-    } else {
-      localStorage.setItem('autowash_slots', JSON.stringify(slots));
-    }
+    const loadData = async () => {
+      try {
+        const [servicesData, slotsData] = await Promise.all([
+          serviceCatalogApi.getAllServices(),
+          serviceCatalogApi.getAllSlots()
+        ]);
+        setServices(servicesData);
+        setSlots(slotsData);
+        localStorage.setItem('autowash_admin_services_db', JSON.stringify(servicesData));
+        localStorage.setItem('autowash_slots', JSON.stringify(slotsData));
+      } catch (err) {
+        console.error('Failed to load catalog/slots from API:', err);
+      }
+    };
+    loadData();
   }, []);
 
   // Modals and Forms State
@@ -83,7 +100,10 @@ export default function AdminServicesSlotsPage() {
   });
 
   // Handlers for Services
-  const handleToggleService = (id) => {
+  const handleToggleService = async (id) => {
+    const target = services.find(s => s.id === id);
+    if (!target) return;
+    await serviceCatalogApi.toggleServiceStatus(id, target.serviceId);
     setServices(prev => prev.map(s => {
       if (s.id === id) {
         const nextState = !s.isActive;
@@ -118,7 +138,7 @@ export default function AdminServicesSlotsPage() {
     setServiceModalOpen(true);
   };
 
-  const handleSaveService = (e) => {
+  const handleSaveService = async (e) => {
     e.preventDefault();
     if (!serviceForm.name.trim() || !serviceForm.price || !serviceForm.duration) {
       alert('Vui lòng điền đầy đủ các thông tin bắt buộc!');
@@ -126,39 +146,22 @@ export default function AdminServicesSlotsPage() {
     }
 
     if (currentService) {
-      setServices(prev => prev.map(s => {
-        if (s.id === currentService.id) {
-          return {
-            ...s,
-            name: serviceForm.name,
-            price: Number(serviceForm.price),
-            duration: Number(serviceForm.duration),
-            type: serviceForm.type,
-            desc: serviceForm.desc
-          };
-        }
-        return s;
-      }));
+      const updated = await serviceCatalogApi.updateService(currentService.id, { ...serviceForm, id: currentService.id, serviceId: currentService.serviceId });
+      setServices(prev => prev.map(s => (s.id === currentService.id ? { ...s, ...updated } : s)));
       alert(`Đã chỉnh sửa dịch vụ thành công!`);
     } else {
-      const newId = serviceForm.type === 'core' ? `S-0${services.filter(s=>s.type==='core').length + 1}` : `A-0${services.filter(s=>s.type==='addons').length + 1}`;
-      const newService = {
-        id: newId,
-        name: serviceForm.name,
-        price: Number(serviceForm.price),
-        duration: Number(serviceForm.duration),
-        type: serviceForm.type,
-        desc: serviceForm.desc,
-        isActive: true
-      };
-      setServices(prev => [...prev, newService]);
+      const created = await serviceCatalogApi.createService(serviceForm);
+      setServices(prev => [...prev, created]);
       alert(`Đã thêm mới dịch vụ thành công!`);
     }
     setServiceModalOpen(false);
   };
 
-  // Handlers for Slots (Bays removed)
-  const handleToggleSlot = (id) => {
+  // Handlers for Slots
+  const handleToggleSlot = async (id) => {
+    const target = slots.find(sl => sl.id === id);
+    if (!target) return;
+    await serviceCatalogApi.toggleSlotStatus(id, target.timeSlotId);
     setSlots(prev => {
       const next = prev.map(sl => {
         if (sl.id === id) {
@@ -177,30 +180,33 @@ export default function AdminServicesSlotsPage() {
     setCurrentSlot(slot);
     setSlotForm({
       time: slot.time,
-      maxCapacity: slot.maxCapacity
+      maxCapacity: slot.maxCapacity,
+      dayOfWeek: slot.dayOfWeek || 'ALL'
     });
     setSlotModalOpen(true);
   };
 
-  const handleSaveSlot = (e) => {
+  const handleSaveSlot = async (e) => {
     e.preventDefault();
     if (!slotForm.maxCapacity) {
       alert('Vui lòng nhập công suất tối đa!');
       return;
     }
 
+    await serviceCatalogApi.updateSlot(currentSlot.id, slotForm, currentSlot.timeSlotId);
     setSlots(prev => {
       const next = prev.map(sl => {
         if (sl.id === currentSlot.id) {
           return {
             ...sl,
-            maxCapacity: Number(slotForm.maxCapacity)
+            maxCapacity: Number(slotForm.maxCapacity),
+            dayOfWeek: slotForm.dayOfWeek || 'ALL'
           };
         }
         return sl;
       });
       localStorage.setItem('autowash_slots', JSON.stringify(next));
-      alert(`Đã cập nhật công suất khung giờ ${currentSlot.time} thành công!`);
+      alert(`Đã cập nhật cấu hình khung giờ ${currentSlot.time} thành công!`);
       return next;
     });
     setSlotModalOpen(false);
@@ -383,6 +389,7 @@ export default function AdminServicesSlotsPage() {
                     <th className="py-3 px-5">Mã Slot</th>
                     <th className="py-3 px-4">Khung giờ hoạt động</th>
                     <th className="py-3 px-4">Công suất tối đa (xe / giờ)</th>
+                    <th className="py-3 px-4">Áp dụng cho</th>
                     <th className="py-3 px-4 text-center">Trạng thái vận hành</th>
                     <th className="py-3 px-5 text-center">Hành động</th>
                   </tr>
@@ -398,6 +405,11 @@ export default function AdminServicesSlotsPage() {
                         </span>
                       </td>
                       <td className="py-3.5 px-4 font-black text-indigo-700 text-sm">{sl.maxCapacity} xe / tiếng</td>
+                      <td className="py-3.5 px-4">
+                        <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold border ${sl.dayOfWeek === 'WEEKEND' ? 'bg-amber-50 text-amber-700 border-amber-200' : sl.dayOfWeek === 'WEEKDAY' ? 'bg-blue-50 text-blue-700 border-blue-200' : 'bg-slate-100 text-slate-700 border-slate-200'}`}>
+                          {formatDayOfWeek(sl.dayOfWeek)}
+                        </span>
+                      </td>
                       <td className="py-3.5 px-4 text-center">
                         <button onClick={() => handleToggleSlot(sl.id)} className="focus:outline-none transition-transform hover:scale-[1.05] inline-block">
                           {sl.isActive ? (
@@ -535,6 +547,26 @@ export default function AdminServicesSlotsPage() {
                   onChange={e => setSlotForm({...slotForm, maxCapacity: e.target.value})}
                   className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-700 text-center"
                 />
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-bold text-slate-600 block">Áp dụng cho ngày trong tuần *</label>
+                <select
+                  value={slotForm.dayOfWeek || 'ALL'}
+                  onChange={e => setSlotForm({...slotForm, dayOfWeek: e.target.value})}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-700"
+                >
+                  <option value="ALL">Mọi ngày (T2 - CN)</option>
+                  <option value="WEEKDAY">Ngày thường (T2 - T6)</option>
+                  <option value="WEEKEND">Cuối tuần (T7 - CN)</option>
+                  <option value="MON">Thứ 2</option>
+                  <option value="TUE">Thứ 3</option>
+                  <option value="WED">Thứ 4</option>
+                  <option value="THU">Thứ 5</option>
+                  <option value="FRI">Thứ 6</option>
+                  <option value="SAT">Thứ 7</option>
+                  <option value="SUN">Chủ Nhật</option>
+                </select>
               </div>
 
               <div className="flex gap-2.5 pt-2 justify-end">
