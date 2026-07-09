@@ -103,6 +103,12 @@ export default function AdminServicesSlotsPage() {
   const handleToggleService = async (id) => {
     const target = services.find(s => s.id === id);
     if (!target) return;
+
+    if (['PKG-STD', 'PKG-DELUXE', 'PKG-ULTIMATE'].includes(target.serviceCode || target.id)) {
+      alert('Không thể tắt hoạt động của gói dịch vụ hệ thống cốt lõi!');
+      return;
+    }
+
     await serviceCatalogApi.toggleServiceStatus(id, target.serviceId);
     setServices(prev => prev.map(s => {
       if (s.id === id) {
@@ -193,23 +199,28 @@ export default function AdminServicesSlotsPage() {
       return;
     }
 
-    await serviceCatalogApi.updateSlot(currentSlot.id, slotForm, currentSlot.timeSlotId);
-    setSlots(prev => {
-      const next = prev.map(sl => {
-        if (sl.id === currentSlot.id) {
-          return {
-            ...sl,
-            maxCapacity: Number(slotForm.maxCapacity),
-            dayOfWeek: slotForm.dayOfWeek || 'ALL'
-          };
-        }
-        return sl;
+    try {
+      await serviceCatalogApi.updateSlot(currentSlot.id, slotForm, currentSlot.timeSlotId);
+      setSlots(prev => {
+        const next = prev.map(sl => {
+          if (sl.id === currentSlot.id) {
+            return {
+              ...sl,
+              maxCapacity: Number(slotForm.maxCapacity),
+              dayOfWeek: slotForm.dayOfWeek || 'ALL'
+            };
+          }
+          return sl;
+        });
+        localStorage.setItem('autowash_slots', JSON.stringify(next));
+        alert(`Đã cập nhật cấu hình khung giờ ${currentSlot.time} thành công!`);
+        return next;
       });
-      localStorage.setItem('autowash_slots', JSON.stringify(next));
-      alert(`Đã cập nhật cấu hình khung giờ ${currentSlot.time} thành công!`);
-      return next;
-    });
-    setSlotModalOpen(false);
+      setSlotModalOpen(false);
+    } catch (err) {
+      const errMsg = err.response?.data?.message || err.message || 'Lỗi không xác định khi cập nhật khung giờ!';
+      alert(errMsg);
+    }
   };
 
   const totalDailyCapacity = slots.filter(sl => sl.isActive).reduce((sum, sl) => sum + sl.maxCapacity, 0);
@@ -322,19 +333,26 @@ export default function AdminServicesSlotsPage() {
                       </td>
                       <td className="py-3.5 px-4 text-slate-500 font-medium max-w-sm truncate" title={s.desc}>{s.desc}</td>
                       <td className="py-3.5 px-4 text-center">
-                        <button onClick={() => handleToggleService(s.id)} className="focus:outline-none transition-transform hover:scale-[1.05] inline-block">
-                          {s.isActive ? (
-                            <span className="flex items-center gap-1 text-emerald-600 font-extrabold bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-100">
-                              <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-                              Đang bán
-                            </span>
-                          ) : (
-                            <span className="flex items-center gap-1 text-slate-400 font-bold bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200">
-                              <span className="w-1.5 h-1.5 bg-slate-400 rounded-full" />
-                              Ngưng bán
-                            </span>
-                          )}
-                        </button>
+                        {['PKG-STD', 'PKG-DELUXE', 'PKG-ULTIMATE'].includes(s.serviceCode || s.id) ? (
+                          <span className="inline-flex items-center gap-1 text-indigo-700 font-extrabold bg-indigo-50 px-2.5 py-1 rounded-full border border-indigo-100 cursor-not-allowed" title="Dịch vụ hệ thống cố định">
+                            <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full" />
+                            🔒 Cố định
+                          </span>
+                        ) : (
+                          <button onClick={() => handleToggleService(s.id)} className="focus:outline-none transition-transform hover:scale-[1.05] inline-block">
+                            {s.isActive ? (
+                              <span className="flex items-center gap-1 text-emerald-600 font-extrabold bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-100">
+                                <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+                                Đang bán
+                              </span>
+                            ) : (
+                              <span className="flex items-center gap-1 text-slate-400 font-bold bg-slate-100 px-2.5 py-1 rounded-full border border-slate-200">
+                                <span className="w-1.5 h-1.5 bg-slate-400 rounded-full" />
+                                Ngưng bán
+                              </span>
+                            )}
+                          </button>
+                        )}
                       </td>
                       <td className="py-3.5 px-5 text-center">
                         <button onClick={() => handleOpenEditService(s)} className="p-1.5 bg-slate-50 border border-slate-200 hover:bg-slate-100 hover:text-slate-900 rounded-lg text-slate-660 transition-all flex items-center gap-1 font-bold cursor-pointer">
@@ -496,9 +514,26 @@ export default function AdminServicesSlotsPage() {
               <div className="space-y-1">
                 <label className="font-bold text-slate-600 block">Phân loại dịch vụ *</label>
                 <div className="flex gap-2">
-                  <button type="button" onClick={() => setServiceForm({...serviceForm, type: 'core'})} className={`flex-1 py-2 rounded-xl border font-bold text-center transition-all ${serviceForm.type === 'core' ? 'bg-slate-900 text-white border-slate-900' : 'bg-slate-50 border-slate-200 text-slate-600'}`}>Gói chính</button>
-                  <button type="button" onClick={() => setServiceForm({...serviceForm, type: 'addons'})} className={`flex-1 py-2 rounded-xl border font-bold text-center transition-all ${serviceForm.type === 'addons' ? 'bg-slate-900 text-white border-slate-900' : 'bg-slate-50 border-slate-200 text-slate-600'}`}>Add-on</button>
+                  <button 
+                    type="button" 
+                    disabled={currentService && ['PKG-STD', 'PKG-DELUXE', 'PKG-ULTIMATE'].includes(currentService.serviceCode || currentService.id)}
+                    onClick={() => setServiceForm({...serviceForm, type: 'core'})} 
+                    className={`flex-1 py-2 rounded-xl border font-bold text-center transition-all ${currentService && ['PKG-STD', 'PKG-DELUXE', 'PKG-ULTIMATE'].includes(currentService.serviceCode || currentService.id) ? 'cursor-not-allowed opacity-70 bg-slate-100 text-slate-400 border-slate-200' : serviceForm.type === 'core' ? 'bg-slate-900 text-white border-slate-900' : 'bg-slate-50 border-slate-200 text-slate-600'}`}
+                  >
+                    Gói chính
+                  </button>
+                  <button 
+                    type="button" 
+                    disabled={currentService && ['PKG-STD', 'PKG-DELUXE', 'PKG-ULTIMATE'].includes(currentService.serviceCode || currentService.id)}
+                    onClick={() => setServiceForm({...serviceForm, type: 'addons'})} 
+                    className={`flex-1 py-2 rounded-xl border font-bold text-center transition-all ${currentService && ['PKG-STD', 'PKG-DELUXE', 'PKG-ULTIMATE'].includes(currentService.serviceCode || currentService.id) ? 'cursor-not-allowed opacity-70 bg-slate-100 text-slate-400 border-slate-200' : serviceForm.type === 'addons' ? 'bg-slate-900 text-white border-slate-900' : 'bg-slate-50 border-slate-200 text-slate-600'}`}
+                  >
+                    Add-on
+                  </button>
                 </div>
+                {currentService && ['PKG-STD', 'PKG-DELUXE', 'PKG-ULTIMATE'].includes(currentService.serviceCode || currentService.id) && (
+                  <span className="text-[10px] text-slate-450 block mt-1">🔒 Gói dịch vụ hệ thống cố định</span>
+                )}
               </div>
 
               <div className="space-y-1">

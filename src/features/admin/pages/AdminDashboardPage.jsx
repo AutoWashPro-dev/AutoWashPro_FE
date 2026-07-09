@@ -472,9 +472,10 @@ return (
               {current.stackedChart && current.stackedChart.length > 0 ? current.stackedChart.map((col, idx) => {
                 const maxVal = current.maxBar || Math.max(...current.stackedChart.map(c => c.total || 0), 1000);
                 const heightPct = maxVal > 0 ? Math.min(100, Math.max(0, ((col.total || 0) / maxVal) * 100)) : 0;
-                const basicPct = col.total > 0 ? ((col.basic || 0) / col.total) * 100 : 33;
-                const comboPct = col.total > 0 ? ((col.combo || 0) / col.total) * 100 : 33;
-                const vipPct = col.total > 0 ? ((col.vip || 0) / col.total) * 100 : 34;
+                const basicPct = col.total > 0 ? ((col.basic || 0) / col.total) * 100 : 25;
+                const comboPct = col.total > 0 ? ((col.combo || 0) / col.total) * 100 : 25;
+                const vipPct = col.total > 0 ? ((col.vip || 0) / col.total) * 100 : 25;
+                const otherPct = col.total > 0 ? ((col.other || 0) / col.total) * 100 : 25;
 
                 const maxAov = current.maxAov || Math.max(...current.stackedChart.map(c => c.aov || 0), 100);
                 const aovPct = maxAov > 0 ? Math.min(100, Math.max(0, ((col.aov || 0) / maxAov) * 100)) : 0;
@@ -483,7 +484,7 @@ return (
                   <div key={idx} className="flex-1 flex flex-col items-center h-full justify-end group relative cursor-pointer">
                     
                     {/* Hover Tooltip (Exact Match to NovaWash Screenshot) */}
-                    <div className="absolute -top-28 left-1/2 transform -translate-x-1/2 bg-slate-900/95 text-white p-3 rounded-2xl shadow-2xl opacity-0 group-hover:opacity-100 transition-all pointer-events-none z-40 w-48 text-[11px] leading-tight border border-slate-700/80 backdrop-blur-sm">
+                    <div className="absolute -top-[132px] left-1/2 transform -translate-x-1/2 bg-slate-900/95 text-white p-3 rounded-2xl shadow-2xl opacity-0 group-hover:opacity-100 transition-all pointer-events-none z-40 w-48 text-[11px] leading-tight border border-slate-700/80 backdrop-blur-sm">
                       <div className="font-extrabold text-emerald-400 border-b border-slate-700/80 pb-1.5 mb-1.5 flex justify-between">
                         <span>{col.label}</span>
                         <span>{col.totalStr}</span>
@@ -492,6 +493,9 @@ return (
                         <div className="flex justify-between items-center"><span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500"/> Rửa Tiêu Chuẩn:</span><span className="font-extrabold text-emerald-400">{col.basic}k</span></div>
                         <div className="flex justify-between items-center"><span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500"/> Combo Nội Thất:</span><span className="font-extrabold text-amber-400">{col.combo}k</span></div>
                         <div className="flex justify-between items-center"><span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-violet-500"/> Ceramic VIP:</span><span className="font-extrabold text-violet-400">{col.vip}k</span></div>
+                        {col.other > 0 && (
+                          <div className="flex justify-between items-center"><span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-slate-400"/> Dịch vụ khác:</span><span className="font-extrabold text-slate-300">{col.other}k</span></div>
+                        )}
                       </div>
                       <div className="bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-extrabold px-2.5 py-1.5 rounded-xl shadow-inner mt-2 flex justify-between items-center text-[10px]">
                         <span>AOV TB ({col.cars} xe)</span>
@@ -513,6 +517,7 @@ return (
                       <div style={{ height: `${basicPct}%` }} className="bg-[#10b981] w-full transition-all duration-500" title={`Rửa Tiêu Chuẩn: ${col.basic}k`} />
                       <div style={{ height: `${comboPct}%` }} className="bg-[#f59e0b] w-full transition-all duration-500" title={`Combo Nội Thất: ${col.combo}k`} />
                       <div style={{ height: `${vipPct}%` }} className="bg-[#8b5cf6] w-full transition-all duration-500" title={`Ceramic VIP: ${col.vip}k`} />
+                      <div style={{ height: `${otherPct}%` }} className="bg-slate-400 w-full transition-all duration-500" title={`Dịch vụ khác: ${col.other}k`} />
                     </div>
                   </div>
                 );
