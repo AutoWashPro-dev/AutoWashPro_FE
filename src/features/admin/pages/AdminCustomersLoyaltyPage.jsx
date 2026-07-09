@@ -30,6 +30,8 @@ import {
   Trash2
 } from 'lucide-react';
 import { loyaltyApi } from '../services/loyaltyApi';
+import { promotionApi } from '../services/promotionApi';
+import { feedbackAdminApi } from '../services/feedbackAdminApi';
 
 export default function AdminCustomersLoyaltyPage() {
   // 1. Navigation Active Tab
@@ -51,6 +53,49 @@ export default function AdminCustomersLoyaltyPage() {
   const [customerVouchers, setCustomerVouchers] = useState({});
   const [campaigns, setCampaigns] = useState([]);
   const [feedbacks, setFeedbacks] = useState([]);
+  
+  const [promotionKpi, setPromotionKpi] = useState({
+    totalPromoValueIssued: 125400000,
+    activeCampaignsCount: 7,
+    totalVouchersClaimed: 1890,
+    marketingRoi: 3.2,
+    redemptionRate: 65.6
+  });
+
+  const loadPromotionKpi = async () => {
+    try {
+      const summary = await promotionApi.getKpiSummary();
+      if (summary) {
+        setPromotionKpi(summary);
+      }
+    } catch (err) {
+      console.error('Failed to load promotion KPI:', err);
+    }
+  };
+
+  const loadPromotionsFromApi = async () => {
+    try {
+      const data = await promotionApi.getPromotions();
+      if (data && data.length > 0) {
+        setCampaigns(data);
+        localStorage.setItem('autowash_campaigns', JSON.stringify(data));
+      }
+    } catch (err) {
+      console.error('Failed to load promotions from API:', err);
+    }
+  };
+
+  const loadFeedbacksFromApi = async () => {
+    try {
+      const data = await feedbackAdminApi.getFeedbacks();
+      if (data && data.length > 0) {
+        setFeedbacks(data);
+        localStorage.setItem('autowash_feedbacks', JSON.stringify(data));
+      }
+    } catch (err) {
+      console.error('Failed to load feedbacks from API:', err);
+    }
+  };
 
 const seedDatabase = () => {
   if (!localStorage.getItem('autowash_loyalty_settings')) {
@@ -210,6 +255,9 @@ const seedDatabase = () => {
 
   useEffect(() => {
     loadAllStorage();
+    loadPromotionKpi();
+    loadPromotionsFromApi();
+    loadFeedbacksFromApi();
     const loadApiCustomers = async () => {
       try {
         const data = await loyaltyApi.getCustomers();
@@ -269,7 +317,7 @@ const seedDatabase = () => {
   };
 
   // Action: Launch campaign / voucher rule
-  const handleLaunchCampaign = (e) => {
+  const handleLaunchCampaign = async (e) => {
     e.preventDefault();
     if (!campaignForm.code.trim() || !campaignForm.name.trim()) {
       alert('Vui lòng nhập đầy đủ Mã và Tên voucher!');
@@ -290,91 +338,134 @@ const seedDatabase = () => {
       discountLabel = 'Rửa miễn phí (100%)';
     }
 
-    const newCampaign = {
+    const pointsRequired = Number(campaignForm.costPoints);
+
+    const newCampaignData = {
       code: campaignForm.code.toUpperCase(),
       name: campaignForm.name,
       discountType: campaignForm.discountType,
       value: campaignForm.discountType === 'free_wash' ? 0 : Number(campaignForm.value),
-      costPoints: Number(campaignForm.costPoints),
+      costPoints: pointsRequired,
       minTier: campaignForm.minTier,
       minRecencyDays: Number(campaignForm.minRecencyDays),
       startDate: campaignForm.startDate,
-      endDate: campaignForm.endDate,
-      budgetStatus: Number(campaignForm.costPoints) > 0 ? 'Đang hoạt động quy đổi' : 'Hoạt động phát tặng',
-      isActive: true
+      endDate: campaignForm.endDate
     };
 
-    const updatedCamps = [newCampaign, ...campaigns];
-    setCampaigns(updatedCamps);
-    localStorage.setItem('autowash_campaigns', JSON.stringify(updatedCamps));
+    try {
+      // 1. Tạo chiến dịch ở Backend
+      const createdPromo = await promotionApi.createPromotion(newCampaignData);
 
-    // If costPoints == 0, distribute to wallet of eligible customers (Rank matches minTier and above)
-    const pointsRequired = Number(campaignForm.costPoints);
-    if (pointsRequired === 0) {
-      const targetList = customers.filter(c => {
-        const customerLevel = tierLevels[c.tier] ?? 0;
-        const targetLevel = tierLevels[campaignForm.minTier] ?? 0;
-        const matchRank = customerLevel >= targetLevel;
-        const matchRecency = c.lastVisitDays >= Number(campaignForm.minRecencyDays);
-        return matchRank && matchRecency;
+      // Tải lại danh sách promotions từ API
+      await loadPromotionsFromApi();
+      await loadPromotionKpi();
+
+      // 2. Nếu là Campaign Marketing (Cost Points = 0), phát hành trực tiếp
+      if (pointsRequired === 0) {
+        const targetList = customers.filter(c => {
+          const customerLevel = tierLevels[c.tier] ?? 0;
+          const targetLevel = tierLevels[campaignForm.minTier] ?? 0;
+          const matchRank = customerLevel >= targetLevel;
+          const matchRecency = c.lastVisitDays >= Number(campaignForm.minRecencyDays);
+          return matchRank && matchRecency;
+        });
+
+        if (targetList.length > 0) {
+          const customerIds = targetList.map(c => c.customerId).filter(Boolean);
+          if (customerIds.length > 0) {
+            await promotionApi.grantDirect({
+              promotionId: createdPromo.id,
+              customerIds: customerIds
+            });
+            
+            // Sync local wallet fallback
+            const updatedVouchers = { ...customerVouchers };
+            targetList.forEach(c => {
+              const wallet = updatedVouchers[c.id] || [];
+              updatedVouchers[c.id] = [
+                { code: campaignForm.code.toUpperCase(), name: campaignForm.name, value: discountLabel, status: 'ISSUED' },
+                ...wallet
+              ];
+            });
+            setCustomerVouchers(updatedVouchers);
+            localStorage.setItem('autowash_vouchers', JSON.stringify(updatedVouchers));
+          }
+        }
+
+        alert(`Đã phát hành chiến dịch Voucher tiếp thị ${campaignForm.code}!\nVoucher đã bay trực tiếp vào ví của ${targetList.length} khách hàng thỏa mãn điều kiện ở Backend.`);
+      } else {
+        alert(`Đã khởi tạo quy định đổi điểm cho Voucher ${campaignForm.code}!\nVoucher trị giá ${discountLabel} (cần ${pointsRequired} Pts) đã xuất hiện tại Shop quy đổi.`);
+      }
+
+      // Reset Form
+      setCampaignForm({
+        code: '',
+        name: '',
+        discountType: 'cash',
+        value: '',
+        costPoints: '0',
+        minTier: 'Member',
+        minRecencyDays: '0',
+        startDate: '2026-07-01',
+        endDate: '2026-08-01'
       });
 
-      const updatedVouchers = { ...customerVouchers };
-      targetList.forEach(c => {
-        const wallet = updatedVouchers[c.id] || [];
-        updatedVouchers[c.id] = [
-          { code: campaignForm.code.toUpperCase(), name: campaignForm.name, value: discountLabel, status: 'ISSUED' },
-          ...wallet
-        ];
-      });
-
-      setCustomerVouchers(updatedVouchers);
-      localStorage.setItem('autowash_vouchers', JSON.stringify(updatedVouchers));
-
-      alert(`Đã phát hành chiến dịch Voucher tiếp thị ${campaignForm.code}!\nVoucher miễn phí đã bay trực tiếp vào Ví Voucher của ${targetList.length} khách hàng có hạng ${campaignForm.minTier} trở lên.`);
-    } else {
-      alert(`Đã khởi tạo quy định đổi điểm cho Voucher ${campaignForm.code}!\nVoucher trị giá ${discountLabel} (cần ${pointsRequired} Pts) đã được cấu hình và xuất hiện tại Shop quy đổi cho thành viên từ hạng ${campaignForm.minTier} trở lên.`);
+    } catch (err) {
+      console.error('Failed to create promotion campaign:', err);
+      alert('Đã xảy ra lỗi khi tạo chiến dịch khuyến mãi: ' + (err.response?.data?.message || err.message));
     }
-
-    // Reset Form
-    setCampaignForm({
-      code: '',
-      name: '',
-      discountType: 'cash',
-      value: '',
-      costPoints: '0',
-      minTier: 'Member',
-      minRecencyDays: '0',
-      startDate: '2026-07-01',
-      endDate: '2026-08-01'
-    });
 
     window.dispatchEvent(new Event('storage'));
   };
 
   // Toggle active campaign
-  const handleToggleCampaign = (code) => {
-    const updated = campaigns.map(c => {
-      if (c.code === code) {
-        const nextState = !c.isActive;
-        alert(`Đã ${nextState ? 'Kích hoạt' : 'Tạm dừng'} chiến dịch ${code}`);
-        return { ...c, isActive: nextState };
+  const handleToggleCampaign = async (id, code, currentActive) => {
+    try {
+      if (id) {
+        const nextStatus = currentActive ? 'PAUSED' : 'ACTIVE';
+        await promotionApi.updateStatus(id, nextStatus);
+        alert(`Đã ${!currentActive ? 'Kích hoạt' : 'Tạm dừng'} chiến dịch ${code}`);
+        await loadPromotionsFromApi();
+        await loadPromotionKpi();
+      } else {
+        const updated = campaigns.map(c => {
+          if (c.code === code) {
+            const nextState = !c.isActive;
+            alert(`Đã ${nextState ? 'Kích hoạt' : 'Tạm dừng'} chiến dịch ${code}`);
+            return { ...c, isActive: nextState };
+          }
+          return c;
+        });
+        setCampaigns(updated);
+        localStorage.setItem('autowash_campaigns', JSON.stringify(updated));
       }
-      return c;
-    });
-    setCampaigns(updated);
-    localStorage.setItem('autowash_campaigns', JSON.stringify(updated));
+    } catch (err) {
+      console.error('Failed to toggle campaign status:', err);
+      alert('Không thể cập nhật trạng thái chiến dịch: ' + err.message);
+    }
     window.dispatchEvent(new Event('storage'));
   };
 
   // Delete a campaign
-  const handleDeleteCampaign = (code) => {
+  const handleDeleteCampaign = async (id, code) => {
     if (confirm(`Bạn có chắc chắn muốn xóa chiến dịch/luật đổi voucher ${code} không?`)) {
-      const updated = campaigns.filter(c => c.code !== code);
-      setCampaigns(updated);
-      localStorage.setItem('autowash_campaigns', JSON.stringify(updated));
+      try {
+        if (id) {
+          await promotionApi.deletePromotion(id);
+          alert(`Đã xóa hoàn toàn chiến dịch ${code}.`);
+          await loadPromotionsFromApi();
+          await loadPromotionKpi();
+        } else {
+          const updated = campaigns.filter(c => c.code !== code);
+          setCampaigns(updated);
+          localStorage.setItem('autowash_campaigns', JSON.stringify(updated));
+          alert(`Đã xóa hoàn toàn chiến dịch ${code}.`);
+        }
+      } catch (err) {
+        console.error('Failed to delete campaign:', err);
+        alert('Không thể xóa chiến dịch: ' + err.message);
+      }
       window.dispatchEvent(new Event('storage'));
-      alert(`Đã xóa hoàn toàn chiến dịch ${code}.`);
     }
   };
 
@@ -434,7 +525,7 @@ const seedDatabase = () => {
   };
 
   // Action: Resolve Customer Complaint
-  const handleResolveFeedback = (e) => {
+  const handleResolveFeedback = async (e) => {
     e.preventDefault();
     if (!internalNote.trim()) {
       alert('Vui lòng viết ghi chú xử lý khiếu nại!');
@@ -444,35 +535,29 @@ const seedDatabase = () => {
     const currentFeedback = feedbacks.find(f => f.id === selectedFeedbackId);
     if (!currentFeedback) return;
 
-    // 1. Mark review as Resolved and save internal notes to localStorage (Đường E2E)
-    const updatedFeedbacks = feedbacks.map(f => {
-      if (f.id === selectedFeedbackId) {
-        return { ...f, status: 'Resolved', internalNotes: internalNote };
-      }
-      return f;
-    });
-    setFeedbacks(updatedFeedbacks);
-    localStorage.setItem('autowash_feedbacks', JSON.stringify(updatedFeedbacks));
+    try {
+      // Gọi API Resolve khiếu nại ở backend
+      await feedbackAdminApi.resolveFeedback(selectedFeedbackId, {
+        resolutionNotes: internalNote,
+        grantCompensationVoucher: issueCompensation,
+        voucherCode: issueCompensation ? 'COMPENSATE50' : null,
+        discountValue: issueCompensation ? 50000 : null
+      });
 
-    // 2. If Compensation Voucher is checked, push a voucher into customer's wallet (E2E compensation flow!)
-    if (issueCompensation) {
-      const custId = currentFeedback.customer.id;
-      const updatedVouchers = { ...customerVouchers };
-      const wallet = updatedVouchers[custId] || [];
-      updatedVouchers[custId] = [
-        { code: 'COMPENSATE50', name: 'Voucher Đền Bù Chăm Sóc Khách Hàng', value: '50.000 đ', status: 'ISSUED' },
-        ...wallet
-      ];
-      setCustomerVouchers(updatedVouchers);
-      localStorage.setItem('autowash_vouchers', JSON.stringify(updatedVouchers));
-      
-      window.dispatchEvent(new Event('storage'));
-      alert(`Đã xử lý khiếu nại thành công!\nĐã gửi tặng Voucher đền bù (COMPENSATE50 trị giá 50k) trực tiếp vào ví voucher của khách hàng ${currentFeedback.customer.name} để tạ lỗi.`);
-    } else {
-      alert('Đã cập nhật trạng thái xử lý khiếu nại thành công.');
+      // Tải lại danh sách phản hồi và KPI khuyến mãi từ API
+      await loadFeedbacksFromApi();
+      await loadPromotionKpi();
+
+      alert(issueCompensation 
+        ? `Đã xử lý khiếu nại thành công!\nĐã gửi tặng Voucher đền bù (COMPENSATE50 trị giá 50k) trực tiếp vào ví voucher của khách hàng ${currentFeedback.customer.name} ở Backend.`
+        : 'Đã cập nhật trạng thái xử lý khiếu nại thành công.'
+      );
+
+      setFeedbackModalOpen(false);
+    } catch (err) {
+      console.error('Failed to resolve feedback:', err);
+      alert('Không thể xử lý khiếu nại: ' + (err.response?.data?.message || err.message));
     }
-
-    setFeedbackModalOpen(false);
   };
 
   // Filter CRM Customers
@@ -649,8 +734,10 @@ const seedDatabase = () => {
           <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 shrink-0">
             <div className="bg-white border border-slate-200/60 p-4 rounded-xl shadow-sm flex items-center justify-between">
               <div>
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Ngân sách đầu tư</span>
-                <h4 className="text-lg font-black text-slate-850 mt-1">125,400,000 đ</h4>
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Giá trị ưu đãi đã phát</span>
+                <h4 className="text-lg font-black text-slate-850 mt-1">
+                  {new Intl.NumberFormat('vi-VN').format(promotionKpi.totalPromoValueIssued)} đ
+                </h4>
               </div>
               <div className="w-8.5 h-8.5 bg-indigo-50 rounded-xl flex items-center justify-center">
                 <Coins className="w-4.5 h-4.5 text-indigo-600" />
@@ -659,7 +746,7 @@ const seedDatabase = () => {
             <div className="bg-white border border-slate-200/60 p-4 rounded-xl shadow-sm flex items-center justify-between">
               <div>
                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Chiến dịch kích hoạt</span>
-                <h4 className="text-lg font-black text-indigo-700 mt-1">{campaigns.filter(c=>c.isActive).length} chiến dịch</h4>
+                <h4 className="text-lg font-black text-indigo-700 mt-1">{promotionKpi.activeCampaignsCount} chiến dịch</h4>
               </div>
               <div className="w-8.5 h-8.5 bg-slate-50 rounded-xl flex items-center justify-center">
                 <Gift className="w-4.5 h-4.5 text-slate-500" />
@@ -667,8 +754,10 @@ const seedDatabase = () => {
             </div>
             <div className="bg-white border border-slate-200/60 p-4 rounded-xl shadow-sm flex items-center justify-between">
               <div>
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Voucher đã dùng / phát</span>
-                <h4 className="text-lg font-black text-emerald-700 mt-1">1,240 / 1,890 mã</h4>
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Voucher khách đã lấy</span>
+                <h4 className="text-lg font-black text-emerald-700 mt-1">
+                  {new Intl.NumberFormat('vi-VN').format(promotionKpi.totalVouchersClaimed)} mã
+                </h4>
               </div>
               <div className="w-8.5 h-8.5 bg-emerald-50 rounded-xl flex items-center justify-center">
                 <CheckCircle className="w-4.5 h-4.5 text-emerald-600" />
@@ -676,8 +765,9 @@ const seedDatabase = () => {
             </div>
             <div className="bg-white border border-slate-200/60 p-4 rounded-xl shadow-sm flex items-center justify-between">
               <div>
-                <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Tỷ lệ ROI tiếp thị</span>
-                <h4 className="text-lg font-black text-amber-700 mt-1">3.2x hiệu quả</h4>
+                <span className="text-[9px] font-black text-slate-400 uppercase tracking-wider">Hiệu quả ROI tiếp thị</span>
+                <h4 className="text-lg font-black text-amber-700 mt-1">{promotionKpi.marketingRoi}x hiệu quả</h4>
+                <div className="text-[10px] text-slate-400 font-bold mt-0.5">Hiệu suất dùng: {promotionKpi.redemptionRate}%</div>
               </div>
               <div className="w-8.5 h-8.5 bg-amber-50 rounded-xl flex items-center justify-center">
                 <TrendingUp className="w-4.5 h-4.5 text-amber-600" />
@@ -886,7 +976,7 @@ const seedDatabase = () => {
                           </td>
                           <td className="py-3 px-3 text-center">
                             <button
-                              onClick={() => handleToggleCampaign(camp.code)}
+                              onClick={() => handleToggleCampaign(camp.id, camp.code, camp.isActive)}
                               className="focus:outline-none inline-block hover:scale-[1.05]"
                             >
                               {camp.isActive ? (
@@ -898,7 +988,7 @@ const seedDatabase = () => {
                           </td>
                           <td className="py-3 px-4 text-center">
                             <button
-                              onClick={() => handleDeleteCampaign(camp.code)}
+                              onClick={() => handleDeleteCampaign(camp.id, camp.code)}
                               className="p-1.5 bg-rose-50 border border-rose-100 text-rose-600 hover:bg-rose-100 rounded transition-all cursor-pointer inline-block"
                               title="Xóa chiến dịch"
                             >

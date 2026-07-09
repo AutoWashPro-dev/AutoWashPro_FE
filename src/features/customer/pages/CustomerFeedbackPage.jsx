@@ -1,114 +1,102 @@
 import React, { useState, useEffect } from 'react';
 import { MessageSquare, Star, Send, ShieldAlert, Award } from 'lucide-react';
+import { customerApi } from '../services/customerApi';
 
 export default function CustomerFeedbackPage() {
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState('');
-  
-  // Danh sách lịch sử các đơn đã hoàn thành để chọn phản hồi
-  const completedBookings = [
-    { id: 'AW-9894', date: '01/07/2026', serviceName: 'Gói Rửa Basic + Dưỡng lốp' },
-    { id: 'AW-9815', date: '28/06/2026', serviceName: 'Gói Rửa Deluxe chuyên sâu' },
-    { id: 'AW-9862', date: 'Hôm nay', serviceName: 'Gói Rửa Premium + Dưỡng lốp bóng loáng' }
-  ];
-  const [selectedBookingId, setSelectedBookingId] = useState(completedBookings[0].id);
-
+  const [completedBookings, setCompletedBookings] = useState([]);
+  const [selectedBookingId, setSelectedBookingId] = useState('');
   const [feedbacks, setFeedbacks] = useState([]);
 
-  // Load danh sách feedbacks động của Nguyễn Minh Anh (C-01) từ localStorage
-  const loadFeedbacks = () => {
+  const fetchCompletedBookings = async () => {
     try {
-      const db = JSON.parse(localStorage.getItem('autowash_feedbacks') || '[]');
-      const mine = db.filter(f => f.customer?.id === 'C-01');
-      return mine.map(f => ({
-        id: f.id,
-        bookingId: f.bookingId,
-        date: f.date,
-        rating: f.rating,
-        comment: f.comment,
-        response: f.status === 'Resolved' 
-          ? `Quản lý đã giải quyết khiếu nại. Ghi chú xử lý: "${f.internalNotes || ''}"`
-          : (f.rating < 3 
-              ? 'Hệ thống AI Sentiment phát hiện đánh giá tiêu cực và đã tự động gửi cảnh báo khẩn cấp (ALERT) đến Admin để xử lý đền bù.'
-              : 'Cảm ơn phản hồi của bạn. Hệ thống AI Sentiment đã ghi nhận đánh giá tích cực của bạn.')
+      const data = await customerApi.getMyBookings();
+      const completed = data.filter(b => b.status === 'COMPLETED').map(b => ({
+        id: b.bookingCode,
+        date: String(b.bookingDate),
+        serviceName: b.items && b.items.length > 0 ? b.items[0].serviceNameSnapshot : 'Rửa xe máy'
       }));
-    } catch (e) {
-      console.error(e);
-      return [];
+      setCompletedBookings(completed);
+      if (completed.length > 0) {
+        setSelectedBookingId(completed[0].id);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const loadFeedbacks = async () => {
+    try {
+      const data = await customerApi.getMyFeedbacks();
+      const mapped = data.map(f => {
+        let responseMsg = '';
+        if (f.status === 'RESOLVED') {
+          responseMsg = `Quản lý đã giải quyết khiếu nại. Ghi chú: "${f.resolutionNotes || ''}"`;
+          if (f.compensationVoucherCode) {
+            responseMsg += ` (Đã tặng voucher đền bù: ${f.compensationVoucherCode})`;
+          }
+        } else if (f.status === 'IGNORED') {
+          responseMsg = 'Đánh giá đã được xem xét và bỏ qua.';
+        } else {
+          responseMsg = f.ratingStars < 3 
+            ? 'Hệ thống AI Sentiment phát hiện đánh giá tiêu cực và đã tự động gửi cảnh báo khẩn cấp đến Ban Quản Lý.'
+            : 'Cảm ơn phản hồi của bạn. Hệ thống AI Sentiment đã ghi nhận đánh giá tích cực của bạn.';
+        }
+        return {
+          id: f.id,
+          bookingId: f.bookingId,
+          date: f.createdAt ? new Date(f.createdAt).toLocaleString('vi-VN') : 'Mới đây',
+          rating: f.ratingStars,
+          comment: f.comment,
+          response: responseMsg
+        };
+      });
+      setFeedbacks(mapped);
+    } catch (err) {
+      console.error(err);
     }
   };
 
   useEffect(() => {
-    setFeedbacks(loadFeedbacks());
+    fetchCompletedBookings();
+    loadFeedbacks();
 
-    // Đồng bộ nếu Admin phản hồi trạng thái Resolved ở tab bên kia
     const handleStorage = (e) => {
       if (e.key === 'autowash_feedbacks') {
-        setFeedbacks(loadFeedbacks());
+        loadFeedbacks();
       }
     };
     window.addEventListener('storage', handleStorage);
     return () => window.removeEventListener('storage', handleStorage);
   }, []);
 
-  const handleSubmitFeedback = (e) => {
+  const handleSubmitFeedback = async (e) => {
     e.preventDefault();
     if (!comment.trim()) {
       alert("Vui lòng nhập nội dung nhận xét của bạn.");
       return;
     }
-
-    const isNegative = rating < 3;
-    
-    // Tạo đối tượng feedback chuẩn cơm mẹ nấu để lưu vào database dùng chung
-    const newFeedbackDb = {
-      id: 'F-' + Date.now(),
-      date: 'Hôm nay, ' + new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
-      customer: {
-        id: 'C-01',
-        name: 'Nguyễn Minh Anh',
-        phone: '0912***456',
-        avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=100'
-      },
-      rating: rating,
-      comment: comment,
-      sentiment: isNegative ? 'Negative' : (rating === 3 ? 'Neutral' : 'Positive'),
-      status: isNegative ? 'New' : 'Reviewed',
-      bookingId: selectedBookingId,
-      internalNotes: ''
-    };
-
-    // Đồng bộ vào localStorage['autowash_feedbacks']
-    try {
-      const savedFbs = JSON.parse(localStorage.getItem('autowash_feedbacks') || '[]');
-      const nextFbs = [newFeedbackDb, ...savedFbs];
-      localStorage.setItem('autowash_feedbacks', JSON.stringify(nextFbs));
-    } catch (e) {
-      console.error(e);
+    if (!selectedBookingId) {
+      alert("Vui lòng chọn một đơn hàng đã hoàn thành để phản hồi.");
+      return;
     }
 
-    // Đồng bộ thông báo khẩn cấp cho Admin (Luồng E2E-5)
     try {
-      const adminNotifs = JSON.parse(localStorage.getItem('autowash_admin_notifications') || '[]');
-      const newAdminNotif = {
-        id: Date.now(),
-        type: isNegative ? "ALERT" : "CHECKIN",
-        title: isNegative ? "Cảnh báo: Phản hồi tiêu cực" : "Nhận xét mới của khách hàng",
-        desc: `Khách hàng Nguyễn Minh Anh vừa đánh giá ${rating} sao cho đơn ${selectedBookingId}: "${comment}"`,
-        time: "Vừa xong",
-        read: false
+      const feedbackData = {
+        bookingCode: selectedBookingId,
+        ratingStars: rating,
+        comment: comment
       };
-      localStorage.setItem('autowash_admin_notifications', JSON.stringify([newAdminNotif, ...adminNotifs]));
+
+      await customerApi.createFeedback(feedbackData);
+      alert("Gửi phản hồi thành công! Cảm ơn bạn đã đóng góp ý kiến.");
+      setComment('');
+      await loadFeedbacks();
     } catch (err) {
-      console.error("Lỗi đồng bộ thông báo phản hồi tiêu cực:", err);
+      console.error('Failed to submit feedback:', err);
+      alert('Không thể gửi phản hồi: ' + (err.response?.data?.message || err.message));
     }
-
-    // Phát sự kiện storage để đồng bộ tức thì cho các tab khác
-    window.dispatchEvent(new Event('storage'));
-
-    setFeedbacks(loadFeedbacks());
-    setComment('');
-    alert("Gửi phản hồi thành công! Cảm ơn bạn đã đóng góp ý kiến.");
   };
 
   return (

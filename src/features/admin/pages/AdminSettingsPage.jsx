@@ -27,9 +27,6 @@ const seedDatabase = () => {
       basePoints: 1,
       baseSpend: 10000,
       roundDown: true,
-      pointCashValuePts: 100,
-      pointCashValueVnd: 100000,
-      maxRedemptionPercent: 80,
       pointValidityMonths: 12,
       downgradeInactivityMonths: 6
     }));
@@ -97,9 +94,6 @@ export default function AdminSettingsPage() {
     basePoints: 1,
     baseSpend: 10000,
     roundDown: true,
-    pointCashValuePts: 100,
-    pointCashValueVnd: 100000,
-    maxRedemptionPercent: 80,
     pointValidityMonths: 12,
     downgradeInactivityMonths: 6
   });
@@ -489,54 +483,6 @@ export default function AdminSettingsPage() {
                   <ToggleLeft className="w-8 h-8 text-slate-350" />
                 )}
               </button>
-            </div>
-          </div>
-        </div>
-
-        {/* Redemption Rules (Tiêu dùng điểm & Chốt chặn chống lỗ) */}
-        <div className="bg-white border border-slate-200/60 p-5 rounded-2xl shadow-sm space-y-4">
-          <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-            <h4 className="text-xs font-black text-slate-700 uppercase tracking-wider flex items-center gap-1">
-              <Gift className="w-4 h-4 text-indigo-500" />
-              Redemption Rules (Chốt chặn chống lỗ)
-            </h4>
-          </div>
-
-          <div className="space-y-3.5 text-xs font-semibold text-slate-650">
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase">Quy đổi giá trị tiền mặt (Point Cash Value)</label>
-              <div className="flex gap-2 items-center">
-                <input
-                  type="number"
-                  required
-                  value={loyaltySettings.pointCashValuePts}
-                  onChange={e => setLoyaltySettings({...loyaltySettings, pointCashValuePts: Number(e.target.value)})}
-                  className="w-16 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-center text-slate-750 font-black"
-                />
-                <span className="text-slate-450">Pts =</span>
-                <input
-                  type="number"
-                  required
-                  value={loyaltySettings.pointCashValueVnd}
-                  onChange={e => setLoyaltySettings({...loyaltySettings, pointCashValueVnd: Number(e.target.value)})}
-                  className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-center text-slate-750 font-bold"
-                />
-                <span className="text-slate-800">VNĐ</span>
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-[10px] font-black text-slate-400 uppercase">Hạn mức giảm tối đa trên bill (% Max per Order) *</label>
-              <input
-                type="number"
-                required
-                min="10"
-                max="90"
-                value={loyaltySettings.maxRedemptionPercent}
-                onChange={e => setLoyaltySettings({...loyaltySettings, maxRedemptionPercent: Number(e.target.value)})}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-center text-indigo-700 font-black text-sm"
-              />
-              <span className="text-[9px] text-slate-450 block">Ví dụ: 80% nghĩa là hóa đơn 100k khách chỉ được trừ tối đa 80k tiền điểm ví, bắt buộc trả 20k tiền mặt để trạm bù đắp chi phí.</span>
             </div>
           </div>
         </div>

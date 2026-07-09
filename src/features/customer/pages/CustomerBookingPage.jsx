@@ -13,6 +13,7 @@ import {
   Trash2
 } from 'lucide-react';
 import VehicleCard from '../components/VehicleCard';
+import { customerApi } from '../services/customerApi';
 
 export default function CustomerBookingPage() {
   const navigate = useNavigate();
@@ -25,18 +26,18 @@ export default function CustomerBookingPage() {
   ]);
 
   // Gói dịch vụ cốt lõi (Core Packages) và giá cơ bản (Base Price)
-  const corePackages = [
+  const [corePackages, setCorePackages] = useState([
     { id: 1, name: "Gói Rửa Basic", basePrice: 50000, duration: "15 phút", description: "Rửa vỏ ngoài, rửa xích, xịt gầm nhẹ, thổi khô và lau sạch gương kính." },
     { id: 2, name: "Gói Rửa Premium", basePrice: 90000, duration: "30 phút", description: "Rửa Basic kết hợp tẩy ố dàn nhựa, dưỡng đen lốp và phủ sáp bóng nhẹ bảo vệ dàn áo." },
     { id: 3, name: "Gói Rửa Deluxe", basePrice: 150000, duration: "45 phút", description: "Vệ sinh chuyên sâu xích đĩa, phủ ceramic bóng kính cao cấp, dọn khoang máy bụi đất lâu ngày." }
-  ];
+  ]);
 
   // Tiện ích cộng thêm (Add-ons)
-  const addonServices = [
+  const [addonServices, setAddonServices] = useState([
     { id: 10, name: "Hút bụi & Dọn cốp xe", price: 30000, description: "Hút sạch bụi cát và lau hóa chất bảo vệ nhựa lòng cốp xe." },
     { id: 11, name: "Dưỡng lốp bóng loáng", price: 20000, description: "Xịt dung dịch làm đen và dưỡng cao su lốp chống nứt nẻ." },
     { id: 12, name: "Vệ sinh sên (xích) chuyên dụng", price: 40000, description: "Tẩy nhớt bám sên cũ bằng chai xịt Motul và tra mỡ dưỡng sên mới." }
-  ];
+  ]);
 
   // Khung giờ gốc mẫu để so khớp
   const defaultTimeSlots = [
@@ -59,6 +60,9 @@ export default function CustomerBookingPage() {
   const [selectedTime, setSelectedTime] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [userHistory, setUserHistory] = useState([]);
+  const [myVouchers, setMyVouchers] = useState([]);
+  const [selectedVoucher, setSelectedVoucher] = useState(null);
+  const [selectedTimeSlotId, setSelectedTimeSlotId] = useState(null);
 
   const [timeSlots, setTimeSlots] = useState([]);
 
@@ -80,35 +84,70 @@ export default function CustomerBookingPage() {
     }
   };
 
-  // Tính toán động trạng thái các khung giờ
-  useEffect(() => {
-    initializeSlotsDb();
-    
+  const loadCustomerVouchers = async () => {
     try {
-      const adminSlots = JSON.parse(localStorage.getItem('autowash_slots') || '[]');
-      const bookingsDb = JSON.parse(localStorage.getItem('autowash_bookings') || '{}');
-      const dayBookings = bookingsDb[selectedDate] || [];
-
-      const computedSlots = defaultTimeSlots.map(slot => {
-        const config = adminSlots.find(as => as.time.startsWith(slot.time));
-        
-        if (!config || !config.isActive) {
-          return { ...slot, available: false, reason: "T.DỪNG" };
-        }
-
-        const count = dayBookings.filter(b => b.slotTime === slot.time && b.status?.toLowerCase() !== 'canceled').length;
-        if (count >= config.maxCapacity) {
-          return { ...slot, available: false, reason: "ĐẦY" };
-        }
-
-        return { ...slot, available: true, count, maxCapacity: config.maxCapacity };
-      });
-
-      setTimeSlots(computedSlots);
-    } catch (error) {
-      console.error("Lỗi tính toán slots khả dụng:", error);
-      setTimeSlots(defaultTimeSlots);
+      const data = await customerApi.getMyVouchers('ISSUED');
+      setMyVouchers(data || []);
+    } catch (err) {
+      console.error('Failed to load user vouchers:', err);
     }
+  };
+
+  const loadServices = async () => {
+    try {
+      const data = await customerApi.getActiveServices();
+      if (data && data.length > 0) {
+        const pkgs = data.filter(s => s.serviceType === 'PACKAGE').map(s => ({
+          id: s.serviceId,
+          name: s.serviceName,
+          basePrice: Number(s.price),
+          duration: `${s.durationMinutes} phút`,
+          description: s.description
+        }));
+        const addons = data.filter(s => s.serviceType === 'ADDON').map(s => ({
+          id: s.serviceId,
+          name: s.serviceName,
+          price: Number(s.price),
+          description: s.description
+        }));
+        if (pkgs.length > 0) setCorePackages(pkgs);
+        if (addons.length > 0) setAddonServices(addons);
+      }
+    } catch (err) {
+      console.error('Failed to load services from backend:', err);
+    }
+  };
+
+  useEffect(() => {
+    loadCustomerVouchers();
+    loadServices();
+  }, []);
+
+  // Tính toán động trạng thái các khung giờ từ API Backend
+  useEffect(() => {
+    if (!selectedDate) {
+      setTimeSlots([]);
+      return;
+    }
+    const fetchSlots = async () => {
+      try {
+        const slots = await customerApi.getAvailableSlots(selectedDate);
+        const mapped = slots.map(s => {
+          const timeFormatted = s.startTime ? s.startTime.substring(0, 5) : "";
+          return {
+            slotId: s.slotId,
+            time: timeFormatted,
+            available: s.isAvailable,
+            reason: s.disabledReason === "FULL" ? "ĐẦY" : s.disabledReason === "PAST" ? "ĐÃ QUA" : s.disabledReason ? "T.DỪNG" : ""
+          };
+        });
+        setTimeSlots(mapped);
+      } catch (err) {
+        console.error('Failed to load slots from API:', err);
+        setTimeSlots([]);
+      }
+    };
+    fetchSlots();
   }, [selectedDate, bookingTab]);
 
   // Hệ số ngày giới hạn được đặt trước theo hạng VIP (Platinum = 14 ngày)
@@ -116,57 +155,56 @@ export default function CustomerBookingPage() {
   const bookingWindowDays = 14; 
   const maxDateStr = new Date(Date.now() + bookingWindowDays * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-  // Load danh sách lịch sử đơn của khách (C-01) từ localStorage
-  const loadUserHistory = () => {
+  // Load danh sách lịch sử đơn của khách từ Backend API
+  const loadUserHistory = async () => {
     try {
-      const bookingsDb = JSON.parse(localStorage.getItem('autowash_bookings') || '{}');
-      const list = [];
-      Object.keys(bookingsDb).forEach(dateKey => {
-        const dayList = bookingsDb[dateKey] || [];
-        dayList.forEach(b => {
-          if (b.custId === 'C-01') {
-            list.push({
-              id: b.id,
-              date: dateKey,
-              time: b.slotTime,
-              packageName: b.service?.name || 'Rửa xe',
-              licensePlate: b.vehicle?.plate || 'Chưa rõ',
-              model: b.vehicle?.model || 'Xe máy',
-              finalAmount: b.finalAmount,
-              status: b.status
-            });
-          }
+      const data = await customerApi.getMyBookings();
+      if (data && data.length > 0) {
+        const list = data.map(b => {
+          const serviceName = b.items && b.items.length > 0 
+            ? b.items[0].serviceNameSnapshot + (b.items.length > 1 ? ` (+${b.items.length - 1} dịch vụ kèm)` : '')
+            : 'Rửa xe máy';
+          const timeFormatted = b.startTime ? b.startTime.substring(0, 5) : "08:00";
+          return {
+            id: b.bookingId,
+            bookingCode: b.bookingCode,
+            date: String(b.bookingDate),
+            time: timeFormatted,
+            packageName: serviceName,
+            licensePlate: b.licensePlate,
+            model: b.model || 'Xe máy',
+            finalAmount: Number(b.finalAmount),
+            status: b.status === 'PENDING' ? 'Pending' : b.status === 'CONFIRMED' ? 'Confirmed' : b.status === 'COMPLETED' ? 'Completed' : b.status === 'CANCELLED' ? 'Canceled' : b.status
+          };
         });
-      });
-      // Sắp xếp giảm dần theo ngày và giờ đặt
-      return list.sort((a, b) => (b.date + ' ' + b.time).localeCompare(a.date + ' ' + a.time));
-    } catch (e) {
-      console.error(e);
-      return [];
+        // Sắp xếp giảm dần theo ngày và giờ đặt
+        const sorted = list.sort((a, b) => (b.date + ' ' + b.time).localeCompare(a.date + ' ' + a.time));
+        setUserHistory(sorted);
+      } else {
+        setUserHistory([]);
+      }
+    } catch (err) {
+      console.error('Failed to load user bookings:', err);
+      setUserHistory([]);
     }
   };
 
   useEffect(() => {
-    setUserHistory(loadUserHistory());
+    loadUserHistory();
   }, [bookingTab]);
 
   // Hủy lịch hẹn đặt trước trực tiếp từ bảng lịch sử
-  const handleCancelBooking = (bookingId, bookingDate) => {
-    const confirmCancel = window.confirm(`Bạn có chắc chắn muốn hủy lịch hẹn ${bookingId} không?`);
+  const handleCancelBooking = async (bookingId) => {
+    const confirmCancel = window.confirm(`Bạn có chắc chắn muốn hủy lịch hẹn mã #${bookingId} không?`);
     if (!confirmCancel) return;
 
     try {
-      const bookingsDb = JSON.parse(localStorage.getItem('autowash_bookings') || '{}');
-      if (bookingsDb[bookingDate]) {
-        bookingsDb[bookingDate] = bookingsDb[bookingDate].map(b => 
-          b.id === bookingId ? { ...b, status: 'Canceled' } : b
-        );
-        localStorage.setItem('autowash_bookings', JSON.stringify(bookingsDb));
-        alert("Hủy lịch hẹn thành công!");
-        setUserHistory(loadUserHistory());
-      }
+      await customerApi.cancelBooking(bookingId);
+      alert("Hủy lịch hẹn thành công!");
+      await loadUserHistory();
     } catch (error) {
       console.error("Lỗi hủy đặt lịch:", error);
+      alert("Không thể hủy lịch hẹn: " + (error.response?.data?.message || error.message));
     }
   };
 
@@ -197,6 +235,22 @@ export default function CustomerBookingPage() {
     return total;
   };
 
+  const calculateDiscount = () => {
+    if (!selectedVoucher) return 0;
+    const total = calculateTotalAmount();
+    
+    if (selectedVoucher.discountType === 'FIXED_AMOUNT') {
+      const val = Number(selectedVoucher.value);
+      return val > total ? total : val;
+    } else if (selectedVoucher.discountType === 'PERCENTAGE') {
+      const pct = Number(selectedVoucher.value);
+      return Math.round((total * pct) / 100);
+    } else if (selectedVoucher.discountType === 'FREE_SERVICE') {
+      return total;
+    }
+    return 0;
+  };
+
   // Đăng ký xe mới nhanh tại màn hình đặt lịch
   const handleAddQuickVehicle = () => {
     const plate = prompt("Nhập biển số xe máy mới (Ví dụ: 29-H1 999.99):");
@@ -217,7 +271,7 @@ export default function CustomerBookingPage() {
   };
 
   // Gửi đơn đặt lịch lên hệ thống
-  const handleConfirmBooking = () => {
+  const handleConfirmBooking = async () => {
     if (!selectedVehicle) {
       alert("Vui lòng chọn 1 chiếc xe máy để dọn rửa.");
       return;
@@ -232,76 +286,52 @@ export default function CustomerBookingPage() {
     }
 
     setIsSubmitting(true);
-    
-    // Giả lập gửi API tạo đơn dọn xe và lưu trực tiếp vào localStorage
-    setTimeout(() => {
-      setIsSubmitting(false);
+
+    const bookingData = {
+      licensePlate: selectedVehicle.licensePlate,
+      model: selectedVehicle.model,
+      bookingDate: selectedDate,
+      timeSlotId: selectedTimeSlotId || 1,
+      packageId: selectedPackage.id,
+      addonIds: selectedAddons,
+      notes: "Đặt qua Mobile App",
+      voucherCode: selectedVoucher ? selectedVoucher.voucherCode : null
+    };
+
+    try {
+      const createdBooking = await customerApi.createBooking(bookingData);
+      alert(`Đặt lịch thành công! Mã đơn của bạn là: ${createdBooking.bookingCode}. Hãy đến trạm đúng giờ hẹn.`);
+
+      // Sync local history fallback
+      setUserHistory(prev => [
+        {
+          id: createdBooking.bookingId,
+          bookingCode: createdBooking.bookingCode,
+          date: selectedDate,
+          time: selectedTime,
+          packageName: selectedPackage.name,
+          licensePlate: selectedVehicle.licensePlate,
+          model: selectedVehicle.model,
+          finalAmount: createdBooking.finalAmount || (calculateTotalAmount() - calculateDiscount()),
+          status: 'Pending'
+        },
+        ...prev
+      ]);
+
+      // Reset selection state
+      setSelectedVoucher(null);
+      setSelectedTime("");
+      setSelectedTimeSlotId(null);
       
-      const bookingNum = Math.floor(9835 + Math.random() * 100);
-      const bookingCode = `AW-${bookingNum}`;
-
-      try {
-        const bookings = JSON.parse(localStorage.getItem('autowash_bookings') || '{}');
-        
-        const newBooking = {
-          id: bookingCode,
-          slotTime: selectedTime,
-          custId: 'C-01', // Mã khách hàng của Nguyễn Minh Anh trùng khớp 100%
-          vehicle: {
-            type: 'Xe máy',
-            model: selectedVehicle.model,
-            plate: selectedVehicle.licensePlate
-          },
-          service: {
-            name: selectedPackage.name + (selectedAddons.length > 0 ? ' + ' + selectedAddons.map(id => addonServices.find(a => a.id === id)?.name).join(', ') : ''),
-            price: calculateTotalAmount()
-          },
-          status: 'Pending',
-          createdTime: 'Hôm nay, ' + new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) + ' via Mobile App',
-          paymentMethod: null,
-          pointsRedeemed: 0,
-          discount: 0,
-          finalAmount: calculateTotalAmount(),
-          estimatedDuration: selectedPackage.id === 1 ? 15 : selectedPackage.id === 2 ? 30 : 45,
-          source: 'APP',
-          paymentStatus: 'UNPAID'
-        };
-
-        if (!bookings[selectedDate]) {
-          bookings[selectedDate] = [];
-        }
-        bookings[selectedDate].push(newBooking);
-        localStorage.setItem('autowash_bookings', JSON.stringify(bookings));
-
-        // Lưu thông báo mới cho khách hàng (Customer Notification)
-        const notifs = JSON.parse(localStorage.getItem('autowash_cust_notifications') || '[]');
-        const newNotif = {
-          id: Date.now(),
-          text: `Bạn đã đặt lịch dọn rửa xe thành công! Mã đơn: ${bookingCode} vào lúc ${selectedTime} ngày ${selectedDate}. Vui lòng đến đúng giờ để chuẩn bị dọn rửa.`,
-          time: "Vừa xong",
-          read: false
-        };
-        localStorage.setItem('autowash_cust_notifications', JSON.stringify([newNotif, ...notifs]));
-
-        // Lưu thông báo mới cho Admin (Admin Notification - Kết nối E2E)
-        const adminNotifs = JSON.parse(localStorage.getItem('autowash_admin_notifications') || '[]');
-        const newAdminNotif = {
-          id: Date.now(),
-          type: "BOOKING",
-          title: "Lịch đặt mới từ App",
-          desc: `Khách hàng Nguyễn Minh Anh vừa đặt lịch dọn rửa đơn ${bookingCode} vào lúc ${selectedTime} ngày ${selectedDate}.`,
-          time: "Vừa xong",
-          read: false
-        };
-        localStorage.setItem('autowash_admin_notifications', JSON.stringify([newAdminNotif, ...adminNotifs]));
-
-      } catch (error) {
-        console.error("Lỗi đồng bộ dữ liệu đặt lịch sang localStorage:", error);
-      }
-
-      alert(`Đặt lịch thành công! Mã đơn của bạn là: ${bookingCode}. Hãy đến trạm đúng giờ hẹn.`);
-      setBookingTab('history'); // Đổi sang tab lịch sử đặt lịch ngay
-    }, 1200);
+      setBookingTab('history');
+      await loadUserHistory();
+      await loadCustomerVouchers(); // Refresh user vouchers after using one!
+    } catch (err) {
+      console.error('Failed to create booking:', err);
+      alert('Đã xảy ra lỗi khi tạo đơn đặt lịch: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Format tiền tệ VNĐ
@@ -489,7 +519,7 @@ export default function CustomerBookingPage() {
                       <button
                         key={slot.time}
                         disabled={!slot.available}
-                        onClick={() => setSelectedTime(slot.time)}
+                        onClick={() => { setSelectedTime(slot.time); setSelectedTimeSlotId(slot.slotId); }}
                         className={`py-2 px-1 text-[11px] font-bold rounded-xl border transition-all flex flex-col items-center justify-center min-h-[50px] ${
                           selectedTime === slot.time
                             ? 'bg-blue-600 text-white border-blue-600'
@@ -550,13 +580,63 @@ export default function CustomerBookingPage() {
                   </span>
                 </div>
 
+                {/* Chọn Voucher từ Ví cá nhân */}
+                <div className="border-t my-4 pt-4 space-y-2">
+                  <span className="text-slate-400 font-bold block uppercase text-[10px]">Ưu đãi của bạn:</span>
+                  {myVouchers.length === 0 ? (
+                    <p className="text-[10px] text-slate-400 italic">Ví của bạn hiện chưa có voucher khả dụng.</p>
+                  ) : (
+                    <select
+                      value={selectedVoucher ? selectedVoucher.voucherCode : ''}
+                      onChange={(e) => {
+                        const code = e.target.value;
+                        const v = myVouchers.find(x => x.voucherCode === code);
+                        setSelectedVoucher(v || null);
+                      }}
+                      className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs focus:border-blue-500 outline-none font-medium text-slate-700 bg-white"
+                    >
+                      <option value="">-- Áp dụng Voucher giảm giá --</option>
+                      {myVouchers.map(v => {
+                        const discountDesc = v.discountType === 'FREE_SERVICE' 
+                          ? 'Miễn phí rửa xe' 
+                          : v.discountType === 'PERCENTAGE' 
+                            ? `Giảm ${v.value}%` 
+                            : `Giảm ${Number(v.value).toLocaleString('vi-VN')} đ`;
+                        return (
+                          <option key={v.voucherCode} value={v.voucherCode}>
+                            [{v.voucherCode}] {v.title || 'Voucher'} ({discountDesc})
+                          </option>
+                        );
+                      })}
+                    </select>
+                  )}
+                </div>
+
                 <div className="border-t my-4"></div>
 
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-800 font-bold text-sm">Tổng hóa đơn tạm tính:</span>
-                  <span className="font-mono text-lg font-black text-blue-600">
-                    {formatVnd(calculateTotalAmount())}
-                  </span>
+                <div className="space-y-2 pb-2">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-slate-400 font-medium">Cộng tạm tính:</span>
+                    <span className="font-mono text-slate-800 font-bold">
+                      {formatVnd(calculateTotalAmount())}
+                    </span>
+                  </div>
+
+                  {selectedVoucher && (
+                    <div className="flex justify-between items-center text-xs text-emerald-600 font-bold">
+                      <span>Voucher giảm giá ({selectedVoucher.voucherCode}):</span>
+                      <span className="font-mono">
+                        -{formatVnd(calculateDiscount())}
+                      </span>
+                    </div>
+                  )}
+
+                  <div className="flex justify-between items-center pt-2 border-t border-dashed">
+                    <span className="text-slate-800 font-black text-sm">Tổng hóa đơn tạm tính:</span>
+                    <span className="font-mono text-lg font-black text-blue-600">
+                      {formatVnd(Math.max(0, calculateTotalAmount() - calculateDiscount()))}
+                    </span>
+                  </div>
                 </div>
 
                 <button 
@@ -602,7 +682,7 @@ export default function CustomerBookingPage() {
                 <tbody>
                   {userHistory.map(b => (
                     <tr key={b.id} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
-                      <td className="py-4 px-2 font-mono font-bold text-blue-600">{b.id}</td>
+                      <td className="py-4 px-2 font-mono font-bold text-blue-600">{b.bookingCode}</td>
                       <td className="py-4 px-2 font-mono">
                         {b.date} <span className="text-slate-400 font-sans">vào</span> {b.time}
                       </td>
@@ -623,7 +703,7 @@ export default function CustomerBookingPage() {
                       <td className="py-4 px-2 text-right">
                         {b.status?.toLowerCase() === 'pending' ? (
                           <button 
-                            onClick={() => handleCancelBooking(b.id, b.date)}
+                            onClick={() => handleCancelBooking(b.id)}
                             className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1.5 rounded transition-all flex items-center gap-1 text-[10px] font-bold ml-auto"
                           >
                             <Trash2 size={12} /> Hủy lịch hẹn
