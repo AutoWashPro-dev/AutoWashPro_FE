@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Calendar as CalendarIcon, 
@@ -10,7 +10,8 @@ import {
   AlertCircle,
   HelpCircle,
   History,
-  Trash2
+  Trash2,
+  Loader2
 } from 'lucide-react';
 import VehicleCard from '../components/VehicleCard';
 import { customerApi } from '../services/customerApi';
@@ -63,8 +64,15 @@ export default function CustomerBookingPage() {
   const [myVouchers, setMyVouchers] = useState([]);
   const [selectedVoucher, setSelectedVoucher] = useState(null);
   const [selectedTimeSlotId, setSelectedTimeSlotId] = useState(null);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('CASH');
+  const [customerNotes, setCustomerNotes] = useState('');
+  const [checkoutBookingId, setCheckoutBookingId] = useState(null);
+  const [checkoutLoading, setCheckoutLoading] = useState(false);
+  const [checkoutError, setCheckoutError] = useState('');
+  const [checkoutSuccess, setCheckoutSuccess] = useState('');
 
   const [timeSlots, setTimeSlots] = useState([]);
+  const paymentPollRef = useRef(null);
 
   // Khởi tạo DB autowash_slots mẫu nếu chưa có
   const initializeSlotsDb = () => {
@@ -208,6 +216,90 @@ export default function CustomerBookingPage() {
     }
   };
 
+  const stopPaymentPolling = () => {
+    if (paymentPollRef.current) {
+      window.clearInterval(paymentPollRef.current);
+      paymentPollRef.current = null;
+    }
+  };
+
+  const verifyBookingPaymentStatus = async (bookingId) => {
+    try {
+      const bookings = await customerApi.getMyBookings();
+      const booking = bookings.find((item) => String(item.bookingId) === String(bookingId));
+      if (booking?.paymentStatus === 'PAID') {
+        stopPaymentPolling();
+        sessionStorage.removeItem('autowash_pending_momo_booking');
+        setCheckoutSuccess(`Thanh toán đã được xác nhận cho đơn #${bookingId}.`);
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Failed to verify payment status:', error);
+      return false;
+    }
+  };
+
+  const startPaymentPolling = (bookingId) => {
+    if (!bookingId) return;
+
+    stopPaymentPolling();
+    const poll = async () => {
+      await verifyBookingPaymentStatus(bookingId);
+    };
+
+    poll();
+    paymentPollRef.current = window.setInterval(poll, 3000);
+  };
+
+  useEffect(() => {
+    const pendingBookingId = sessionStorage.getItem('autowash_pending_momo_booking');
+    if (pendingBookingId) {
+      startPaymentPolling(pendingBookingId);
+    }
+
+    return () => stopPaymentPolling();
+  }, []);
+
+  const handlePayWithMomo = async (bookingIdOverride) => {
+    const bookingId = bookingIdOverride || checkoutBookingId;
+
+    if (!bookingId) {
+      setCheckoutError('Vui lòng tạo đơn đặt lịch trước khi thanh toán.');
+      return;
+    }
+
+    if (selectedPaymentMethod !== 'MOMO') {
+      setCheckoutError('Vui lòng chọn phương thức thanh toán MOMO để tiếp tục.');
+      return;
+    }
+
+    setCheckoutLoading(true);
+    setCheckoutError('');
+    setCheckoutSuccess('');
+
+    try {
+      const response = await customerApi.checkoutBooking({
+        bookingId,
+        paymentMethod: 'MOMO',
+        notes: customerNotes || ''
+      });
+
+      if (response?.paymentUrl) {
+        sessionStorage.setItem('autowash_pending_momo_booking', String(bookingId));
+        setCheckoutSuccess('Đang chuyển hướng tới cổng thanh toán MoMo...');
+        window.location.href = response.paymentUrl;
+      } else {
+        throw new Error('Không nhận được đường dẫn thanh toán từ máy chủ.');
+      }
+    } catch (error) {
+      const message = error.response?.data?.message || error.message || 'Không thể khởi tạo thanh toán MoMo.';
+      setCheckoutError(message);
+    } finally {
+      setCheckoutLoading(false);
+    }
+  };
+
   // Tính toán giá gói dịch vụ (Đồng giá xe máy toàn hệ thống)
   const calculatePackagePrice = (basePrice) => {
     return basePrice;
@@ -322,6 +414,9 @@ export default function CustomerBookingPage() {
       setSelectedVoucher(null);
       setSelectedTime("");
       setSelectedTimeSlotId(null);
+      setCheckoutBookingId(createdBooking.bookingId);
+      setCheckoutError('');
+      setCheckoutSuccess('');
       
       setBookingTab('history');
       await loadUserHistory();
@@ -637,6 +732,60 @@ export default function CustomerBookingPage() {
                       {formatVnd(Math.max(0, calculateTotalAmount() - calculateDiscount()))}
                     </span>
                   </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-3 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="text-[10px] font-black uppercase tracking-wider text-slate-500">Phương thức thanh toán</label>
+                    <select
+                      value={selectedPaymentMethod}
+                      onChange={(e) => setSelectedPaymentMethod(e.target.value)}
+                      className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 outline-none"
+                    >
+                      <option value="CASH">Thanh toán tại quầy</option>
+                      <option value="MOMO">Thanh toán bằng MoMo</option>
+                    </select>
+                  </div>
+
+                  {selectedPaymentMethod === 'MOMO' && (
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black uppercase tracking-wider text-slate-500">Ghi chú cho thanh toán</label>
+                      <textarea
+                        value={customerNotes}
+                        onChange={(e) => setCustomerNotes(e.target.value)}
+                        rows="2"
+                        placeholder="Ghi chú thêm cho giao dịch"
+                        className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700 outline-none"
+                      />
+                    </div>
+                  )}
+
+                  {checkoutError && (
+                    <div className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-[11px] font-semibold text-red-600">
+                      {checkoutError}
+                    </div>
+                  )}
+
+                  {checkoutSuccess && (
+                    <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-[11px] font-semibold text-emerald-700">
+                      {checkoutSuccess}
+                    </div>
+                  )}
+
+                  <button
+                    disabled={isSubmitting || checkoutLoading || !checkoutBookingId}
+                    onClick={() => handlePayWithMomo(checkoutBookingId)}
+                    className="w-full py-3.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-sm font-bold shadow-md shadow-emerald-200 transition-all flex items-center justify-center gap-2 disabled:bg-emerald-400"
+                  >
+                    {checkoutLoading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Đang xử lý thanh toán...
+                      </>
+                    ) : (
+                      selectedPaymentMethod === 'MOMO' ? 'Thanh toán bằng MoMo' : 'Thanh toán tại quầy'
+                    )}
+                  </button>
                 </div>
 
                 <button 

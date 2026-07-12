@@ -72,6 +72,19 @@ export const loyaltyApi = {
   },
 
   /**
+   * Run the loyalty retention simulation job
+   */
+  runSimulation: async () => {
+    try {
+      const res = await api.post('/admin/loyalty/run-simulation');
+      return res.data;
+    } catch (err) {
+      console.warn('API /admin/loyalty/run-simulation error:', err.message);
+      throw err;
+    }
+  },
+
+  /**
    * Lấy danh sách khách hàng từ CRM
    */
   getCustomers: async (status, keyword, page = 0, size = 50) => {

@@ -10,7 +10,7 @@ const api = axios.create({
 
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('autowash_token');
+    const token = localStorage.getItem('autowash_token') || localStorage.getItem('accessToken') || localStorage.getItem('token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -73,6 +73,12 @@ export const customerApi = {
   // Create a new booking
   createBooking: async (bookingData) => {
     const res = await api.post('/customer/bookings', bookingData);
+    return res.data;
+  },
+
+  // Initiate MoMo checkout for an existing booking
+  checkoutBooking: async (payload) => {
+    const res = await api.post('/customer/bookings/checkout', payload);
     return res.data;
   },
 
