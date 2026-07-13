@@ -22,6 +22,7 @@ import {
   Activity,
   MapPin,
   ChevronRight,
+  ChevronLeft,
   History,
   ClipboardList
 } from 'lucide-react';
@@ -136,6 +137,16 @@ export default function AdminBookingsPage() {
   const [customersDb, setCustomersDb] = useState([]);
   const [loyaltySettings, setLoyaltySettings] = useState({});
   const [tierMatrix, setTierMatrix] = useState([]);
+  const [viewMode, setViewMode] = useState('list'); // 'list' or 'detail'
+  const [activeMainTab, setActiveMainTab] = useState('queue'); // 'queue' vs 'history'
+  const [selectedBookingId, setSelectedBookingId] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [queueSubFilter, setQueueSubFilter] = useState('ALL_QUEUE'); // 'ALL_QUEUE', 'Pending', 'Paid'
+  const [historySubFilter, setHistorySubFilter] = useState('ALL_HISTORY'); // 'ALL_HISTORY', 'Completed', 'Canceled'
+  const [selectedTimeFilter, setSelectedTimeFilter] = useState('');
+  const [qrCodeModalBooking, setQrCodeModalBooking] = useState(null);
+  const [momoQrUrl, setMomoQrUrl] = useState(null);
+  const [momoActiveBookingId, setMomoActiveBookingId] = useState(null);
 
   const loadDataFromStorage = () => {
     const bookings = JSON.parse(localStorage.getItem('autowash_bookings') || '{}');
@@ -153,8 +164,13 @@ export default function AdminBookingsPage() {
     loadDataFromStorage();
     const fetchApiBookings = async () => {
       try {
-        const apiList = await bookingAdminApi.getBookings(selectedDate);
-        if (apiList && apiList.length > 0) {
+        let apiList;
+        if (searchQuery.trim() !== '') {
+          apiList = await bookingAdminApi.searchBookings(searchQuery, selectedDate);
+        } else {
+          apiList = await bookingAdminApi.getBookings(selectedDate);
+        }
+        if (apiList) {
           setBookingsDb(prev => ({
             ...prev,
             [selectedDate]: apiList
@@ -169,7 +185,7 @@ export default function AdminBookingsPage() {
     // Listen for custom storage events to synchronize screens
     window.addEventListener('storage', loadDataFromStorage);
     return () => window.removeEventListener('storage', loadDataFromStorage);
-  }, [selectedDate]);
+  }, [selectedDate, searchQuery]);
 
   // Dates available in day selector
   const availableDates = [
@@ -204,31 +220,168 @@ export default function AdminBookingsPage() {
   };
 
   // 3. UI Active States
-  const [viewMode, setViewMode] = useState('list'); // 'list' or 'detail'
-  const [activeMainTab, setActiveMainTab] = useState('queue'); // 'queue' vs 'history'
-  const [selectedBookingId, setSelectedBookingId] = useState(null);
-  const [searchQuery, setSearchQuery] = useState('');
-  
-  // Sub-filters
-  const [queueSubFilter, setQueueSubFilter] = useState('ALL_QUEUE'); // 'ALL_QUEUE', 'Pending', 'Paid'
-  const [historySubFilter, setHistorySubFilter] = useState('ALL_HISTORY'); // 'ALL_HISTORY', 'Completed', 'Canceled'
-  const [selectedTimeFilter, setSelectedTimeFilter] = useState('');
-  const [qrCodeModalBooking, setQrCodeModalBooking] = useState(null);
 
-  // States inside checkout detail view
-  const [tempPointsToRedeem, setTempPointsToRedeem] = useState(0);
-  const [tempPaymentMethod, setTempPaymentMethod] = useState('Cash');
-  const [cancelReasonText, setCancelReasonText] = useState('');
-  const [isCanceling, setIsCanceling] = useState(false);
+  // Slot locks state for Daily Availability Monitor
+  const [slotLocks, setSlotLocks] = useState(() => {
+    const saved = localStorage.getItem('autowash_slot_locks');
+    return saved ? JSON.parse(saved) : {
+      '2026-07-01_SL-02': 1 // Default mock lock for SL-02 (09:00 - 10:00) on 2026-07-01 to match screenshots
+    };
+  });
 
-  // Load dynamic rates from Settings
-  const baseSpendToEarnPoint = loyaltySettings.baseSpend || 10000;
-  const basePointsToEarn = loyaltySettings.basePoints || 1;
-  const pointCashValuePts = loyaltySettings.pointCashValuePts || 100;
-  const pointCashValueVnd = loyaltySettings.pointCashValueVnd || 100000;
-  const maxRedemptionPercent = loyaltySettings.maxRedemptionPercent || 80;
+  // Sync occupancy locks with backend on date changes
+  useEffect(() => {
+    const fetchOccupancy = async () => {
+      try {
+        const monitorList = await bookingAdminApi.getOccupancyMonitor(selectedDate);
+        if (monitorList) {
+          const newLocks = { ...slotLocks };
+          monitorList.forEach(m => {
+            const lockKey = `${selectedDate}_${m.slotId}`;
+            newLocks[lockKey] = m.lockedCount;
+          });
+          setSlotLocks(newLocks);
+        }
+      } catch (err) {
+        console.warn('Failed to fetch occupancy monitor from API:', err.message);
+      }
+    };
+    fetchOccupancy();
+  }, [selectedDate]);
 
-  const pointsToCashMultiplier = pointCashValueVnd / pointCashValuePts; // default: 1000đ / 1 pt
+  const adjustLock = async (slotId, delta) => {
+    try {
+      const response = await bookingAdminApi.adjustLock(slotId, selectedDate, delta);
+      const lockKey = `${selectedDate}_${slotId}`;
+      setSlotLocks(prev => ({
+        ...prev,
+        [lockKey]: response.lockedCount
+      }));
+    } catch (err) {
+      console.warn('API adjustLock error, falling back to localStorage:', err.message);
+      const lockKey = `${selectedDate}_${slotId}`;
+      const current = slotLocks[lockKey] || 0;
+      const newLocks = {
+        ...slotLocks,
+        [lockKey]: Math.max(0, current + delta)
+      };
+      setSlotLocks(newLocks);
+      localStorage.setItem('autowash_slot_locks', JSON.stringify(newLocks));
+    }
+  };
+
+  const isRestoreAllowed = (booking) => {
+    if (!booking) return false;
+    const statusLower = (booking.status || '').toLowerCase();
+    if (statusLower !== 'canceled' && statusLower !== 'cancelled_no_show') return false;
+    
+    const todayStr = new Date().toISOString().split('T')[0];
+    if (booking.bookingDate !== todayStr) return false;
+    
+    if (!booking.endTime) return false;
+    
+    const [endHour, endMin] = booking.endTime.split(':').map(Number);
+    const end = new Date();
+    end.setHours(endHour, endMin, 0, 0);
+    
+    return new Date() <= end;
+  };
+
+  const handleCheckinLate = async (bookingId) => {
+    try {
+      await bookingAdminApi.checkinLate(bookingId);
+      alert("Khôi phục và Check-in trễ thành công!");
+      // Reload bookings list
+      setSelectedDate(selectedDate);
+      setViewMode('list');
+    } catch (err) {
+      alert("Lỗi check-in trễ: " + (err.response?.data?.message || err.message));
+    }
+  };
+
+  const handlePrevDate = () => {
+    const idx = availableDates.findIndex(d => d.value === selectedDate);
+    if (idx > 0) {
+      setSelectedDate(availableDates[idx - 1].value);
+      setSelectedTimeFilter('');
+    }
+  };
+
+  const handleNextDate = () => {
+    const idx = availableDates.findIndex(d => d.value === selectedDate);
+    if (idx < availableDates.length - 1) {
+      setSelectedDate(availableDates[idx + 1].value);
+      setSelectedTimeFilter('');
+    }
+  };
+
+  const getSelectedDateLabel = () => {
+    const d = availableDates.find(d => d.value === selectedDate);
+    if (d) {
+      const desc = d.desc === 'Hôm nay' ? 'Today' : d.desc === 'Hôm qua' ? 'Yesterday' : d.desc === 'Ngày mai' ? 'Tomorrow' : d.label.split(',')[0].trim();
+      const dateParts = d.value.split('-');
+      const months = { '06': 'Jun', '07': 'Jul' };
+      const monthStr = months[dateParts[1]] || dateParts[1];
+      return `${desc}, ${monthStr} ${dateParts[2]}`;
+    }
+    return selectedDate;
+  };
+
+  const getSlotsData = () => {
+    const rawSlots = localStorage.getItem('autowash_slots');
+    if (rawSlots) {
+      try {
+        return JSON.parse(rawSlots);
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    return [
+      { id: 'SL-01', time: '08:00 - 09:00', maxCapacity: 8, isActive: true },
+      { id: 'SL-02', time: '09:00 - 10:00', maxCapacity: 8, isActive: true },
+      { id: 'SL-03', time: '10:00 - 11:00', maxCapacity: 8, isActive: true },
+      { id: 'SL-04', time: '11:00 - 12:00', maxCapacity: 8, isActive: false },
+      { id: 'SL-05', time: '12:00 - 13:00', maxCapacity: 8, isActive: true },
+      { id: 'SL-06', time: '13:00 - 14:00', maxCapacity: 8, isActive: true },
+      { id: 'SL-07', time: '14:00 - 15:00', maxCapacity: 8, isActive: true },
+      { id: 'SL-08', time: '15:00 - 16:00', maxCapacity: 8, isActive: true },
+      { id: 'SL-09', time: '16:00 - 17:00', maxCapacity: 8, isActive: true },
+      { id: 'SL-10', time: '17:00 - 18:00', maxCapacity: 10, isActive: true },
+      { id: 'SL-11', time: '18:00 - 19:00', maxCapacity: 10, isActive: true }
+    ];
+  };
+
+  const getBookedCount = (slotTimeStr) => {
+    const startHour = slotTimeStr.split(':')[0].trim();
+    return bookingsForDate.filter(b => {
+      if (!b.slotTime) return false;
+      const bHour = b.slotTime.split(':')[0].padStart(2, '0');
+      return bHour === startHour.padStart(2, '0') && b.status !== 'Canceled';
+    }).length;
+  };
+
+  const renderProgressBar = (booked, locked, capacity) => {
+    if (capacity === 0) {
+      return <div className="w-full h-2 bg-slate-100 rounded-full" />;
+    }
+    const bookedPct = Math.min(100, (booked / capacity) * 100);
+    const lockedPct = Math.min(100 - bookedPct, (locked / capacity) * 100);
+    
+    const bookedColorClass = booked + locked >= capacity ? 'bg-emerald-500' : 'bg-sky-600';
+    
+    return (
+      <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden flex">
+        <div 
+          style={{ width: `${bookedPct}%` }} 
+          className={`h-full ${bookedColorClass} transition-all duration-300`} 
+        />
+        <div 
+          style={{ width: `${lockedPct}%` }} 
+          className="h-full bg-amber-500 transition-all duration-300" 
+        />
+      </div>
+    );
+  };
 
   // Extract bookings for today and map customer details from customersDb
   // Lấy danh sách toàn bộ các lịch dọn từ tất cả các ngày (Tìm kiếm chéo ngày E2E)
@@ -269,10 +422,58 @@ export default function AdminBookingsPage() {
   const heatmapForDate = heatmapDb[selectedDate] || [];
   const selectedBooking = allBookingsMapped.find(b => b.id === selectedBookingId) || null;
 
+  // States inside checkout detail view
+  const [selectedVoucherCode, setSelectedVoucherCode] = useState('');
+  const [customerVouchers, setCustomerVouchers] = useState([]);
+  const [tempPaymentMethod, setTempPaymentMethod] = useState('Cash');
+  const [cancelReasonText, setCancelReasonText] = useState('');
+  const [isCanceling, setIsCanceling] = useState(false);
+
+  // Load dynamic rates from Settings
+  const baseSpendToEarnPoint = loyaltySettings.baseSpend || 10000;
+  const basePointsToEarn = loyaltySettings.basePoints || 1;
+  const pointsToCashMultiplier = loyaltySettings.pointCashValuePts && loyaltySettings.pointCashValueVnd
+    ? (loyaltySettings.pointCashValueVnd / loyaltySettings.pointCashValuePts)
+    : 1000;
+
+  // Load active customer vouchers on selection
+  useEffect(() => {
+    if (selectedBooking && selectedBooking.customer) {
+      const vchs = JSON.parse(localStorage.getItem('autowash_vouchers') || '{}');
+      const wallet = vchs[selectedBooking.customer.id] || [];
+      setCustomerVouchers(wallet.filter(v => v.status === 'ISSUED'));
+      setSelectedVoucherCode('');
+    } else {
+      setCustomerVouchers([]);
+      setSelectedVoucherCode('');
+    }
+  }, [selectedBookingId]);
+
+  // Helper to parse voucher discount
+  const parseVoucherDiscount = (valueStr, totalAmount) => {
+    if (!valueStr) return 0;
+    if (typeof valueStr === 'number') {
+      return valueStr > totalAmount ? totalAmount : valueStr;
+    }
+    const cleanVal = valueStr.toString().replace(/\s/g, '').replace(/\./g, '');
+    if (cleanVal.includes('%')) {
+      const pct = parseFloat(cleanVal.replace('%', ''));
+      if (isNaN(pct)) return 0;
+      return Math.round((totalAmount * pct) / 100);
+    } else {
+      const amt = parseFloat(cleanVal.replace(/[đđVNDvnd,]/g, ''));
+      if (isNaN(amt)) return 0;
+      return amt > totalAmount ? totalAmount : amt;
+    }
+  };
+
+  const selectedVoucher = customerVouchers.find(v => v.code === selectedVoucherCode) || null;
+  const discountAmount = selectedVoucher ? parseVoucherDiscount(selectedVoucher.value, selectedBooking?.service?.price || 0) : 0;
+  const finalAmount = Math.max(0, (selectedBooking?.service?.price || 0) - discountAmount);
+
   // View transition helpers
   const handleOpenDetail = (booking) => {
     setSelectedBookingId(booking.id);
-    setTempPointsToRedeem(booking.pointsRedeemed || 0);
     setTempPaymentMethod(booking.paymentMethod || 'Cash');
     setCancelReasonText('');
     setIsCanceling(false);
@@ -301,28 +502,33 @@ export default function AdminBookingsPage() {
     }
   };
 
-  // Enforce Max Redemption rule to prevent business loss:
-  // Points discount cannot exceed maxRedemptionPercent% of total price
-  const getMaxPointsAllowedToRedeem = (totalPrice, customerPoints) => {
-    const maxDiscountAllowed = (maxRedemptionPercent / 100) * totalPrice;
-    const maxPointsAllowedByLimit = Math.floor(maxDiscountAllowed / pointsToCashMultiplier);
-    return Math.min(customerPoints, maxPointsAllowedByLimit);
-  };
-
   // Action: Confirm Payment & Complete Wash (Combined Check-in & Point Accumulation)
-  const handleConfirmPayment = () => {
+  const handleConfirmPayment = async () => {
     if (!selectedBooking) return;
 
-    // Validate points redemption bounds
-    const maxAllowedPts = getMaxPointsAllowedToRedeem(selectedBooking.service.price, selectedBooking.customer.points);
-    if (tempPointsToRedeem > maxAllowedPts) {
-      alert(`Lỗi chốt chặn tài chính!\nSố điểm quy đổi vượt quá giới hạn tối đa (${maxRedemptionPercent}% giá trị gói dịch vụ).\nChỉ được quy đổi tối đa: ${maxAllowedPts} Pts.`);
-      setTempPointsToRedeem(maxAllowedPts);
-      return;
-    }
+    const bookingId = selectedBooking.bookingId || selectedBooking.id;
 
-    const discountAmount = tempPointsToRedeem * pointsToCashMultiplier;
-    const finalAmount = Math.max(0, selectedBooking.service.price - discountAmount);
+    try {
+      const response = await bookingAdminApi.checkoutBooking(bookingId, {
+        bookingId: bookingId,
+        paymentMethod: tempPaymentMethod === 'VNPay' ? 'BANK_TRANSFER' : tempPaymentMethod.toUpperCase(),
+        voucherCode: selectedVoucherCode || null,
+        notes: selectedBooking.notes
+      });
+
+      if (tempPaymentMethod === 'MOMO' && response.paymentUrl) {
+        setMomoQrUrl(response.paymentUrl);
+        setMomoActiveBookingId(bookingId);
+        return;
+      }
+
+      alert(`Thanh toán & hoàn tất đơn dọn xe thành công!`);
+      setSelectedDate(selectedDate);
+      setViewMode('list');
+      return;
+    } catch (err) {
+      console.warn('API checkout error, falling back to localStorage:', err.message);
+    }
 
     // Load Tier multipliers dynamically
     const customerTier = selectedBooking.customer.tier;
@@ -332,13 +538,13 @@ export default function AdminBookingsPage() {
     // Spring Boot Logic: Points Earned = floor(final_amount / baseSpend) x basePoints x Tier Multiplier
     const pointsEarned = Math.floor(finalAmount / baseSpendToEarnPoint) * basePointsToEarn * tierMultiplier;
 
-    // Update customer in database (visits + 1, spend + finalAmount, points - redeemed + earned)
+    // Update customer in database (visits + 1, spend + finalAmount, points + earned)
     let alertUpgradeMessage = '';
     const updatedCustomers = customersDb.map(c => {
       if (c.id === selectedBooking.customer.id) {
         const newVisits = c.visits + 1;
         const newSpend = c.totalSpend + finalAmount;
-        const newPoints = c.points - tempPointsToRedeem + pointsEarned;
+        const newPoints = c.points + pointsEarned;
         
         // Evaluate upgrade: Scan tier matrix from Platinum -> Gold -> Silver -> Member
         let nextTier = c.tier;
@@ -365,20 +571,28 @@ export default function AdminBookingsPage() {
       return c;
     });
 
+    // Update voucher status to USED if a voucher was applied
+    if (selectedVoucherCode) {
+      const allVouchers = JSON.parse(localStorage.getItem('autowash_vouchers') || '{}');
+      const customerWallet = allVouchers[selectedBooking.customer.id] || [];
+      const updatedWallet = customerWallet.map(v => {
+        if (v.code === selectedVoucherCode && v.status === 'ISSUED') {
+          return { ...v, status: 'USED' };
+        }
+        return v;
+      });
+      allVouchers[selectedBooking.customer.id] = updatedWallet;
+      localStorage.setItem('autowash_vouchers', JSON.stringify(allVouchers));
+    }
+
     localStorage.setItem('autowash_customers', JSON.stringify(updatedCustomers));
     setCustomersDb(updatedCustomers);
 
-    // Insert Log logs (REDEEM & EARN)
+    // Insert Log logs (EARN)
     const pointsLog = JSON.parse(localStorage.getItem('autowash_points_log') || '{}');
     const log = pointsLog[selectedBooking.customer.id] || [];
     let updatedLog = [...log];
 
-    if (tempPointsToRedeem > 0) {
-      updatedLog = [
-        { date: 'Vừa xong', type: 'REDEEM', amount: tempPointsToRedeem, reason: `Thanh toán giảm giá đơn ${selectedBooking.id}` },
-        ...updatedLog
-      ];
-    }
     if (pointsEarned > 0) {
       updatedLog = [
         { date: 'Vừa xong', type: 'EARN', amount: pointsEarned, reason: `Tích điểm đơn dọn xe ${selectedBooking.id}` },
@@ -392,7 +606,8 @@ export default function AdminBookingsPage() {
       ...selectedBooking,
       status: 'Completed',
       paymentMethod: tempPaymentMethod,
-      pointsRedeemed: tempPointsToRedeem,
+      pointsRedeemed: 0,
+      voucherApplied: selectedVoucherCode || null,
       discount: discountAmount,
       finalAmount: finalAmount,
       paymentStatus: 'PAID',
@@ -485,8 +700,11 @@ export default function AdminBookingsPage() {
             </div>
           </div>
 
-          {/* Bookings List Card */}
-          <div className="flex-1 bg-white border border-slate-200/60 rounded-2xl shadow-sm flex flex-col min-h-0 overflow-hidden">
+          {/* Main Content Layout Grid */}
+          <div className="flex-1 flex flex-col lg:flex-row gap-5 min-h-0 overflow-hidden">
+            
+            {/* Left: Bookings List Card */}
+            <div className="flex-1 bg-white border border-slate-200/60 rounded-2xl shadow-sm flex flex-col min-h-0 overflow-hidden">
             
             {/* Header / Tabs */}
             <div className="p-3 border-b border-slate-100 flex flex-col lg:flex-row gap-4 items-center justify-between shrink-0 bg-slate-50/30">
@@ -671,8 +889,130 @@ export default function AdminBookingsPage() {
             </div>
           </div>
 
+          {/* Right: Daily Availability Monitor */}
+          <div className="w-full lg:w-[420px] shrink-0 bg-white border border-slate-200/60 rounded-2xl shadow-sm flex flex-col min-h-0 overflow-hidden">
+            {/* Header */}
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50/50">
+              <div className="flex items-center gap-2 text-slate-800 font-bold">
+                <ClipboardList className="w-5 h-5 text-indigo-600" />
+                <span className="font-outfit tracking-tight">Daily Availability Monitor</span>
+              </div>
+              
+              {/* Date Navigator */}
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={handlePrevDate}
+                  className="p-1.5 hover:bg-slate-100 rounded-lg border border-slate-200 text-slate-650 transition-colors cursor-pointer"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-bold text-slate-700">
+                  <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                  <span>{getSelectedDateLabel()}</span>
+                </div>
+                <button 
+                  onClick={handleNextDate}
+                  className="p-1.5 hover:bg-slate-100 rounded-lg border border-slate-200 text-slate-650 transition-colors cursor-pointer"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            {/* Slots Table */}
+            <div className="flex-1 overflow-y-auto no-scrollbar">
+              <table className="w-full text-left border-collapse">
+                <thead className="sticky top-0 bg-slate-50 border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-wider z-10">
+                  <tr>
+                    <th className="py-3 px-4">Time Slot</th>
+                    <th className="py-3 px-4">Capacity</th>
+                    <th className="py-3 px-4">Booked / Locked</th>
+                    <th className="py-3 px-4">Remaining</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-xs">
+                  {getSlotsData().map(slot => {
+                    const booked = getBookedCount(slot.time);
+                    const lockKey = `${selectedDate}_${slot.id}`;
+                    const locked = slotLocks[lockKey] || 0;
+                    const capacity = slot.isActive ? slot.maxCapacity : 0;
+                    const remaining = Math.max(0, capacity - booked - locked);
+
+                    return (
+                      <tr key={slot.id} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="py-3.5 px-4 font-mono font-bold text-slate-650">
+                          {slot.time}
+                        </td>
+                        <td className="py-3.5 px-4">
+                          {slot.isActive ? (
+                            <span className="font-semibold text-slate-700">{slot.maxCapacity}</span>
+                          ) : (
+                            <div className="flex items-center gap-1 text-rose-500 font-bold text-[10px]" title="Slot này đã bị tắt hoặc giảm công suất">
+                              <AlertTriangle className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                              <span>0 (was {slot.maxCapacity})</span>
+                            </div>
+                          )}
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <div className="flex flex-col gap-1.5">
+                            <div className="flex items-center justify-between group/lock">
+                              <span className="font-bold">
+                                <span className={booked > 0 ? (booked + locked >= capacity ? 'text-emerald-600' : 'text-sky-600') : 'text-slate-400'}>
+                                  {booked}
+                                </span>
+                                <span className="text-slate-400 mx-1">/</span>
+                                <span className={locked > 0 ? 'text-amber-500 font-bold' : 'text-slate-400'}>
+                                  {locked}
+                                </span>
+                              </span>
+                              
+                              {slot.isActive && ['ADMIN', 'MANAGER', 'ROLE_ADMIN', 'ROLE_MANAGER'].includes((localStorage.getItem('role') || 'ADMIN').toUpperCase()) && (
+                                <div className="opacity-0 group-hover/lock:opacity-100 flex items-center gap-1 transition-opacity">
+                                  <button 
+                                    onClick={() => adjustLock(slot.id, -1)}
+                                    className="w-4 h-4 rounded bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-[10px] font-black text-slate-655 cursor-pointer"
+                                    title="Giảm slot khóa"
+                                    disabled={locked <= 0}
+                                  >
+                                    -
+                                  </button>
+                                  <button 
+                                    onClick={() => adjustLock(slot.id, 1)}
+                                    className="w-4 h-4 rounded bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-[10px] font-black text-slate-655 cursor-pointer"
+                                    title="Tăng slot khóa"
+                                    disabled={booked + locked >= capacity}
+                                  >
+                                    +
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                            {renderProgressBar(booked, locked, capacity)}
+                          </div>
+                        </td>
+                        <td className="py-3.5 px-4">
+                          {capacity === 0 ? (
+                            <span className="text-slate-400 font-semibold">0</span>
+                          ) : remaining === 0 ? (
+                            <span className="text-slate-400 font-semibold">0</span>
+                          ) : remaining <= 2 ? (
+                            <span className="text-amber-500 font-black text-[13px]">{remaining}</span>
+                          ) : (
+                            <span className="text-slate-700 font-semibold">{remaining}</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
         </div>
-      )}
+
+      </div>
+    )}
 
       {/* ========================================================= */}
       {/* 2. VIEW MODE: DETAIL                                      */}
@@ -783,42 +1123,34 @@ export default function AdminBookingsPage() {
                   {selectedBooking.status === 'Pending' && (
                     <div className="space-y-4 text-xs">
                       
-                      {/* Loyalty redemption slider / points exchange options */}
-                      {selectedBooking.customer.points > 0 && (
-                        <div className="bg-indigo-50/40 border border-indigo-100/60 p-3.5 rounded-xl space-y-2">
-                          <div className="flex items-center justify-between text-[10px] font-bold text-slate-700">
-                            <span className="flex items-center gap-0.5 text-indigo-650 font-black"><Gift className="w-3.5 h-3.5 text-indigo-500" /> Quy đổi điểm ví</span>
-                            <span className="text-rose-600 font-black">Chốt chặn max: {maxRedemptionPercent}% bill</span>
+                      {/* Áp dụng Voucher giảm giá tại quầy */}
+                      <div className="bg-indigo-50/40 border border-indigo-100/60 p-3.5 rounded-xl space-y-2">
+                        <div className="flex items-center justify-between text-[10px] font-bold text-slate-700">
+                          <span className="flex items-center gap-0.5 text-indigo-650 font-black"><Gift className="w-3.5 h-3.5 text-indigo-500" /> Khuyến mại & Ưu đãi tại quầy</span>
+                          <span className="text-slate-400 font-bold">Điểm ví: {selectedBooking.customer.points} Pts</span>
+                        </div>
+
+                        {customerVouchers.length === 0 ? (
+                          <div className="text-[10px] text-slate-400 italic bg-white border border-slate-150 p-2.5 rounded-lg">
+                            Ví của khách hàng hiện chưa sở hữu Voucher khả dụng. Khách hàng cần đổi điểm Loyalty lấy voucher trước.
                           </div>
-
-                          <div className="flex flex-col gap-1.5">
-                            {[0, 50, 100, 200, 500].map(pt => {
-                              const maxAllowedPts = getMaxPointsAllowedToRedeem(selectedBooking.service.price, selectedBooking.customer.points);
-                              const isOverLimit = pt > maxAllowedPts;
-                              
-                              if (pt > selectedBooking.customer.points) return null;
-
+                        ) : (
+                          <select
+                            value={selectedVoucherCode}
+                            onChange={(e) => setSelectedVoucherCode(e.target.value)}
+                            className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs focus:border-indigo-500 outline-none font-bold text-slate-700 bg-white"
+                          >
+                            <option value="">-- Chọn Voucher áp dụng --</option>
+                            {customerVouchers.map(v => {
                               return (
-                                <button
-                                  key={pt}
-                                  type="button"
-                                  disabled={isOverLimit}
-                                  onClick={() => setTempPointsToRedeem(pt)}
-                                  className={`w-full py-1.5 px-3 rounded-lg border text-[11px] font-extrabold text-left transition-all flex justify-between items-center ${
-                                    isOverLimit ? 'bg-slate-50 text-slate-350 border-slate-100 cursor-not-allowed' :
-                                    tempPointsToRedeem === pt 
-                                      ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm' 
-                                      : 'bg-white hover:bg-slate-50 text-slate-650'
-                                  }`}
-                                >
-                                  <span>{pt === 0 ? 'Không tiêu điểm thưởng' : `Đổi ${pt} điểm`}</span>
-                                  <span>{pt === 0 ? '' : isOverLimit ? 'Vượt quá hạn mức 80%' : `-${(pt * pointsToCashMultiplier).toLocaleString('vi-VN')} đ`}</span>
-                                </button>
+                                <option key={v.code} value={v.code}>
+                                  [{v.code}] {v.name} ({v.value})
+                                </option>
                               );
                             })}
-                          </div>
-                        </div>
-                      )}
+                          </select>
+                        )}
+                      </div>
 
                       {/* Payment Method */}
                       <div className="space-y-2">
@@ -840,6 +1172,14 @@ export default function AdminBookingsPage() {
                           >
                             VNPay QR
                           </button>
+                          <button
+                            onClick={() => setTempPaymentMethod('MOMO')}
+                            className={`flex-1 py-2 px-3 rounded-xl border flex items-center justify-center gap-1.5 font-bold transition-all ${
+                              tempPaymentMethod === 'MOMO' ? 'bg-pink-600 text-white border-pink-650' : 'bg-white hover:bg-slate-50 border-slate-200 text-slate-600'
+                            }`}
+                          >
+                            MoMo QR
+                          </button>
                         </div>
                       </div>
 
@@ -849,17 +1189,17 @@ export default function AdminBookingsPage() {
                           <span>Đơn giá gói chính:</span>
                           <span>{selectedBooking.service.price.toLocaleString('vi-VN')} đ</span>
                         </div>
-                        {tempPointsToRedeem > 0 && (
+                        {discountAmount > 0 && (
                           <div className="flex justify-between font-bold text-emerald-600">
-                            <span>Chiết khấu tiêu điểm:</span>
-                            <span>-{(tempPointsToRedeem * pointsToCashMultiplier).toLocaleString('vi-VN')} đ</span>
+                            <span>Voucher giảm giá ({selectedVoucherCode}):</span>
+                            <span>-{discountAmount.toLocaleString('vi-VN')} đ</span>
                           </div>
                         )}
                         <div className="h-px bg-slate-250 my-2" />
                         <div className="flex justify-between font-black text-sm text-slate-800">
                           <span>Thành tiền thực thu:</span>
                           <span className="text-indigo-700">
-                            {Math.max(0, selectedBooking.service.price - (tempPointsToRedeem * pointsToCashMultiplier)).toLocaleString('vi-VN')} đ
+                            {finalAmount.toLocaleString('vi-VN')} đ
                           </span>
                         </div>
                       </div>
@@ -898,16 +1238,27 @@ export default function AdminBookingsPage() {
                     </div>
                   )}
 
-                  {/* Flow 4: Canceled */}
-                  {selectedBooking.status === 'Canceled' && (
+                  {/* Flow 4: Canceled / No-Show */}
+                  {((selectedBooking.status || '').toLowerCase() === 'canceled' || (selectedBooking.status || '').toLowerCase() === 'cancelled_no_show') && (
                     <div className="space-y-3 text-xs text-slate-600">
                       <div className="bg-rose-50 text-rose-700 border border-rose-100 p-4 rounded-xl text-center font-bold">
                         <span className="font-extrabold text-sm flex items-center justify-center gap-1"><Ban className="w-4 h-4" /> Lịch dọn đã hủy bỏ</span>
                       </div>
                       <div className="bg-slate-50 p-3 rounded-xl">
                         <div className="text-[10px] text-slate-400 font-bold uppercase">Lý do hủy đơn</div>
-                        <p className="italic mt-1 leading-relaxed">{selectedBooking.cancelReason || 'Không rõ lý do'}</p>
+                        <p className="italic mt-1 leading-relaxed">{selectedBooking.cancelReason || 'Quá hạn thời gian slot (No-Show)'}</p>
                       </div>
+
+                      {/* Restore and Check-in late button */}
+                      {isRestoreAllowed(selectedBooking) && (
+                        <button
+                          onClick={() => handleCheckinLate(selectedBooking.id || selectedBooking.bookingId)}
+                          className="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white text-xs font-black py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer font-outfit"
+                        >
+                          <Play className="w-4 h-4" />
+                          Khôi phục & Check-in Trễ
+                        </button>
+                      )}
                     </div>
                   )}
 
@@ -1009,6 +1360,58 @@ export default function AdminBookingsPage() {
               {qrCodeModalBooking.id} • {qrCodeModalBooking.vehicle.plate}
             </div>
             <button onClick={() => setQrCodeModalBooking(null)} className="w-full bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold py-2.5 rounded-xl cursor-pointer">Đóng</button>
+          </div>
+        </div>
+      )}
+
+      {/* MOMO QR MODAL */}
+      {momoQrUrl && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl p-8 max-w-sm w-full border border-slate-100 shadow-2xl flex flex-col items-center text-center space-y-6">
+            <div className="w-16 h-16 bg-pink-100 rounded-2xl flex items-center justify-center">
+              <QrCode className="w-8 h-8 text-pink-600" />
+            </div>
+            <div>
+              <h3 className="text-xl font-black text-slate-800 tracking-tight font-outfit">Thanh toán qua MoMo</h3>
+              <p className="text-xs font-semibold text-slate-400 mt-1">Yêu cầu khách hàng quét mã QR dưới đây</p>
+            </div>
+            
+            <div className="border-4 border-pink-50 p-2.5 rounded-2xl bg-white shadow-inner animate-fade-in">
+              <img 
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(momoQrUrl)}`} 
+                alt="MoMo QR Code" 
+                className="w-48 h-48 rounded-lg"
+              />
+            </div>
+
+            <div className="w-full space-y-2.5">
+              <button 
+                onClick={async () => {
+                  try {
+                    await bookingAdminApi.updateStatus(momoActiveBookingId, 'Completed');
+                    alert("Đã xác nhận thanh toán thành công!");
+                  } catch (err) {
+                    alert("Không thể cập nhật trạng thái: " + err.message);
+                  }
+                  setMomoQrUrl(null);
+                  setMomoActiveBookingId(null);
+                  setSelectedDate(selectedDate);
+                  setViewMode('list');
+                }}
+                className="w-full py-2.5 bg-pink-650 hover:bg-pink-700 active:scale-[0.98] text-white font-black text-xs rounded-xl shadow-lg shadow-pink-500/20 transition-all font-outfit"
+              >
+                Xác nhận Đã Thanh toán
+              </button>
+              <button 
+                onClick={() => {
+                  setMomoQrUrl(null);
+                  setMomoActiveBookingId(null);
+                }}
+                className="w-full py-2 bg-slate-100 hover:bg-slate-200 active:scale-[0.98] text-slate-500 font-bold text-xs rounded-xl transition-all"
+              >
+                Hủy giao dịch
+              </button>
+            </div>
           </div>
         </div>
       )}

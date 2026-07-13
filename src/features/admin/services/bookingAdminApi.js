@@ -77,5 +77,45 @@ export const bookingAdminApi = {
       console.warn('API createWalkInBooking fallback:', err.message);
       return { ...data, id: `AW-${Date.now().toString().slice(-4)}`, status: 'Confirmed', createdTime: 'Vừa xong tại POS' };
     }
+  },
+
+  /**
+   * Tìm kiếm đơn đặt lịch chéo ngày cho Admin/POS
+   */
+  searchBookings: async (query, date) => {
+    const res = await api.get(`/admin/bookings/search`, { params: { query, date } });
+    return res.data;
+  },
+
+  /**
+   * Check-in trễ giờ tại quầy
+   */
+  checkinLate: async (bookingId) => {
+    const res = await api.post(`/admin/bookings/${bookingId}/checkin-late`);
+    return res.data;
+  },
+
+  /**
+   * Thanh toán hóa đơn tại quầy (Cash, Bank, MoMo QR)
+   */
+  checkoutBooking: async (bookingId, data) => {
+    const res = await api.post(`/admin/bookings/${bookingId}/checkout`, data);
+    return res.data;
+  },
+
+  /**
+   * Giám sát công suất slot trong ngày
+   */
+  getOccupancyMonitor: async (date) => {
+    const res = await api.get(`/admin/slots/occupancy-monitor`, { params: { date } });
+    return res.data;
+  },
+
+  /**
+   * Điều chỉnh khóa slot thủ công
+   */
+  adjustLock: async (slotId, date, adjustment) => {
+    const res = await api.post(`/admin/slots/${slotId}/lock`, null, { params: { date, adjustment } });
+    return res.data;
   }
 };
