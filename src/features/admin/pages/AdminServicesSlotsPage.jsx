@@ -12,7 +12,9 @@ import {
   ToggleLeft,
   ToggleRight,
   TrendingUp,
-  Cpu
+  Cpu,
+  Calendar,
+  Trash2
 } from 'lucide-react';
 import { serviceCatalogApi } from '../services/serviceCatalogApi';
 
@@ -30,49 +32,33 @@ export default function AdminServicesSlotsPage() {
   const [catalogSubTab, setCatalogSubTab] = useState('core'); // 'core' or 'addons'
 
   // 2. Mock Databases
-  const [services, setServices] = useState([
-    // Core Packages
-    { id: 'S-01', name: 'Basic Wash (Rửa xe cơ bản)', price: 70000, duration: 15, type: 'core', desc: 'Rửa vỏ ngoài, làm sạch xích, xịt khô và lau bóng cơ bản.', isActive: true },
-    { id: 'S-02', name: 'Premium Wash + Wax (Rửa xe cao cấp & Wax bóng)', price: 150000, duration: 25, type: 'core', desc: 'Rửa sâu 3 bước bọt tuyết, wax bóng bảo vệ sơn và làm sạch gầm.', isActive: true },
-    { id: 'S-03', name: 'Full Detail (Dọn rửa chi tiết toàn diện)', price: 450000, duration: 40, type: 'core', desc: 'Dọn sạch sâu khoang máy, tháo nhựa xịt gầm tỉ mỉ, tẩy ố mâm xe.', isActive: true },
-    { id: 'S-04', name: 'Engine Clean (Vệ sinh khoang máy chuyên sâu)', price: 200000, duration: 30, type: 'core', desc: 'Dọn dẹp dầu mỡ, đất cát bám khoang máy bằng hóa chất chuyên dụng và hơi nước nóng.', isActive: true },
-    { id: 'S-05', name: 'Express Wash (Rửa siêu tốc)', price: 50000, duration: 10, type: 'core', desc: 'Xịt nước áp lực cao, lau vỏ ngoài siêu nhanh cho khách bận rộn.', isActive: false },
-    
-    // Addon Services
-    { id: 'A-01', name: 'Ceramic Coating phủ bóng nano sơn', price: 100000, duration: 10, type: 'addons', desc: 'Phủ dung dịch sứ bảo vệ sơn, chống bám nước và tăng độ bóng.', isActive: true },
-    { id: 'A-02', name: 'Tẩy ố kính chiếu hậu siêu cấp', price: 30000, duration: 5, type: 'addons', desc: 'Tẩy các vết ố mưa, ố phèn bám trên gương chiếu hậu.', isActive: true },
-    { id: 'A-03', name: 'Dưỡng sên cao cấp chuyên dụng (Motul)', price: 40000, duration: 5, type: 'addons', desc: 'Vệ sinh sạch cát sên và xịt dung dịch bôi trơn Motul cao cấp.', isActive: true },
-    { id: 'A-04', name: 'Khử mùi diệt khuẩn yên xe & mũ bảo hiểm', price: 60000, duration: 8, type: 'addons', desc: 'Xông hơi nano diệt khuẩn nấm mốc yên xe và lòng mũ bảo hiểm.', isActive: false }
-  ]);
+  const [services, setServices] = useState([]);
+  const [slots, setSlots] = useState([]);
 
-  const [slots, setSlots] = useState([
-    { id: 'SL-01', time: '08:00 - 09:00', maxCapacity: 8, isActive: true, dayOfWeek: 'ALL' },
-    { id: 'SL-02', time: '09:00 - 10:00', maxCapacity: 8, isActive: true, dayOfWeek: 'ALL' },
-    { id: 'SL-03', time: '10:00 - 11:00', maxCapacity: 8, isActive: true, dayOfWeek: 'ALL' },
-    { id: 'SL-04', time: '11:00 - 12:00', maxCapacity: 8, isActive: true, dayOfWeek: 'ALL' },
-    { id: 'SL-05', time: '12:00 - 13:00', maxCapacity: 6, isActive: true, dayOfWeek: 'ALL' },
-    { id: 'SL-06', time: '13:00 - 14:00', maxCapacity: 8, isActive: true, dayOfWeek: 'ALL' },
-    { id: 'SL-07', time: '14:00 - 15:00', maxCapacity: 8, isActive: true, dayOfWeek: 'ALL' },
-    { id: 'SL-08', time: '15:00 - 16:00', maxCapacity: 8, isActive: true, dayOfWeek: 'ALL' },
-    { id: 'SL-09', time: '16:00 - 17:00', maxCapacity: 8, isActive: true, dayOfWeek: 'ALL' },
-    { id: 'SL-10', time: '17:00 - 18:00', maxCapacity: 10, isActive: true, dayOfWeek: 'WEEKEND' },
-    { id: 'SL-11', time: '18:00 - 19:00', maxCapacity: 10, isActive: true, dayOfWeek: 'WEEKEND' }
-  ]);
+  const [closures, setClosures] = useState([]);
+  const [closureModalOpen, setClosureModalOpen] = useState(false);
+  const [closureForm, setClosureForm] = useState({
+    closureDate: '',
+    reason: '',
+    isFullDay: true
+  });
 
-  // Nạp cấu hình services và slots từ Backend API
+  // Nạp cấu hình services, slots và closures từ Backend API
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [servicesData, slotsData] = await Promise.all([
+        const [servicesData, slotsData, closuresData] = await Promise.all([
           serviceCatalogApi.getAllServices(),
-          serviceCatalogApi.getAllSlots()
+          serviceCatalogApi.getAllSlots(),
+          serviceCatalogApi.getAllClosures()
         ]);
         setServices(servicesData);
         setSlots(slotsData);
+        setClosures(closuresData);
         localStorage.setItem('autowash_admin_services_db', JSON.stringify(servicesData));
         localStorage.setItem('autowash_slots', JSON.stringify(slotsData));
       } catch (err) {
-        console.error('Failed to load catalog/slots from API:', err);
+        console.error('Failed to load catalog/slots/closures from API:', err);
       }
     };
     loadData();
@@ -98,6 +84,36 @@ export default function AdminServicesSlotsPage() {
     time: '',
     maxCapacity: ''
   });
+
+  // Handlers for Closures
+  const handleSaveClosure = async (e) => {
+    e.preventDefault();
+    if (!closureForm.closureDate) {
+      alert('Vui lòng chọn ngày đóng cửa!');
+      return;
+    }
+    try {
+      const created = await serviceCatalogApi.createClosure(closureForm);
+      setClosures(prev => [...prev, created]);
+      alert('Đã thêm ngày nghỉ lễ thành công!');
+      setClosureModalOpen(false);
+      setClosureForm({ closureDate: '', reason: '', isFullDay: true });
+    } catch (err) {
+      const errMsg = err.response?.data?.message || err.message || 'Lỗi khi thêm ngày nghỉ!';
+      alert(errMsg);
+    }
+  };
+
+  const handleDeleteClosure = async (id) => {
+    if (!window.confirm('Bạn có chắc chắn muốn xóa ngày nghỉ này và mở cửa hoạt động lại?')) return;
+    try {
+      await serviceCatalogApi.deleteClosure(id);
+      setClosures(prev => prev.filter(c => c.garageClosureId !== id));
+      alert('Đã mở cửa hoạt động lại thành công!');
+    } catch (err) {
+      alert('Lỗi khi xóa ngày nghỉ!');
+    }
+  };
 
   // Handlers for Services
   const handleToggleService = async (id) => {
@@ -258,6 +274,17 @@ export default function AdminServicesSlotsPage() {
           >
             <Clock className="w-4 h-4" />
             Khung giờ mẫu ({slots.length})
+          </button>
+          <button
+            onClick={() => setActiveTab('closures')}
+            className={`px-4.5 py-2 rounded-lg font-black transition-all flex items-center gap-1.5 cursor-pointer ${
+              activeTab === 'closures'
+                ? 'bg-slate-900 text-white shadow-sm'
+                : 'hover:text-slate-800 hover:bg-slate-50'
+            }`}
+          >
+            <Calendar className="w-4 h-4" />
+            Lịch nghỉ trạm ({closures.length})
           </button>
         </div>
       </div>
@@ -550,6 +577,120 @@ export default function AdminServicesSlotsPage() {
               <div className="flex gap-2.5 pt-2 justify-end">
                 <button type="button" onClick={() => setServiceModalOpen(false)} className="px-4 py-2.5 bg-slate-100 text-slate-600 font-bold rounded-xl">Hủy</button>
                 <button type="submit" className="px-4.5 py-2.5 bg-indigo-600 text-white font-black rounded-xl">Lưu</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ======================================================== */}
+      {/* 4. TAB CONTENT: GARAGE CLOSURES                          */}
+      {/* ======================================================== */}
+      {activeTab === 'closures' && (
+        <div className="flex-1 flex flex-col min-h-0 space-y-4">
+          <div className="flex items-center justify-between shrink-0">
+            <div>
+              <h3 className="text-base font-extrabold text-slate-800 font-outfit">Lịch nghỉ lễ / Bảo trì toàn trạm</h3>
+              <p className="text-xs text-slate-400 font-semibold mt-0.5">Đặt ngày trạm đóng cửa nghỉ lễ hoặc bảo trì, hệ thống sẽ tự động khóa toàn bộ slot đặt lịch của ngày đó.</p>
+            </div>
+            <button
+              onClick={() => {
+                setClosureForm({ closureDate: '', reason: '', isFullDay: true });
+                setClosureModalOpen(true);
+              }}
+              className="bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-black hover:bg-slate-800 transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
+            >
+              <Plus className="w-4 h-4" />
+              Thêm ngày nghỉ trạm
+            </button>
+          </div>
+
+          <div className="flex-1 bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden flex flex-col">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-200/80 text-slate-400 font-extrabold select-none">
+                    <th className="px-5 py-3.5">Ngày nghỉ</th>
+                    <th className="px-5 py-3.5">Lý do nghỉ</th>
+                    <th className="px-5 py-3.5 text-center">Trạng thái</th>
+                    <th className="px-5 py-3.5 text-right">Thao tác</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 font-bold text-slate-700">
+                  {closures.length === 0 ? (
+                    <tr>
+                      <td colSpan="4" className="text-center py-10 text-slate-400 font-medium">Không có ngày nghỉ nào được cấu hình.</td>
+                    </tr>
+                  ) : (
+                    closures.map(c => (
+                      <tr key={c.garageClosureId} className="hover:bg-slate-50/50 transition-colors">
+                        <td className="px-5 py-4 text-slate-900 font-black">
+                          {new Date(c.closureDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                        </td>
+                        <td className="px-5 py-4">{c.reason || 'Không có lý do'}</td>
+                        <td className="px-5 py-4 text-center">
+                          <span className="inline-block px-2.5 py-1 bg-amber-50 text-amber-700 rounded-lg font-black text-[10px]">Nghỉ trọn ngày</span>
+                        </td>
+                        <td className="px-5 py-4 text-right">
+                          <button
+                            onClick={() => handleDeleteClosure(c.garageClosureId)}
+                            className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                            title="Xóa ngày nghỉ (Mở cửa lại)"
+                          >
+                            <Trash2 className="w-4.5 h-4.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: ADD CLOSURE */}
+      {closureModalOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-150">
+              <h3 className="font-extrabold text-slate-850 flex items-center gap-1.5 text-sm">
+                <Calendar className="w-5 h-5 text-indigo-650" />
+                Thêm lịch nghỉ lễ/Bảo trì
+              </h3>
+              <button onClick={() => setClosureModalOpen(false)} className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg">
+                <X className="w-4.5 h-4.5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveClosure} className="space-y-4 text-xs">
+              <div className="space-y-1">
+                <label className="font-bold text-slate-600 block">Ngày nghỉ *</label>
+                <input
+                  type="date"
+                  required
+                  value={closureForm.closureDate}
+                  onChange={e => setClosureForm({...closureForm, closureDate: e.target.value})}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-700 font-outfit"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-bold text-slate-600 block">Lý do nghỉ / Tên dịp lễ *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ví dụ: Tết Nguyên Đán, Bảo trì định kỳ..."
+                  value={closureForm.reason}
+                  onChange={e => setClosureForm({...closureForm, reason: e.target.value})}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-700"
+                />
+              </div>
+
+              <div className="flex gap-2.5 pt-2 justify-end">
+                <button type="button" onClick={() => setClosureModalOpen(false)} className="px-4 py-2.5 bg-slate-100 text-slate-600 font-bold rounded-xl">Hủy</button>
+                <button type="submit" className="px-4.5 py-2.5 bg-indigo-600 text-white font-black rounded-xl">Thêm mới</button>
               </div>
             </form>
           </div>

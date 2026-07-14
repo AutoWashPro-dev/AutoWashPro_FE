@@ -31,7 +31,12 @@ export const customerApi = {
       return {
         fullName: 'Sarah Jenkins',
         loyaltyPoints: 1240,
-        tierName: 'GOLD MEMBER'
+        tierName: 'GOLD MEMBER',
+        bookingWindowDays: 14,
+        vehicles: [
+          { vehicleId: 1, licensePlate: "51K-123.45", model: "Ducati Panigale", isDefault: false },
+          { vehicleId: 2, licensePlate: "29H-555.55", model: "Vespa GTS", isDefault: true }
+        ]
       };
     }
   },
@@ -130,6 +135,23 @@ export const customerApi = {
   // Submit feedback
   createFeedback: async (feedbackData) => {
     const res = await api.post('/customer/feedbacks?customerId=1', feedbackData);
+    return res.data;
+  },
+
+  // Get customer vehicles
+  getMyVehicles: async () => {
+    try {
+      const res = await api.get('/customer/vehicles');
+      return res.data || [];
+    } catch (err) {
+      console.warn('API getMyVehicles error:', err.message);
+      return [];
+    }
+  },
+
+  // Register vehicle
+  addVehicle: async (vehicleData) => {
+    const res = await api.post('/customer/vehicles', vehicleData);
     return res.data;
   }
 };

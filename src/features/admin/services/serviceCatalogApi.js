@@ -184,5 +184,26 @@ export const serviceCatalogApi = {
       console.warn('API toggleSlotStatus fallback:', err.message);
       return true;
     }
+  },
+
+  // --- Garage Closures ---
+  getAllClosures: async () => {
+    try {
+      const res = await api.get('/admin/closures');
+      return res.data;
+    } catch (err) {
+      console.warn('API getAllClosures offline or error:', err.message);
+      return [];
+    }
+  },
+
+  createClosure: async (data) => {
+    const res = await api.post('/admin/closures', data);
+    return res.data;
+  },
+
+  deleteClosure: async (id) => {
+    await api.delete(`/admin/closures/${id}`);
+    return true;
   }
 };

@@ -20,10 +20,7 @@ export default function CustomerBookingPage() {
   const [bookingTab, setBookingTab] = useState('new'); // 'new' hoặc 'history'
 
   // Mẫu dữ liệu xe máy của khách hàng
-  const [vehicles, setVehicles] = useState([
-    { vehicleId: 1, licensePlate: "51K-123.45", model: "Ducati Panigale", vehicleType: "PKL", isDefault: false },
-    { vehicleId: 2, licensePlate: "29H-555.55", model: "Vespa GTS", vehicleType: "Scooter", isDefault: true }
-  ]);
+  const [vehicles, setVehicles] = useState([]);
 
   // Gói dịch vụ cốt lõi (Core Packages) và giá cơ bản (Base Price)
   const [corePackages, setCorePackages] = useState([
@@ -53,7 +50,7 @@ export default function CustomerBookingPage() {
   ];
 
   // Các State quản lý lựa chọn của Khách hàng
-  const [selectedVehicle, setSelectedVehicle] = useState(vehicles.find(v => v.isDefault) || vehicles[0]);
+  const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [selectedPackage, setSelectedPackage] = useState(null);
   const [selectedAddons, setSelectedAddons] = useState([]);
   const [selectedDate, setSelectedDate] = useState("");
@@ -84,6 +81,26 @@ export default function CustomerBookingPage() {
     }
   };
 
+  const [bookingWindowDays, setBookingWindowDays] = useState(7);
+  const [customerProfile, setCustomerProfile] = useState(null);
+
+  const loadUserProfile = async () => {
+    try {
+      const data = await customerApi.getProfile();
+      setCustomerProfile(data);
+      if (data && data.bookingWindowDays) {
+        setBookingWindowDays(data.bookingWindowDays);
+      }
+      if (data && data.vehicles && data.vehicles.length > 0) {
+        setVehicles(data.vehicles);
+        const defaultVeh = data.vehicles.find(v => v.isDefault) || data.vehicles[0];
+        setSelectedVehicle(defaultVeh);
+      }
+    } catch (err) {
+      console.error('Failed to load user profile:', err);
+    }
+  };
+
   const loadCustomerVouchers = async () => {
     try {
       const data = await customerApi.getMyVouchers('ISSUED');
@@ -101,7 +118,7 @@ export default function CustomerBookingPage() {
           id: s.serviceId,
           name: s.serviceName,
           basePrice: Number(s.price),
-          duration: `${s.durationMinutes} phút`,
+          duration: `${s.durationMinutes} minutes`,
           description: s.description
         }));
         const addons = data.filter(s => s.serviceType === 'ADDON').map(s => ({
@@ -119,6 +136,7 @@ export default function CustomerBookingPage() {
   };
 
   useEffect(() => {
+    loadUserProfile();
     loadCustomerVouchers();
     loadServices();
   }, []);
@@ -150,9 +168,8 @@ export default function CustomerBookingPage() {
     fetchSlots();
   }, [selectedDate, bookingTab]);
 
-  // Hệ số ngày giới hạn được đặt trước theo hạng VIP (Platinum = 14 ngày)
+  // Hệ số ngày giới hạn được đặt trước theo hạng VIP
   const todayStr = new Date().toISOString().split('T')[0];
-  const bookingWindowDays = 14; 
   const maxDateStr = new Date(Date.now() + bookingWindowDays * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
   // Load danh sách lịch sử đơn của khách từ Backend API
@@ -252,22 +269,23 @@ export default function CustomerBookingPage() {
   };
 
   // Đăng ký xe mới nhanh tại màn hình đặt lịch
-  const handleAddQuickVehicle = () => {
+  const handleAddQuickVehicle = async () => {
     const plate = prompt("Nhập biển số xe máy mới (Ví dụ: 29-H1 999.99):");
     if (!plate) return;
     const model = prompt("Nhập dòng xe (Ví dụ: Honda SH, Yamaha Exciter):") || "Xe máy mới";
-    const type = prompt("Nhập phân loại xe (Nhập: PKL, Scooter hoặc Manual):") || "Scooter";
 
-    const newVeh = {
-      vehicleId: Date.now(),
-      licensePlate: plate,
-      model: model,
-      vehicleType: type,
-      isDefault: false
-    };
-
-    setVehicles([...vehicles, newVeh]);
-    setSelectedVehicle(newVeh);
+    try {
+      const payload = {
+        licensePlate: plate,
+        model: model
+      };
+      const created = await customerApi.addVehicle(payload);
+      setVehicles(prev => [...prev, created]);
+      setSelectedVehicle(created);
+      alert("Đăng ký xe mới thành công!");
+    } catch (err) {
+      alert("Lỗi khi thêm xe mới: " + (err.response?.data?.message || err.message));
+    }
   };
 
   // Gửi đơn đặt lịch lên hệ thống
