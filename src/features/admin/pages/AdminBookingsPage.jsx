@@ -130,17 +130,9 @@ export default function AdminBookingsPage() {
       localStorage.setItem('autowash_bookings', JSON.stringify(initialBookings));
     }
   }, []);
-  // Hàm lấy ngày hôm nay theo giờ địa phương, tránh lỗi lệch múi giờ
-  const getLocalDateString = (date = new Date()) => {
-  const yyyy = date.getFullYear();
-  const mm = String(date.getMonth() + 1).padStart(2, '0');
-  const dd = String(date.getDate()).padStart(2, '0');
-  return `${yyyy}-${mm}-${dd}`;
-};
 
   // 2. Load data from localStorage
-
-  const [selectedDate, setSelectedDate] = useState(() => getLocalDateString());;
+  const [selectedDate, setSelectedDate] = useState('2026-07-01');
   const [bookingsDb, setBookingsDb] = useState({});
   const [customersDb, setCustomersDb] = useState([]);
   const [loyaltySettings, setLoyaltySettings] = useState({});
@@ -166,81 +158,32 @@ export default function AdminBookingsPage() {
     setTierMatrix(tiers);
   };
 
-  // useEffect(() => {
-  //   loadDataFromStorage();
-  //   const fetchApiBookings = async () => {
-  //     try {
-  //       let apiList;
-  //       if (searchQuery.trim() !== '') {
-  //         apiList = await bookingAdminApi.searchBookings(searchQuery, selectedDate);
-  //       } else {
-  //         apiList = await bookingAdminApi.getBookings(selectedDate);
-  //       }
-  //       if (apiList) {
-  //         setBookingsDb(prev => ({
-  //           ...prev,
-  //           [selectedDate]: apiList
-  //         }));
-  //       }
-  //     } catch (err) {
-  //       console.error('Failed to fetch bookings from API:', err);
-  //     }
-  //   };
-  //   fetchApiBookings();
-
-  //   // Listen for custom storage events to synchronize screens
-  //   window.addEventListener('storage', loadDataFromStorage);
-  //   return () => window.removeEventListener('storage', loadDataFromStorage);
-  // }, [selectedDate, searchQuery]);
   useEffect(() => {
-  // 1. Mỗi khi đổi ngày hoặc search, tải lại bản chuẩn từ localStorage trước
-  const bookings = JSON.parse(localStorage.getItem('autowash_bookings') || '{}');
-  const customers = JSON.parse(localStorage.getItem('autowash_customers') || '[]');
-  const settings = JSON.parse(localStorage.getItem('autowash_loyalty_settings') || '{}');
-  const tiers = JSON.parse(localStorage.getItem('autowash_tiers') || '[]');
-
-  // Đặt lại data đồng bộ ban đầu
-  setCustomersDb(customers);
-  setLoyaltySettings(settings);
-  setTierMatrix(tiers);
-
-  // Tạo một biến flag để hủy các request API cũ nếu người dùng bấm đổi ngày liên tục
-  let isCurrentRequest = true;
-
-  const fetchApiBookings = async () => {
-    try {
-      let apiList = null;
-      if (searchQuery.trim() !== '') {
-        apiList = await bookingAdminApi.searchBookings(searchQuery, selectedDate);
-      } else {
-        apiList = await bookingAdminApi.getBookings(selectedDate);
+    loadDataFromStorage();
+    const fetchApiBookings = async () => {
+      try {
+        let apiList;
+        if (searchQuery.trim() !== '') {
+          apiList = await bookingAdminApi.searchBookings(searchQuery, selectedDate);
+        } else {
+          apiList = await bookingAdminApi.getBookings(selectedDate);
+        }
+        if (apiList) {
+          setBookingsDb(prev => ({
+            ...prev,
+            [selectedDate]: apiList
+          }));
+        }
+      } catch (err) {
+        console.error('Failed to fetch bookings from API:', err);
       }
+    };
+    fetchApiBookings();
 
-      // Chỉ cập nhật nếu đây là request cuối cùng (tránh lỗi bấm nhanh bị đơ/loạn)
-      if (isCurrentRequest && apiList) {
-        // Dùng Map để lọc sạch mọi phần tử trùng ID trong mảng trả về từ API
-        const uniqueApiList = Array.from(new Map(apiList.map(item => [item.id, item])).values());
-        
-        setBookingsDb({
-          ...bookings,          // Dữ liệu gốc từ localStorage
-          [selectedDate]: uniqueApiList // Ghi đè chính xác dữ liệu sạch của ngày này
-        });
-      }
-    } catch (err) {
-      console.error('Failed to fetch bookings from API:', err);
-      if (isCurrentRequest) {
-        setBookingsDb(bookings); // Fallback về localStorage nếu lỗi mạng/API
-      }
-    }
-  };
-
-  fetchApiBookings();
-
-  // Cleanup function: Khi selectedDate đổi tiếp, request phía trên sẽ bị bỏ qua
-  return () => {
-    isCurrentRequest = false;
-  };
-}, [selectedDate, searchQuery]);
+    // Listen for custom storage events to synchronize screens
+    window.addEventListener('storage', loadDataFromStorage);
+    return () => window.removeEventListener('storage', loadDataFromStorage);
+  }, [selectedDate, searchQuery]);
 
   // Dates available in day selector
   const availableDates = [
@@ -355,64 +298,32 @@ export default function AdminBookingsPage() {
   };
 
   const handlePrevDate = () => {
-  if (!selectedDate) return;
-  const currentDate = new Date(selectedDate);
-  currentDate.setDate(currentDate.getDate() - 1); // Trừ đi 1 ngày
-  
-  // Format lại thành định dạng YYYY-MM-DD để set state
-  const yyyy = currentDate.getFullYear();
-  const mm = String(currentDate.getMonth() + 1).padStart(2, '0');
-  const dd = String(currentDate.getDate()).padStart(2, '0');
-  
-  setSelectedDate(`${yyyy}-${mm}-${dd}`);
-  setSelectedTimeFilter('');
-};
+    const idx = availableDates.findIndex(d => d.value === selectedDate);
+    if (idx > 0) {
+      setSelectedDate(availableDates[idx - 1].value);
+      setSelectedTimeFilter('');
+    }
+  };
 
   const handleNextDate = () => {
-  if (!selectedDate) return;
-  const currentDate = new Date(selectedDate);
-  currentDate.setDate(currentDate.getDate() + 1); // Cộng thêm 1 ngày
-  
-  // Format lại thành định dạng YYYY-MM-DD để set state
-  const yyyy = currentDate.getFullYear();
-  const mm = String(currentDate.getMonth() + 1).padStart(2, '0');
-  const dd = String(currentDate.getDate()).padStart(2, '0');
-  
-  setSelectedDate(`${yyyy}-${mm}-${dd}`);
-  setSelectedTimeFilter('');
-};
+    const idx = availableDates.findIndex(d => d.value === selectedDate);
+    if (idx < availableDates.length - 1) {
+      setSelectedDate(availableDates[idx + 1].value);
+      setSelectedTimeFilter('');
+    }
+  };
 
   const getSelectedDateLabel = () => {
-  if (!selectedDate) return '';
-
-  const targetDate = new Date(selectedDate);
-  // Reset giờ về 00:00:00 để so sánh ngày chính xác không bị lệch múi giờ
-  targetDate.setHours(0, 0, 0, 0);
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  // Tính khoảng cách ngày
-  const diffTime = targetDate.getTime() - today.getTime();
-  const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
-
-  // Xác định nhãn mô tả (Desc)
-  let desc = '';
-  if (diffDays === 0) {
-    desc = 'Today';
-  } else if (diffDays === -1) {
-    desc = 'Yesterday';
-  } else if (diffDays === 1) {
-    desc = 'Tomorrow';
-  } else {
-    // Nếu là ngày khác, lấy tên Thứ viết tắt tiếng Anh (e.g., Mon, Tue,...)
-    desc = targetDate.toLocaleDateString('en-US', { weekday: 'short' });
-  }
-
-  // Lấy tên Tháng viết tắt (e.g., Jan, Feb, Jul,...) và Ngày
-
-  return `${desc}`;
-};
+    const d = availableDates.find(d => d.value === selectedDate);
+    if (d) {
+      const desc = d.desc === 'Hôm nay' ? 'Today' : d.desc === 'Hôm qua' ? 'Yesterday' : d.desc === 'Ngày mai' ? 'Tomorrow' : d.label.split(',')[0].trim();
+      const dateParts = d.value.split('-');
+      const months = { '06': 'Jun', '07': 'Jul' };
+      const monthStr = months[dateParts[1]] || dateParts[1];
+      return `${desc}, ${monthStr} ${dateParts[2]}`;
+    }
+    return selectedDate;
+  };
 
   const getSlotsData = () => {
     const rawSlots = localStorage.getItem('autowash_slots');
@@ -433,8 +344,8 @@ export default function AdminBookingsPage() {
       { id: 'SL-07', time: '14:00 - 15:00', maxCapacity: 8, isActive: true },
       { id: 'SL-08', time: '15:00 - 16:00', maxCapacity: 8, isActive: true },
       { id: 'SL-09', time: '16:00 - 17:00', maxCapacity: 8, isActive: true },
-      { id: 'SL-10', time: '17:00 - 18:00', maxCapacity: 8, isActive: true },
-      { id: 'SL-11', time: '18:00 - 19:00', maxCapacity: 8, isActive: true }
+      { id: 'SL-10', time: '17:00 - 18:00', maxCapacity: 10, isActive: true },
+      { id: 'SL-11', time: '18:00 - 19:00', maxCapacity: 10, isActive: true }
     ];
   };
 
@@ -472,41 +383,40 @@ export default function AdminBookingsPage() {
 
   // Extract bookings for today and map customer details from customersDb
   // Lấy danh sách toàn bộ các lịch dọn từ tất cả các ngày (Tìm kiếm chéo ngày E2E)
-  // 1. Tạo bản đồ danh sách booking sạch, loại bỏ hoàn toàn trùng lặp ID toàn cục
-const getAllBookings = () => {
-  const allMap = new Map();
-  Object.keys(bookingsDb).forEach(dateKey => {
-    const list = bookingsDb[dateKey] || [];
-    list.forEach(b => {
-      // Đảm bảo mỗi ID đơn (AW-xxxx) chỉ tồn tại duy nhất một bản ghi
-      if (b && b.id) {
-        allMap.set(b.id, { ...b, bookingDate: b.bookingDate || dateKey });
-      }
+  const getAllBookings = () => {
+    const all = [];
+    Object.keys(bookingsDb).forEach(dateKey => {
+      const list = bookingsDb[dateKey] || [];
+      list.forEach(b => {
+        all.push({ ...b, bookingDate: dateKey });
+      });
     });
+    return all;
+  };
+
+  const allBookingsMapped = getAllBookings().map(b => {
+    const customer = customersDb.find(c => c.id === b.custId) || {
+      name: 'Khách hàng vãng lai',
+      phone: b.custId === 'C-01' ? '0912345678' : 'Không có',
+      tier: 'Member',
+      points: 0,
+      avatar: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&q=80&w=100'
+    };
+    const displayPhone = b.custId === 'C-01' ? '0912345678' : (customer.phone || '');
+    return { 
+      ...b, 
+      bookingDate: b.bookingDate || selectedDate, 
+      customer: { ...customer, displayPhone } 
+    };
   });
-  return Array.from(allMap.values());
-};
 
-const allBookingsMapped = getAllBookings().map(b => {
-  const customer = customersDb.find(c => c.id === b.custId) || {
-    name: 'Khách hàng vãng lai',
-    phone: b.custId === 'C-01' ? '0912345678' : 'Không có',
-    tier: 'Member',
-    points: 0,
-    avatar: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&q=80&w=100'
-  };
-  const displayPhone = b.custId === 'C-01' ? '0912345678' : (customer.phone || '');
-  return { 
-    ...b, 
-    customer: { ...customer, displayPhone } 
-  };
-});
+  // Nếu gõ tìm kiếm, tìm trên toàn cục, ngược lại chỉ hiện theo ngày đang chọn
+  const activeBookingsSource = searchQuery.trim() !== '' 
+    ? allBookingsMapped 
+    : allBookingsMapped.filter(b => b.bookingDate === selectedDate);
 
-// Chỉ lấy những booking chuẩn xác thuộc về ngày đang chọn để tính toán bảng giám sát
-const bookingsForDate = allBookingsMapped.filter(b => b.bookingDate === selectedDate);
+  const bookingsForDate = allBookingsMapped.filter(b => b.bookingDate === selectedDate);
 
-// Nguồn dữ liệu hiển thị (Đồng bộ theo ngày đang được chọn)
-const activeBookingsSource = bookingsForDate;
   const heatmapForDate = heatmapDb[selectedDate] || [];
   const selectedBooking = allBookingsMapped.find(b => b.id === selectedBookingId) || null;
 
@@ -768,7 +678,7 @@ const activeBookingsSource = bookingsForDate;
             </div>
             
             {/* Date selector */}
-            {/* <div className="flex items-center gap-2.5 bg-white border border-slate-200/80 rounded-xl px-3.5 py-2 shadow-sm">
+            <div className="flex items-center gap-2.5 bg-white border border-slate-200/80 rounded-xl px-3.5 py-2 shadow-sm">
               <span className="text-xs font-black text-slate-500">Chọn ngày dọn xe:</span>
               <input
                 type="date"
@@ -779,7 +689,7 @@ const activeBookingsSource = bookingsForDate;
                 }}
                 className="bg-transparent text-xs font-black text-slate-800 focus:outline-none cursor-pointer"
               />
-            </div> */}
+            </div>
           </div>
 
           {/* Main Content Layout Grid */}
@@ -977,7 +887,7 @@ const activeBookingsSource = bookingsForDate;
             <div className="p-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50/50">
               <div className="flex items-center gap-2 text-slate-800 font-bold">
                 <ClipboardList className="w-5 h-5 text-indigo-600" />
-                <span className="font-outfit tracking-tight">Chọn ngày giám sát</span>
+                <span className="font-outfit tracking-tight">Daily Availability Monitor</span>
               </div>
               
               {/* Date Navigator */}
@@ -990,17 +900,7 @@ const activeBookingsSource = bookingsForDate;
                 </button>
                 <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-bold text-slate-700">
                   <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                  <span>{getSelectedDateLabel()}
-                    <input
-                      type="date"
-                      value={selectedDate}
-                      onChange={e => {
-                        setSelectedDate(e.target.value);
-                        setSelectedTimeFilter('');
-                      }}
-                      className="bg-transparent text-xs font-black text-slate-800 focus:outline-none cursor-pointer"
-                    />
-                  </span>
+                  <span>{getSelectedDateLabel()}</span>
                 </div>
                 <button 
                   onClick={handleNextDate}
