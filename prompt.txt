@@ -1,0 +1,33 @@
+I am integrating a real backend API into my `AdminBookingsPage.jsx` component. We already have a fully designed and working UI table layout. 
+
+Please strictly modify ONLY the data mapping pipeline (`allBookingsMapped`) to feed the API array into our current view framework. Do not change any component structure, Tailwind styles, or Lucide icons. 
+
+Based on the columns shown in our UI layout, parse the fields from the new API structure into the matching format placeholders below:
+
+1. New API Structure Example:
+{
+  "bookingCode": "string",
+  "customerName": "string",
+  "customerPhone": "string",
+  "licensePlate": "string",
+  "model": "string",
+  "bookingDate": "2026-07-15",
+  "startTime": { "hour": 14, "minute": 30 },
+  "finalAmount": 150000,
+  "status": "PENDING",
+  "items": [
+    { "serviceNameSnapshot": "string" }
+  ]
+}
+
+2. Map strictly to these active fields used by the UI row loop:
+- [MÃ ĐƠN / QR] -> `b.id` = `b.bookingCode`
+- [GIỜ HẸN] -> `b.slotTime` = formatted string from `b.startTime.hour` and `b.startTime.minute` (e.g., "14:30")
+- [KHÁCH HÀNG & SĐT] -> `b.customer.name` = `b.customerName` & `b.customer.phone` = `b.customerPhone` (Keep standard fallbacks like avatar intact)
+- [XE MÁY & BIẾN SỐ] -> `b.vehicle.model` = `b.model` & `b.vehicle.plate` = `b.licensePlate`
+- [GÓI DỊCH VỤ] -> `b.service.name` = `b.items[0]?.serviceNameSnapshot || 'N/A'`
+- [TỔNG TIỀN] -> `b.finalAmount` = `b.finalAmount`
+- [NGUỒN] -> `b.source` = Keep current logic or fallback string
+- [TRẠNG THÁI] -> `b.status` = Map status accurately ("PENDING" -> "Pending", "COMPLETED" -> "Completed", "CANCELED" -> "Canceled") to trigger the current color badge states.
+
+Please provide only the refactored `getAllBookings` function and `allBookingsMapped` variable definition block so I can copy-paste it manually.

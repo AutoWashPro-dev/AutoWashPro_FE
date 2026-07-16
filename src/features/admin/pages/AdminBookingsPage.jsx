@@ -140,7 +140,7 @@ export default function AdminBookingsPage() {
 
   // 2. Load data from localStorage
 
-  const [selectedDate, setSelectedDate] = useState(() => getLocalDateString());;
+  const [selectedDate, setSelectedDate] = useState(() => getLocalDateString());
   const [bookingsDb, setBookingsDb] = useState({});
   const [customersDb, setCustomersDb] = useState([]);
   const [loyaltySettings, setLoyaltySettings] = useState({});
@@ -216,11 +216,15 @@ export default function AdminBookingsPage() {
       } else {
         apiList = await bookingAdminApi.getBookings(selectedDate);
       }
+      console.log(`🚀 [API] Danh sách đơn ngày ${selectedDate}:`, apiList);
 
       // Chỉ cập nhật nếu đây là request cuối cùng (tránh lỗi bấm nhanh bị đơ/loạn)
-      if (isCurrentRequest && apiList) {
-        // Dùng Map để lọc sạch mọi phần tử trùng ID trong mảng trả về từ API
-        const uniqueApiList = Array.from(new Map(apiList.map(item => [item.id, item])).values());
+      if (isCurrentRequest && Array.isArray(apiList)) {
+        // Dùng Map để lọc sạch mọi phần tử trùng ID trong mảng trả về từ API.
+        // Backend trả về flat array với bookingCode thay vì id.
+        const uniqueApiList = Array.from(
+          new Map(apiList.map(item => [item.bookingCode || item.id || String(item.bookingId || ''), item])).values()
+        );
         
         setBookingsDb({
           ...bookings,          // Dữ liệu gốc từ localStorage
@@ -328,27 +332,44 @@ export default function AdminBookingsPage() {
 
   const isRestoreAllowed = (booking) => {
     if (!booking) return false;
-    const statusLower = (booking.status || '').toLowerCase();
-    if (statusLower !== 'canceled' && statusLower !== 'cancelled_no_show') return false;
-    
+    const statusUpper = (booking.status || '').toUpperCase();
+    if (statusUpper !== 'CANCELLED_NO_SHOW' && statusUpper !== 'CANCELED') return false;
+
     const todayStr = new Date().toISOString().split('T')[0];
     if (booking.bookingDate !== todayStr) return false;
-    
-    if (!booking.endTime) return false;
-    
-    const [endHour, endMin] = booking.endTime.split(':').map(Number);
-    const end = new Date();
-    end.setHours(endHour, endMin, 0, 0);
-    
-    return new Date() <= end;
+
+    if (!booking.slotTime) return false;
+    const startTimeStr = booking.slotTime.split(' - ')[0];
+    const [slotHour, slotMin] = startTimeStr.split(':').map(Number);
+    if (isNaN(slotHour) || isNaN(slotMin)) return false;
+
+    const slotStart = new Date();
+    slotStart.setHours(slotHour, slotMin, 0, 0);
+    const diffMinutes = (new Date() - slotStart) / 60000;
+
+    return diffMinutes > 5 && diffMinutes <= 10;
   };
 
   const handleCheckinLate = async (bookingId) => {
     try {
       await bookingAdminApi.checkinLate(bookingId);
-      alert("Khôi phục và Check-in trễ thành công!");
-      // Reload bookings list
-      setSelectedDate(selectedDate);
+
+      setBookingsDb(prev => {
+        const updated = { ...prev };
+        const dateKey = selectedDate;
+        if (updated[dateKey]) {
+          updated[dateKey] = updated[dateKey].map(b => {
+            const currentId = b.bookingCode || b.id || String(b.bookingId || '');
+            if (currentId === bookingId) {
+              return { ...b, status: 'Pending', paymentStatus: 'UNPAID' };
+            }
+            return b;
+          });
+        }
+        return updated;
+      });
+
+      alert("Khôi phục đơn trễ thành công! Trạng thái đơn đã chuyển về PENDING. Hãy tiến hành thanh toán cho khách tai quầy.");
       setViewMode('list');
     } catch (err) {
       alert("Lỗi check-in trễ: " + (err.response?.data?.message || err.message));
@@ -477,85 +498,90 @@ export default function AdminBookingsPage() {
 const getAllBookings = () => {
   const allMap = new Map();
 
-  Object.keys(bookingsDb).forEach((dateKey) => {
-    const list = bookingsDb[dateKey] || [];
-    list.forEach((b) => {
-      if (!b) return;
+  // Kiểm tra xem bookingsDb[selectedDate] có phải là mảng phẳng từ API trả về không
+  const currentList = bookingsDb[selectedDate] || [];
+  
+  // Nếu hệ thống đang lưu dạng Object ngày cũ (Mock), ta gộp lại, ngược lại xử lý mảng phẳng từ API
+  const sourceData = Array.isArray(currentList) ? currentList : Object.values(bookingsDb).flat();
 
-      const normalizedBooking = {
-        ...b,
-        id: b.id || b.bookingCode || `API-${dateKey}-${Math.random().toString(36).slice(2, 8)}`,
-        bookingDate: b.bookingDate || dateKey,
-        slotTime: b.slotTime || (() => {
-          const startTime = b.startTime || {};
-          const hour = String(startTime.hour ?? '').padStart(2, '0');
-          const minute = String(startTime.minute ?? '').padStart(2, '0');
-          return hour && minute ? `${hour}:${minute}` : '';
-        })(),
-        customer: {
-          ...(b.customer || {}),
-          name: b.customer?.name || b.customerName || 'Khách hàng vãng lai',
-          phone: b.customer?.phone || b.customerPhone || '',
-          tier: b.customer?.tier || 'Member',
-          points: b.customer?.points || 0,
-          avatar: b.customer?.avatar || 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&q=80&w=100'
-        },
-        vehicle: {
-          ...(b.vehicle || {}),
-          model: b.vehicle?.model || b.model || 'N/A',
-          plate: b.vehicle?.plate || b.licensePlate || 'N/A'
-        },
-        service: {
-          ...(b.service || {}),
-          name: b.service?.name || b.items?.[0]?.serviceNameSnapshot || 'N/A'
-        },
-        finalAmount: Number(b.finalAmount ?? b.service?.price ?? 0),
-        source: b.source || 'API',
-        status: (() => {
-          const normalizedStatus = String(b.status || '').toUpperCase();
-          if (normalizedStatus === 'PENDING') return 'Pending';
-          if (normalizedStatus === 'COMPLETED') return 'Completed';
-          if (normalizedStatus === 'CANCELED' || normalizedStatus === 'CANCELLED') return 'Canceled';
-          return b.status || 'Pending';
-        })(),
-        custId: b.custId || b.customerId || b.customer?.id || b.id || `API-${dateKey}`
-      };
+  sourceData.forEach((b) => {
+    if (!b) return;
 
-      if (normalizedBooking.id) {
-        allMap.set(normalizedBooking.id, normalizedBooking);
-      }
-    });
+    // Lấy bookingCode xịn từ API (như 'NV-1002'), nếu không có thì fallback về id/bookingId
+    const stringId = b.bookingCode || b.id || String(b.bookingId || '');
+    if (!stringId) return;
+
+    // Xử lý chuyển đổi object startTime từ API {hour: 14, minute: 30} thành chuỗi "14:30"
+    let formattedSlotTime = b.slotTime || '';
+    if (b.startTime && typeof b.startTime === 'object') {
+      const hour = String(b.startTime.hour ?? '').padStart(2, '0');
+      const minute = String(b.startTime.minute ?? '').padStart(2, '0');
+      if (hour && minute) formattedSlotTime = `${hour}:${minute}`;
+    }
+
+    const normalizedBooking = {
+      ...b,
+      id: stringId,
+      bookingDate: b.bookingDate || selectedDate, // Ép ngày booking trùng với ngày đang chọn của POS
+      slotTime: formattedSlotTime || '08:00',
+      customer: {
+        name: b.customerName || 'Khách hàng vãng lai',
+        phone: b.customerPhone || '',
+        tier: 'Member',
+        points: 0,
+        avatar: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&q=80&w=100'
+      },
+      vehicle: {
+        type: 'Xe máy',
+        model: b.model || 'N/A',
+        plate: b.licensePlate || 'N/A'
+      },
+      service: {
+        name: b.items?.[0]?.serviceNameSnapshot || 'Dịch vụ dọn xe',
+        price: Number(b.finalAmount || b.totalEstimatedAmount || 0)
+      },
+      finalAmount: Number(b.finalAmount || 0),
+      source: b.source || 'APP',
+      status: (() => {
+        const s = String(b.status || '').toUpperCase();
+        if (s === 'PENDING') return 'Pending';
+        if (s === 'COMPLETED') return 'Completed';
+        if (s === 'CANCELED' || s === 'CANCELLED') return 'Canceled';
+        return b.status || 'Pending';
+      })(),
+      custId: b.customerId || ''
+    };
+
+    allMap.set(stringId, normalizedBooking);
   });
 
   return Array.from(allMap.values());
 };
 
-const allBookingsMapped = getAllBookings().map((b) => {
-  const customerMatch = customersDb.find((c) => c.id === b.custId) || customersDb.find((c) => c.name === b.customer?.name);
-  const customer = customerMatch || {
-    name: b.customer?.name || 'Khách hàng vãng lai',
-    phone: b.customer?.phone || '',
+// Giữ nguyên đoạn này để đồng bộ map với CRM Local của bạn
+const allBookingsMapped = getAllBookings().map(b => {
+  const customer = customersDb.find(c => String(c.id) === String(b.custId)) || {
+    name: b.customer.name,
+    phone: b.customer.phone,
     tier: 'Member',
     points: 0,
-    avatar: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&q=80&w=100'
+    avatar: b.customer.avatar
   };
+  
+  return { 
+    ...b, 
+    customer: { 
+      ...customer, 
+      name: b.customer.name,
+      phone: b.customer.phone,
+      displayPhone: b.customer.phone || customer.phone || ''
+    } 
+  };
+});
 
-  const displayPhone = customer.phone || b.customer?.phone || '';
 
-  return {
-    ...b,
-    customer: {
-      ...customer,
-      ...b.customer,
-      name: b.customer?.name || customer.name,
-      phone: b.customer?.phone || customer.phone,
-      displayPhone,
-      avatar: customer.avatar || b.customer?.avatar || 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&q=80&w=100'
-    }
-
-// Nguồn dữ liệu hiển thị (Đồng bộ theo ngày đang được chọn)
-const activeBookingsSource = bookingsForDate;
-  const heatmapForDate = heatmapDb[selectedDate] || [];
+  const bookingsForDate = allBookingsMapped.filter(b => b.bookingDate === selectedDate);
+  const activeBookingsSource = bookingsForDate;
   const selectedBooking = allBookingsMapped.find(b => b.id === selectedBookingId) || null;
 
   // States inside checkout detail view
@@ -564,8 +590,8 @@ const activeBookingsSource = bookingsForDate;
   const [tempPaymentMethod, setTempPaymentMethod] = useState('Cash');
   const [cancelReasonText, setCancelReasonText] = useState('');
   const [isCanceling, setIsCanceling] = useState(false);
-const [showSuccessModal, setShowSuccessModal] = useState(false);
-const [successModalData, setSuccessModalData] = useState(null);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successModalData, setSuccessModalData] = useState(null);
 
   // Load dynamic rates from Settings
   const baseSpendToEarnPoint = loyaltySettings.baseSpend || 10000;
@@ -698,7 +724,6 @@ const [successModalData, setSuccessModalData] = useState(null);
         notes: selectedBooking.notes
       });
 
-      alert(`Thanh toán & hoàn tất đơn dọn xe thành công!`);
     } catch (err) {
       console.warn('API checkout error, falling back to localStorage:', err.message);
     }
@@ -842,27 +867,36 @@ const [successModalData, setSuccessModalData] = useState(null);
 
   // Filter Bookings logic (E2E Toàn Cục hỗ trợ tìm kiếm chéo ngày)
   const filteredBookings = activeBookingsSource.filter(b => {
-    const matchesSearch = 
-      b.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      b.customer.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      b.customer.phone.includes(searchQuery) ||
-      (b.customer.displayPhone && b.customer.displayPhone.includes(searchQuery)) ||
-      b.vehicle.plate.toLowerCase().includes(searchQuery.toLowerCase());
+  // Bổ sung kiểm tra an toàn (Optional Chaining ?. và || '') để không bao giờ bị crash
+  const bookingIdStr = String(b.id || b.bookingCode || '').toLowerCase();
+  const customerNameStr = String(b.customer?.name || b.customerName || '').toLowerCase();
+  const customerPhoneStr = String(b.customer?.phone || b.customerPhone || '');
+  const displayPhoneStr = String(b.customer?.displayPhone || '').toLowerCase();
+  const vehiclePlateStr = String(b.vehicle?.plate || b.licensePlate || '').toLowerCase();
 
-    const matchesTime = !selectedTimeFilter || b.slotTime.startsWith(selectedTimeFilter.split(':')[0]);
+  const matchesSearch = 
+    bookingIdStr.includes(searchQuery.toLowerCase()) ||
+    customerNameStr.includes(searchQuery.toLowerCase()) ||
+    customerPhoneStr.includes(searchQuery) ||
+    displayPhoneStr.includes(searchQuery.toLowerCase()) ||
+    vehiclePlateStr.includes(searchQuery.toLowerCase());
 
-    if (!matchesSearch || !matchesTime) return false;
+  const matchesTime = !selectedTimeFilter || (b.slotTime && b.slotTime.startsWith(selectedTimeFilter.split(':')[0]));
 
-    if (activeMainTab === 'queue') {
-      if (b.status !== 'Pending') return false;
-    } else {
-      if (b.status !== 'Completed' && b.status !== 'Canceled') return false;
-      if (historySubFilter === 'Completed' && b.status !== 'Completed') return false;
-      if (historySubFilter === 'Canceled' && b.status !== 'Canceled') return false;
-    }
+  if (!matchesSearch || !matchesTime) return false;
 
-    return true;
-  });
+  // Giữ nguyên phần logic lọc theo tab phía dưới của bạn
+  const statusUpper = String(b.status || '').toUpperCase();
+  if (activeMainTab === 'queue') {
+    if (statusUpper !== 'PENDING') return false;
+  } else {
+    if (statusUpper !== 'COMPLETED' && statusUpper !== 'CANCELED' && statusUpper !== 'CANCELLED_NO_SHOW') return false;
+    if (historySubFilter === 'Completed' && statusUpper !== 'COMPLETED') return false;
+    if (historySubFilter === 'Canceled' && statusUpper !== 'CANCELED' && statusUpper !== 'CANCELLED_NO_SHOW') return false;
+  }
+
+  return true;
+});
 
   return (
     <div className="flex flex-col h-full bg-[#f7fafd] text-slate-800 p-5 overflow-hidden">
@@ -881,6 +915,34 @@ const [successModalData, setSuccessModalData] = useState(null);
                 <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
                 <span>Khách tự đặt lịch qua App. Quầy không tạo đơn thủ công và không có luồng khoang rửa.</span>
               </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handlePrevDate}
+                className="p-1.5 hover:bg-slate-100 rounded-lg border border-slate-200 text-slate-650 transition-colors cursor-pointer"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-bold text-slate-700 min-w-[220px]">
+                <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                <span className="min-w-[90px] text-slate-600 text-[11px]">{getSelectedDateLabel()}</span>
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={e => {
+                    setSelectedDate(e.target.value);
+                    setSelectedTimeFilter('');
+                  }}
+                  className="w-[130px] bg-transparent text-xs font-black text-slate-800 focus:outline-none cursor-pointer"
+                />
+              </div>
+              <button
+                onClick={handleNextDate}
+                className="p-1.5 hover:bg-slate-100 rounded-lg border border-slate-200 text-slate-650 transition-colors cursor-pointer"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
             </div>
             
             {/* Date selector */}
@@ -1033,13 +1095,21 @@ const [successModalData, setSuccessModalData] = useState(null);
                           </td>
                           <td className="py-3.5 px-3">
                             <div className="flex items-center gap-2">
-                              <img src={b.customer.avatar} alt="Avatar" className="w-6.5 h-6.5 rounded-full object-cover ring-1 ring-slate-200" />
+                              <img 
+                                src={b.customer?.avatar || 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&q=80&w=100'} 
+                                alt="Avatar" 
+                                className="w-6.5 h-6.5 rounded-full object-cover ring-1 ring-slate-200" 
+                              />
                               <div className="flex flex-col">
                                 <span className="font-extrabold text-slate-700 flex items-center gap-1">
-                                  {b.customer.name}
-                                  <span className="px-1.5 py-0.2 bg-[#57f287] text-slate-800 text-[7px] font-black rounded">{b.customer.tier}</span>
+                                  {b.customer?.name || b.customerName || 'Khách hàng vãng lai'}
+                                  <span className="px-1.5 py-0.2 bg-[#57f287] text-slate-800 text-[7px] font-black rounded">
+                                    {b.customer?.tier || 'Member'}
+                                  </span>
                                 </span>
-                                <span className="text-[9px] text-slate-400 font-semibold">{b.customer.phone}</span>
+                                <span className="text-[9px] text-slate-400 font-semibold">
+                                  {b.customer?.phone || b.customerPhone || 'Không có SĐT'}
+                                </span>
                               </div>
                             </div>
                           </td>
@@ -1093,38 +1163,11 @@ const [successModalData, setSuccessModalData] = useState(null);
             <div className="p-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50/50">
               <div className="flex items-center gap-2 text-slate-800 font-bold">
                 <ClipboardList className="w-5 h-5 text-indigo-600" />
-                <span className="font-outfit tracking-tight">Chọn ngày giám sát</span>
+                <span className="font-outfit tracking-tight">Ngày giám sát</span>
               </div>
               
               {/* Date Navigator */}
-              <div className="flex items-center gap-2">
-                <button 
-                  onClick={handlePrevDate}
-                  className="p-1.5 hover:bg-slate-100 rounded-lg border border-slate-200 text-slate-650 transition-colors cursor-pointer"
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
-                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-bold text-slate-700">
-                  <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                  <span>{getSelectedDateLabel()}
-                    <input
-                      type="date"
-                      value={selectedDate}
-                      onChange={e => {
-                        setSelectedDate(e.target.value);
-                        setSelectedTimeFilter('');
-                      }}
-                      className="bg-transparent text-xs font-black text-slate-800 focus:outline-none cursor-pointer"
-                    />
-                  </span>
-                </div>
-                <button 
-                  onClick={handleNextDate}
-                  className="p-1.5 hover:bg-slate-100 rounded-lg border border-slate-200 text-slate-650 transition-colors cursor-pointer"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </button>
-              </div>
+              
             </div>
 
             {/* Slots Table */}
@@ -1443,13 +1486,14 @@ const [successModalData, setSuccessModalData] = useState(null);
 
                       {/* Restore and Check-in late button */}
                       {isRestoreAllowed(selectedBooking) && (
-                        <button
-                          onClick={() => handleCheckinLate(selectedBooking.id || selectedBooking.bookingId)}
-                          className="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white text-xs font-black py-2.5 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer font-outfit"
-                        >
-                          <Play className="w-4 h-4" />
-                          Khôi phục & Check-in Trễ
-                        </button>
+                          <button
+                            onClick={() => handleCheckinLate(selectedBooking.id || selectedBooking.bookingId)}
+                            className="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white text-xs font-black py-2.5
+                        px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer font-outfit"
+                          >
+                            <Play className="w-4 h-4" />
+                            Khôi phục đơn & Đợi thanh toán quầy
+                          </button>
                       )}
                     </div>
                   )}

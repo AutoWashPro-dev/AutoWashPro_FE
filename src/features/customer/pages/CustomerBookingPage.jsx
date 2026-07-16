@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import VehicleCard from '../components/VehicleCard';
 import { customerApi } from '../services/customerApi';
+import axios from 'axios';
 
 export default function CustomerBookingPage() {
   const navigate = useNavigate();
@@ -162,6 +163,9 @@ export default function CustomerBookingPage() {
             slotId: s.slotId,
             time: timeFormatted,
             available: s.isAvailable,
+            bookedCount: s.bookedCount ?? 0,
+            maxCapacity: s.maxCapacity ?? 0,
+            availableCapacity: s.availableCapacity ?? 0,
             reason: s.disabledReason === "FULL" ? "ĐẦY" : s.disabledReason === "PAST" ? "ĐÃ QUA" : s.disabledReason ? "T.DỪNG" : ""
           };
         });
@@ -215,7 +219,7 @@ export default function CustomerBookingPage() {
   useEffect(() => {
     loadUserHistory();
   }, [bookingTab]);
-
+  
   // Hủy lịch hẹn đặt trước trực tiếp từ bảng lịch sử
   const handleCancelBooking = async (bookingId) => {
     const confirmCancel = window.confirm(`Bạn có chắc chắn muốn hủy lịch hẹn mã #${bookingId} không?`);
@@ -391,33 +395,59 @@ export default function CustomerBookingPage() {
       return;
     }
 
+    const trimmedLicensePlate = String(selectedVehicle.licensePlate || '').trim().toUpperCase();
+    const trimmedModel = String(selectedVehicle.model || '').trim();
+
+    if (!trimmedLicensePlate) {
+      alert('Vui lòng chọn xe có biển số hợp lệ.');
+      return;
+    }
+    if (!trimmedModel) {
+      alert('Vui lòng chọn xe có model hợp lệ.');
+      return;
+    }
+
+    const selectedPackageId = Number(selectedPackage?.id || selectedPackage?.serviceId || 0);
+    if (!selectedPackageId) {
+      alert('Không tìm thấy gói dịch vụ. Vui lòng chọn lại.');
+      return;
+    }
+    const selectedSlot = timeSlots.find(s => s.slotId === selectedTimeSlotId || s.time === selectedTime);
+if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || selectedSlot.availableCapacity <= 0)) {
+      alert("Khung giờ này hiện đã đầy công suất dọn rửa! Rất tiếc vì sự bất tiện này, mong quý khách vui lòng chọn một khung giờ khác.");
+      return;
+    }
     setIsSubmitting(true);
 
     const bookingData = {
-      licensePlate: selectedVehicle.licensePlate,
-      model: selectedVehicle.model,
+      licensePlate: trimmedLicensePlate,
+      model: trimmedModel,
       bookingDate: selectedDate,
-      timeSlotId: selectedTimeSlotId || 1,
-      packageId: selectedPackage.id,
-      addonIds: selectedAddons,
-      notes: "Đặt qua Mobile App",
-      voucherCode: selectedVoucher ? selectedVoucher.voucherCode : null
+      timeSlotId: Number(selectedTimeSlotId || 1),
+      packageId: selectedPackageId,
+      addonIds: selectedAddons || [],
+      notes: selectedVoucher ? `Áp dụng voucher ${selectedVoucher.voucherCode}` : 'Đặt qua Mobile App',
+      voucherCode: selectedVoucher?.voucherCode || ''
     };
 
     try {
-      const createdBooking = await customerApi.createBooking(bookingData);
-      alert(`Đặt lịch thành công! Mã đơn của bạn là: ${createdBooking.bookingCode}. Hãy đến trạm đúng giờ hẹn.`);
+      const token = localStorage.getItem('autowash_token');
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const response = await axios.post('/api/v1/customer/bookings', bookingData, { headers });
+      const createdBooking = response.data;
+
+      alert(`Đặt lịch thành công! Mã đơn của bạn là: ${createdBooking.bookingCode || createdBooking.id}. Hãy đến trạm đúng giờ hẹn.`);
 
       // Sync local history fallback
       setUserHistory(prev => [
         {
-          id: createdBooking.bookingId,
-          bookingCode: createdBooking.bookingCode,
+          id: createdBooking.bookingId || createdBooking.id,
+          bookingCode: createdBooking.bookingCode || createdBooking.id,
           date: selectedDate,
           time: selectedTime,
           packageName: selectedPackage.name,
-          licensePlate: selectedVehicle.licensePlate,
-          model: selectedVehicle.model,
+          licensePlate: trimmedLicensePlate,
+          model: trimmedModel,
           finalAmount: createdBooking.finalAmount || (calculateTotalAmount() - calculateDiscount()),
           status: 'Pending'
         },
@@ -428,13 +458,14 @@ export default function CustomerBookingPage() {
       setSelectedVoucher(null);
       setSelectedTime("");
       setSelectedTimeSlotId(null);
-      
+
       setBookingTab('history');
       await loadUserHistory();
-      await loadCustomerVouchers(); // Refresh user vouchers after using one!
+      await loadCustomerVouchers();
     } catch (err) {
       console.error('Failed to create booking:', err);
-      alert('Đã xảy ra lỗi khi tạo đơn đặt lịch: ' + (err.response?.data?.message || err.message));
+      const message = err.response?.data?.message || err.response?.data?.error || err.message || 'Không thể lưu đặt lịch. Vui lòng thử lại.';
+      alert('Đã xảy ra lỗi khi tạo đơn đặt lịch: ' + message);
     } finally {
       setIsSubmitting(false);
     }
@@ -625,24 +656,25 @@ export default function CustomerBookingPage() {
                   <div className="grid grid-cols-3 gap-2">
                     {timeSlots.map(slot => (
                       <button
-                        key={slot.time}
-                        disabled={!slot.available}
-                        onClick={() => { setSelectedTime(slot.time); setSelectedTimeSlotId(slot.slotId); }}
-                        className={`py-2 px-1 text-[11px] font-bold rounded-xl border transition-all flex flex-col items-center justify-center min-h-[50px] ${
-                          selectedTime === slot.time
-                            ? 'bg-blue-600 text-white border-blue-600'
-                            : slot.available
-                              ? 'bg-white text-slate-700 border-slate-200 hover:border-blue-500 hover:text-blue-600'
-                              : 'bg-slate-100 text-slate-350 border-slate-150 cursor-not-allowed'
-                        }`}
-                      >
-                        <span>{slot.time}</span>
-                        {slot.reason && (
-                          <span className="text-[8px] font-extrabold uppercase mt-0.5 text-red-500">
-                            {slot.reason}
-                          </span>
-                        )}
-                      </button>
+                          key={slot.time}
+                          disabled={slot.bookedCount >= slot.maxCapacity || slot.availableCapacity <= 0}
+                          onClick={() => { setSelectedTime(slot.time); setSelectedTimeSlotId(slot.slotId); }}
+                          className={`py-2 px-1 text-[11px] font-bold rounded-xl border transition-all flex flex-col items-center
+                        justify-center min-h-[50px] ${
+                            selectedTime === slot.time
+                              ? 'bg-blue-600 text-white border-blue-600'
+                              : (slot.bookedCount >= slot.maxCapacity || slot.availableCapacity <= 0)
+                                ? 'bg-slate-100 text-slate-300 border-slate-150 cursor-not-allowed'
+                                : 'bg-white text-slate-700 border-slate-200 hover:border-blue-500 hover:text-blue-600'
+                          }`}
+                        >
+                          <span>{slot.time}</span>
+                          {(slot.bookedCount >= slot.maxCapacity || slot.availableCapacity <= 0) && (
+                                <span className="text-[8px] font-extrabold uppercase mt-0.5 text-red-500">
+                                  ĐẦY
+                                </span>
+                              )}
+                        </button>
                     ))}
                   </div>
                 </div>
