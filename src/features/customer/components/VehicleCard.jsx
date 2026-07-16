@@ -26,16 +26,28 @@ export default function VehicleCard({ vehicle, isDefault, onSelect, onEdit, onDe
         </div>
       </div>
       
-      {/* Nút thao tác khi hiển thị trong Ga-ra */}
-      {!isSelectable && (onEdit || onDelete) && (
-        <div className="flex justify-end gap-2 mt-4 pt-3 border-t border-slate-100">
+      {/* Nút thao tác cho chỉnh sửa / xóa xe */}
+      {(onEdit || onDelete) && (
+        <div className="mt-4 flex justify-end gap-2 border-t border-slate-100 pt-3">
           {onEdit && (
-            <button onClick={() => onEdit(vehicle)} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-slate-50 rounded">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit(vehicle);
+              }}
+              className="rounded p-1.5 text-slate-500 transition hover:bg-slate-50 hover:text-blue-600"
+            >
               <Edit2 size={14} />
             </button>
           )}
           {onDelete && (
-            <button onClick={() => onDelete(vehicle)} className="p-1.5 text-slate-500 hover:text-red-600 hover:bg-slate-50 rounded">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete(vehicle);
+              }}
+              className="rounded p-1.5 text-slate-500 transition hover:bg-slate-50 hover:text-red-600"
+            >
               <Trash2 size={14} />
             </button>
           )}

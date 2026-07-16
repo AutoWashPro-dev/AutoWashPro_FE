@@ -218,19 +218,6 @@ export default function CustomerGaragePage() {
                 />
               </div>
 
-              {/* Phân loại xe máy */}
-              <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">Phân loại xe</label>
-                <select 
-                  value={vehicleType}
-                  onChange={(e) => setVehicleType(e.target.value)}
-                  className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white"
-                >
-                  <option value="Scooter">Xe Tay Ga (Scooter)</option>
-                  <option value="Manual">Xe Số / Xe Côn Tay (Manual)</option>
-                  <option value="PKL">Xe Phân Khối Lớn (PKL)</option>
-                </select>
-              </div>
 
               {/* Checkbox đặt mặc định */}
               <div className="flex items-center gap-2 pt-2">

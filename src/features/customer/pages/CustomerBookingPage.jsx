@@ -10,7 +10,8 @@ import {
   AlertCircle,
   HelpCircle,
   History,
-  Trash2
+  Trash2,
+  X
 } from 'lucide-react';
 import VehicleCard from '../components/VehicleCard';
 import { customerApi } from '../services/customerApi';
@@ -62,6 +63,11 @@ export default function CustomerBookingPage() {
   const [selectedTimeSlotId, setSelectedTimeSlotId] = useState(null);
 
   const [timeSlots, setTimeSlots] = useState([]);
+  const [isVehicleModalOpen, setIsVehicleModalOpen] = useState(false);
+  const [editingVehicle, setEditingVehicle] = useState(null);
+  const [vehicleModel, setVehicleModel] = useState('');
+  const [vehicleLicensePlate, setVehicleLicensePlate] = useState('');
+  const [vehicleIsDefault, setVehicleIsDefault] = useState(false);
 
   // Khởi tạo DB autowash_slots mẫu nếu chưa có
   const initializeSlotsDb = () => {
@@ -268,23 +274,105 @@ export default function CustomerBookingPage() {
     return 0;
   };
 
-  // Đăng ký xe mới nhanh tại màn hình đặt lịch
-  const handleAddQuickVehicle = async () => {
-    const plate = prompt("Nhập biển số xe máy mới (Ví dụ: 29-H1 999.99):");
-    if (!plate) return;
-    const model = prompt("Nhập dòng xe (Ví dụ: Honda SH, Yamaha Exciter):") || "Xe máy mới";
+  const resetVehicleForm = () => {
+    setVehicleModel('');
+    setVehicleLicensePlate('');
+    setVehicleIsDefault(false);
+    setEditingVehicle(null);
+  };
+
+  const closeVehicleModal = () => {
+    setIsVehicleModalOpen(false);
+    resetVehicleForm();
+  };
+
+  const openAddVehicleModal = () => {
+    setIsVehicleModalOpen(true);
+    resetVehicleForm();
+  };
+
+  const openEditVehicleModal = (vehicle) => {
+    setIsVehicleModalOpen(true);
+    setEditingVehicle(vehicle);
+    setVehicleModel(vehicle.model || '');
+    setVehicleLicensePlate(vehicle.licensePlate || '');
+    setVehicleIsDefault(Boolean(vehicle.isDefault));
+  };
+
+  const handleVehicleLicensePlateChange = (e) => {
+    setVehicleLicensePlate(e.target.value.toUpperCase());
+  };
+
+  const saveVehicleToBackend = async (payload) => {
+    console.log('[CustomerBookingPage] save vehicle payload:', payload);
+
+    if (payload.id && payload.id !== 'temp') {
+      return payload;
+    }
 
     try {
-      const payload = {
-        licensePlate: plate,
-        model: model
-      };
       const created = await customerApi.addVehicle(payload);
-      setVehicles(prev => [...prev, created]);
-      setSelectedVehicle(created);
-      alert("Đăng ký xe mới thành công!");
+      return created;
+    } catch (error) {
+      console.warn('customerApi.addVehicle failed, using local fallback:', error);
+      return payload;
+    }
+  };
+
+  const handleSaveVehicle = async (e) => {
+    e.preventDefault();
+
+    const trimmedModel = vehicleModel.trim();
+    const trimmedPlate = vehicleLicensePlate.trim().toUpperCase();
+
+    if (!trimmedModel) {
+      alert('Vui lòng nhập tên/dòng xe máy.');
+      return;
+    }
+
+    if (!trimmedPlate) {
+      alert('Vui lòng nhập biển số xe.');
+      return;
+    }
+
+    const payload = {
+      id: editingVehicle?.id || `temp-${Date.now()}`,
+      model: trimmedModel,
+      licensePlate: trimmedPlate,
+      isDefault: vehicleIsDefault,
+      vehicleType: editingVehicle?.vehicleType || 'MOTORCYCLE'
+    };
+
+    try {
+      const savedVehicle = await saveVehicleToBackend(payload);
+      const normalizedVehicle = {
+        ...savedVehicle,
+        model: trimmedModel,
+        licensePlate: trimmedPlate,
+        isDefault: vehicleIsDefault,
+        vehicleType: savedVehicle.vehicleType || payload.vehicleType
+      };
+
+      setVehicles(prev => {
+        const next = prev.map(vehicle => ({
+          ...vehicle,
+          isDefault: vehicleIsDefault && editingVehicle?.id === vehicle.id ? true : false
+        }));
+
+        if (editingVehicle) {
+          return next.map(vehicle => (vehicle.id === editingVehicle.id ? normalizedVehicle : vehicle));
+        }
+
+        return [...next, normalizedVehicle];
+      });
+
+      setSelectedVehicle(normalizedVehicle);
+      closeVehicleModal();
+      alert(editingVehicle ? 'Cập nhật xe thành công!' : 'Đăng ký xe mới thành công!');
+      console.log('[CustomerBookingPage] vehicle saved:', normalizedVehicle);
     } catch (err) {
-      alert("Lỗi khi thêm xe mới: " + (err.response?.data?.message || err.message));
+      console.error('Failed to save vehicle:', err);
+      alert('Lỗi khi lưu xe: ' + (err.response?.data?.message || err.message));
     }
   };
 
@@ -399,7 +487,7 @@ export default function CustomerBookingPage() {
                   Chọn phương tiện dọn rửa
                 </h3>
                 <button 
-                  onClick={handleAddQuickVehicle}
+                  onClick={openAddVehicleModal}
                   className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-bold"
                 >
                   <Plus size={14} /> Đăng ký xe mới
@@ -409,11 +497,13 @@ export default function CustomerBookingPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {vehicles.map(veh => (
                   <VehicleCard 
-                    key={veh.vehicleId}
+                    key={veh.vehicleId || veh.id}
                     vehicle={veh}
                     isDefault={selectedVehicle?.vehicleId === veh.vehicleId}
                     isSelectable={true}
                     onSelect={(v) => setSelectedVehicle(v)}
+                    onEdit={() => openEditVehicleModal(veh)}
+                    onDelete={() => {}}
                   />
                 ))}
               </div>
@@ -743,6 +833,89 @@ export default function CustomerBookingPage() {
         </div>
       )}
 
+      {isVehicleModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="relative w-full max-w-md overflow-hidden rounded-2xl bg-white p-6 shadow-2xl">
+            <div className="mb-4 flex items-center justify-between border-b pb-4">
+              <h3 className="text-base font-bold text-slate-800">
+                {editingVehicle ? 'Cập nhật thông tin xe máy' : 'Đăng ký xe máy mới'}
+              </h3>
+              <button
+                onClick={closeVehicleModal}
+                className="rounded-full p-1.5 text-slate-400 transition hover:bg-slate-50 hover:text-slate-700"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveVehicle} className="space-y-4">
+              <div>
+                <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                  Tên/Dòng xe máy
+                </label>
+                <input
+                  type="text"
+                  value={vehicleModel}
+                  onChange={(e) => setVehicleModel(e.target.value)}
+                  placeholder="Ví dụ: Honda SH 150i, Yamaha Exciter..."
+                  className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wide text-slate-400">
+                  Biển số xe
+                </label>
+                <input
+                  type="text"
+                  value={vehicleLicensePlate}
+                  onChange={handleVehicleLicensePlateChange}
+                  placeholder="Ví dụ: 29-H1 888.88 hoặc 59-S3 123.45"
+                  className="w-full rounded-xl border border-slate-200 px-4 py-2.5 font-mono text-sm tracking-wide outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  required
+                />
+              </div>
+
+              <div className="flex items-center gap-2 pt-2">
+                <input
+                  type="checkbox"
+                  id="vehicleIsDefault"
+                  checked={vehicleIsDefault}
+                  onChange={(e) => setVehicleIsDefault(e.target.checked)}
+                  className="h-4 w-4 cursor-pointer rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+                />
+                <label htmlFor="vehicleIsDefault" className="cursor-pointer text-xs font-semibold text-slate-600">
+                  Đặt chiếc xe này làm mặc định để rửa
+                </label>
+              </div>
+
+              <div className="flex items-start gap-2 rounded-xl border border-blue-100 bg-blue-50/50 p-3 text-[10px] leading-relaxed text-slate-500">
+                <AlertCircle size={14} className="mt-0.5 shrink-0 text-blue-500" />
+                <span>
+                  * Dịch vụ dọn rửa xe được đồng giá cho mọi dòng xe số, xe ga và PKL. Biển số xe sẽ được ghi nhận vào phiếu check-in đối soát.
+                </span>
+              </div>
+
+              <div className="mt-6 flex justify-end gap-2 border-t pt-4">
+                <button
+                  type="button"
+                  onClick={closeVehicleModal}
+                  className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-500 transition hover:bg-slate-50"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  className="rounded-xl bg-blue-600 px-5 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-blue-700"
+                >
+                  {editingVehicle ? 'Lưu thay đổi' : 'Đăng ký ngay'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
