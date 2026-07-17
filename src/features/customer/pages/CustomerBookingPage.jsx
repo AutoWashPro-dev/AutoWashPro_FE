@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   Calendar as CalendarIcon, 
@@ -21,26 +21,26 @@ import axios from 'axios';
 export default function CustomerBookingPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [bookingTab, setBookingTab] = useState('new'); // 'new' hoáº·c 'history'
+  const [bookingTab, setBookingTab] = useState('new'); // 'new' hoặc 'history'
 
-  // Máº«u dá»¯ liá»‡u xe mÃ¡y cá»§a khÃ¡ch hÃ ng
+  // Mẫu dữ liệu xe máy của khách hàng
   const [vehicles, setVehicles] = useState([]);
 
-  // GÃ³i dá»‹ch vá»¥ cá»‘t lÃµi (Core Packages) vÃ  giÃ¡ cÆ¡ báº£n (Base Price)
+  // Gói dịch vụ cốt lõi (Core Packages) và giá cơ bản (Base Price)
   const [corePackages, setCorePackages] = useState([
-    { id: 1, name: "GÃ³i Rá»­a Basic", basePrice: 50000, duration: "15 phÃºt", description: "Rá»­a vá» ngoÃ i, rá»­a xÃ­ch, xá»‹t gáº§m nháº¹, thá»•i khÃ´ vÃ  lau sáº¡ch gÆ°Æ¡ng kÃ­nh." },
-    { id: 2, name: "GÃ³i Rá»­a Premium", basePrice: 90000, duration: "30 phÃºt", description: "Rá»­a Basic káº¿t há»£p táº©y á»‘ dÃ n nhá»±a, dÆ°á»¡ng Ä‘en lá»‘p vÃ  phá»§ sÃ¡p bÃ³ng nháº¹ báº£o vá»‡ dÃ n Ã¡o." },
-    { id: 3, name: "GÃ³i Rá»­a Deluxe", basePrice: 150000, duration: "45 phÃºt", description: "Vá»‡ sinh chuyÃªn sÃ¢u xÃ­ch Ä‘Ä©a, phá»§ ceramic bÃ³ng kÃ­nh cao cáº¥p, dá»n khoang mÃ¡y bá»¥i Ä‘áº¥t lÃ¢u ngÃ y." }
+    { id: 1, name: "Gói Rửa Basic", basePrice: 50000, duration: "15 phút", description: "Rửa vỏ ngoài, rửa xích, xịt gầm nhẹ, thổi khô và lau sạch gương kính." },
+    { id: 2, name: "Gói Rửa Premium", basePrice: 90000, duration: "30 phút", description: "Rửa Basic kết hợp tẩy ố dàn nhựa, dưỡng đen lốp và phủ sáp bóng nhẹ bảo vệ dàn áo." },
+    { id: 3, name: "Gói Rửa Deluxe", basePrice: 150000, duration: "45 phút", description: "Vệ sinh chuyên sâu xích đĩa, phủ ceramic bóng kính cao cấp, dọn khoang máy bụi đất lâu ngày." }
   ]);
 
-  // Tiá»‡n Ã­ch cá»™ng thÃªm (Add-ons)
+  // Tiện ích cộng thêm (Add-ons)
   const [addonServices, setAddonServices] = useState([
-    { id: 10, name: "HÃºt bá»¥i & Dá»n cá»‘p xe", price: 30000, description: "HÃºt sáº¡ch bá»¥i cÃ¡t vÃ  lau hÃ³a cháº¥t báº£o vá»‡ nhá»±a lÃ²ng cá»‘p xe." },
-    { id: 11, name: "DÆ°á»¡ng lá»‘p bÃ³ng loÃ¡ng", price: 20000, description: "Xá»‹t dung dá»‹ch lÃ m Ä‘en vÃ  dÆ°á»¡ng cao su lá»‘p chá»‘ng ná»©t náº»." },
-    { id: 12, name: "Vá»‡ sinh sÃªn (xÃ­ch) chuyÃªn dá»¥ng", price: 40000, description: "Táº©y nhá»›t bÃ¡m sÃªn cÅ© báº±ng chai xá»‹t Motul vÃ  tra má»¡ dÆ°á»¡ng sÃªn má»›i." }
+    { id: 10, name: "Hút bụi & Dọn cốp xe", price: 30000, description: "Hút sạch bụi cát và lau hóa chất bảo vệ nhựa lòng cốp xe." },
+    { id: 11, name: "Dưỡng lốp bóng loáng", price: 20000, description: "Xịt dung dịch làm đen và dưỡng cao su lốp chống nứt nẻ." },
+    { id: 12, name: "Vệ sinh sên (xích) chuyên dụng", price: 40000, description: "Tẩy nhớt bám sên cũ bằng chai xịt Motul và tra mỡ dưỡng sên mới." }
   ]);
 
-  // Khung giá» gá»‘c máº«u Ä‘á»ƒ so khá»›p
+  // Khung giờ gốc mẫu để so khớp
   const defaultTimeSlots = [
     { time: "08:00", available: true },
     { time: "09:00", available: true },
@@ -53,7 +53,7 @@ export default function CustomerBookingPage() {
     { time: "16:00", available: true }
   ];
 
-  // CÃ¡c State quáº£n lÃ½ lá»±a chá»n cá»§a KhÃ¡ch hÃ ng
+  // Các State quản lý lựa chọn của Khách hàng
   const [selectedVehicle, setSelectedVehicle] = useState(null);
   const [selectedPackage, setSelectedPackage] = useState(null);
   const [selectedAddons, setSelectedAddons] = useState([]);
@@ -72,7 +72,7 @@ export default function CustomerBookingPage() {
   const [vehicleLicensePlate, setVehicleLicensePlate] = useState('');
   const [vehicleIsDefault, setVehicleIsDefault] = useState(false);
 
-  // Khá»Ÿi táº¡o DB autowash_slots máº«u náº¿u chÆ°a cÃ³
+  // Khởi tạo DB autowash_slots mẫu nếu chưa có
   const initializeSlotsDb = () => {
     if (!localStorage.getItem('autowash_slots')) {
       const initialSlots = [
@@ -152,14 +152,14 @@ export default function CustomerBookingPage() {
     loadServices();
   }, []);
 
-  // Xá»­ lÃ½ luá»“ng Ä‘áº·t dá»‹ch vá»¥ tá»± Ä‘á»™ng chá»n (tá»« trang Dashboard)
+  // Xử lý luồng đặt dịch vụ tự động chọn (từ trang Dashboard)
   useEffect(() => {
     const autoSelectServiceId = location.state?.autoSelectServiceId;
     if (autoSelectServiceId && corePackages.length > 0) {
       const pkgToSelect = corePackages.find(p => p.id === autoSelectServiceId);
       if (pkgToSelect) {
         setSelectedPackage(pkgToSelect);
-        // TrÃ¬ hoÃ£n má»™t chÃºt Ä‘á»ƒ Ä‘áº£m báº£o DOM Ä‘Ã£ render tráº¡ng thÃ¡i selected
+        // Trì hoãn một chút để đảm bảo DOM đã render trạng thái selected
         setTimeout(() => {
           const el = document.getElementById(`package-${pkgToSelect.id}`);
           if (el) {
@@ -170,14 +170,14 @@ export default function CustomerBookingPage() {
     }
   }, [location.state, corePackages]);
 
-  // Xá»­ lÃ½ tá»± Ä‘á»™ng má»Ÿ tab Lá»‹ch sá»­ (theo yÃªu cáº§u openHistoryModal tá»« Dashboard)
+  // Xử lý tự động mở tab Lịch sử (theo yêu cầu openHistoryModal từ Dashboard)
   useEffect(() => {
     if (location.state?.openHistoryModal) {
       setBookingTab('history');
     }
   }, [location.state]);
 
-  // TÃ­nh toÃ¡n Ä‘á»™ng tráº¡ng thÃ¡i cÃ¡c khung giá» tá»« API Backend
+  // Tính toán động trạng thái các khung giờ từ API Backend
   useEffect(() => {
     if (!selectedDate) {
       setTimeSlots([]);
@@ -195,7 +195,7 @@ export default function CustomerBookingPage() {
             bookedCount: s.bookedCount ?? 0,
             maxCapacity: s.maxCapacity ?? 0,
             availableCapacity: s.availableCapacity ?? 0,
-            reason: s.disabledReason === "FULL" ? "Äáº¦Y" : s.disabledReason === "PAST" ? "ÄÃƒ QUA" : s.disabledReason ? "T.Dá»ªNG" : ""
+            reason: s.disabledReason === "FULL" ? "ĐẦY" : s.disabledReason === "PAST" ? "ĐÃ QUA" : s.disabledReason ? "T.DỪNG" : ""
           };
         });
         setTimeSlots(mapped);
@@ -207,19 +207,19 @@ export default function CustomerBookingPage() {
     fetchSlots();
   }, [selectedDate, bookingTab]);
 
-  // Há»‡ sá»‘ ngÃ y giá»›i háº¡n Ä‘Æ°á»£c Ä‘áº·t trÆ°á»›c theo háº¡ng VIP
+  // Hệ số ngày giới hạn được đặt trước theo hạng VIP
   const todayStr = new Date().toISOString().split('T')[0];
   const maxDateStr = new Date(Date.now() + bookingWindowDays * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
-  // Load danh sÃ¡ch lá»‹ch sá»­ Ä‘Æ¡n cá»§a khÃ¡ch tá»« Backend API
+  // Load danh sách lịch sử đơn của khách từ Backend API
   const loadUserHistory = async () => {
     try {
       const data = await customerApi.getMyBookings();
       if (data && data.length > 0) {
         const list = data.map(b => {
           const serviceName = b.items && b.items.length > 0 
-            ? b.items[0].serviceNameSnapshot + (b.items.length > 1 ? ` (+${b.items.length - 1} dá»‹ch vá»¥ kÃ¨m)` : '')
-            : 'Rá»­a xe mÃ¡y';
+            ? b.items[0].serviceNameSnapshot + (b.items.length > 1 ? ` (+${b.items.length - 1} dịch vụ kèm)` : '')
+            : 'Rửa xe máy';
           const timeFormatted = b.startTime ? b.startTime.substring(0, 5) : "08:00";
           return {
             id: b.bookingId,
@@ -228,12 +228,12 @@ export default function CustomerBookingPage() {
             time: timeFormatted,
             packageName: serviceName,
             licensePlate: b.licensePlate,
-            model: b.model || 'Xe mÃ¡y',
+            model: b.model || 'Xe máy',
             finalAmount: Number(b.finalAmount),
             status: b.status === 'PENDING' ? 'Pending' : b.status === 'CONFIRMED' ? 'Confirmed' : b.status === 'COMPLETED' ? 'Completed' : b.status === 'CANCELLED' ? 'Canceled' : b.status
           };
         });
-        // Sáº¯p xáº¿p giáº£m dáº§n theo ngÃ y vÃ  giá» Ä‘áº·t
+        // Sắp xếp giảm dần theo ngày và giờ đặt
         const sorted = list.sort((a, b) => (b.date + ' ' + b.time).localeCompare(a.date + ' ' + a.time));
         setUserHistory(sorted);
       } else {
@@ -249,27 +249,27 @@ export default function CustomerBookingPage() {
     loadUserHistory();
   }, [bookingTab]);
   
-  // Há»§y lá»‹ch háº¹n Ä‘áº·t trÆ°á»›c trá»±c tiáº¿p tá»« báº£ng lá»‹ch sá»­
+  // Hủy lịch hẹn đặt trước trực tiếp từ bảng lịch sử
   const handleCancelBooking = async (bookingId) => {
-    const confirmCancel = window.confirm(`Báº¡n cÃ³ cháº¯c cháº¯n muá»‘n há»§y lá»‹ch háº¹n mÃ£ #${bookingId} khÃ´ng?`);
+    const confirmCancel = window.confirm(`Bạn có chắc chắn muốn hủy lịch hẹn mã #${bookingId} không?`);
     if (!confirmCancel) return;
 
     try {
       await customerApi.cancelBooking(bookingId);
-      alert("Há»§y lá»‹ch háº¹n thÃ nh cÃ´ng!");
+      alert("Hủy lịch hẹn thành công!");
       await loadUserHistory();
     } catch (error) {
-      console.error("Lá»—i há»§y Ä‘áº·t lá»‹ch:", error);
-      alert("KhÃ´ng thá»ƒ há»§y lá»‹ch háº¹n: " + (error.response?.data?.message || error.message));
+      console.error("Lỗi hủy đặt lịch:", error);
+      alert("Không thể hủy lịch hẹn: " + (error.response?.data?.message || error.message));
     }
   };
 
-  // TÃ­nh toÃ¡n giÃ¡ gÃ³i dá»‹ch vá»¥ (Äá»“ng giÃ¡ xe mÃ¡y toÃ n há»‡ thá»‘ng)
+  // Tính toán giá gói dịch vụ (Đồng giá xe máy toàn hệ thống)
   const calculatePackagePrice = (basePrice) => {
     return basePrice;
   };
 
-  // Xá»­ lÃ½ báº­t/táº¯t tiá»‡n Ã­ch cá»™ng thÃªm
+  // Xử lý bật/tắt tiện ích cộng thêm
   const handleToggleAddon = (addonId) => {
     if (selectedAddons.includes(addonId)) {
       setSelectedAddons(selectedAddons.filter(id => id !== addonId));
@@ -278,7 +278,7 @@ export default function CustomerBookingPage() {
     }
   };
 
-  // TÃ­nh tá»•ng tiá»n táº¡m tÃ­nh
+  // Tính tổng tiền tạm tính
   const calculateTotalAmount = () => {
     let total = 0;
     if (selectedPackage) {
@@ -337,23 +337,15 @@ export default function CustomerBookingPage() {
   };
 
   const handleSetDefault = async (veh) => {
-    // Optimistic UI update
-    const previousVehicles = [...vehicles];
-    const previousSelected = selectedVehicle;
-
-    setSelectedVehicle(veh);
-    setVehicles(vehicles.map(v => ({
-      ...v,
-      isDefault: (v.vehicleId || v.id) === (veh.vehicleId || veh.id)
-    })));
-
     try {
       await customerApi.setDefaultVehicle(veh.vehicleId || veh.id);
+      setSelectedVehicle(veh);
+      setVehicles(vehicles.map(v => ({
+        ...v,
+        isDefault: (v.vehicleId || v.id) === (veh.vehicleId || veh.id)
+      })));
     } catch (err) {
       console.error('Lỗi khi set default vehicle:', err);
-      // Rollback on failure
-      setVehicles(previousVehicles);
-      setSelectedVehicle(previousSelected);
     }
   };
 
@@ -380,12 +372,12 @@ export default function CustomerBookingPage() {
     const trimmedPlate = vehicleLicensePlate.trim().toUpperCase();
 
     if (!trimmedModel) {
-      alert('Vui lÃ²ng nháº­p tÃªn/dÃ²ng xe mÃ¡y.');
+      alert('Vui lòng nhập tên/dòng xe máy.');
       return;
     }
 
     if (!trimmedPlate) {
-      alert('Vui lÃ²ng nháº­p biá»ƒn sá»‘ xe.');
+      alert('Vui lòng nhập biển số xe.');
       return;
     }
 
@@ -422,26 +414,26 @@ export default function CustomerBookingPage() {
 
       setSelectedVehicle(normalizedVehicle);
       closeVehicleModal();
-      alert(editingVehicle ? 'Cáº­p nháº­t xe thÃ nh cÃ´ng!' : 'ÄÄƒng kÃ½ xe má»›i thÃ nh cÃ´ng!');
+      alert(editingVehicle ? 'Cập nhật xe thành công!' : 'Đăng ký xe mới thành công!');
       console.log('[CustomerBookingPage] vehicle saved:', normalizedVehicle);
     } catch (err) {
       console.error('Failed to save vehicle:', err);
-      alert('Lá»—i khi lÆ°u xe: ' + (err.response?.data?.message || err.message));
+      alert('Lỗi khi lưu xe: ' + (err.response?.data?.message || err.message));
     }
   };
 
-  // Gá»­i Ä‘Æ¡n Ä‘áº·t lá»‹ch lÃªn há»‡ thá»‘ng
+  // Gửi đơn đặt lịch lên hệ thống
   const handleConfirmBooking = async () => {
     if (!selectedVehicle) {
-      alert("Vui lÃ²ng chá»n 1 chiáº¿c xe mÃ¡y Ä‘á»ƒ dá»n rá»­a.");
+      alert("Vui lòng chọn 1 chiếc xe máy để dọn rửa.");
       return;
     }
     if (!selectedPackage) {
-      alert("Vui lÃ²ng chá»n 1 gÃ³i dá»‹ch vá»¥ dá»n rá»­a chÃ­nh.");
+      alert("Vui lòng chọn 1 gói dịch vụ dọn rửa chính.");
       return;
     }
     if (!selectedDate || !selectedTime) {
-      alert("Vui lÃ²ng chá»n ngÃ y vÃ  giá» háº¹n mong muá»‘n.");
+      alert("Vui lòng chọn ngày và giờ hẹn mong muốn.");
       return;
     }
 
@@ -449,22 +441,22 @@ export default function CustomerBookingPage() {
     const trimmedModel = String(selectedVehicle.model || '').trim();
 
     if (!trimmedLicensePlate) {
-      alert('Vui lÃ²ng chá»n xe cÃ³ biá»ƒn sá»‘ há»£p lá»‡.');
+      alert('Vui lòng chọn xe có biển số hợp lệ.');
       return;
     }
     if (!trimmedModel) {
-      alert('Vui lÃ²ng chá»n xe cÃ³ model há»£p lá»‡.');
+      alert('Vui lòng chọn xe có model hợp lệ.');
       return;
     }
 
     const selectedPackageId = Number(selectedPackage?.id || selectedPackage?.serviceId || 0);
     if (!selectedPackageId) {
-      alert('KhÃ´ng tÃ¬m tháº¥y gÃ³i dá»‹ch vá»¥. Vui lÃ²ng chá»n láº¡i.');
+      alert('Không tìm thấy gói dịch vụ. Vui lòng chọn lại.');
       return;
     }
     const selectedSlot = timeSlots.find(s => s.slotId === selectedTimeSlotId || s.time === selectedTime);
 if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || selectedSlot.availableCapacity <= 0)) {
-      alert("Khung giá» nÃ y hiá»‡n Ä‘Ã£ Ä‘áº§y cÃ´ng suáº¥t dá»n rá»­a! Ráº¥t tiáº¿c vÃ¬ sá»± báº¥t tiá»‡n nÃ y, mong quÃ½ khÃ¡ch vui lÃ²ng chá»n má»™t khung giá» khÃ¡c.");
+      alert("Khung giờ này hiện đã đầy công suất dọn rửa! Rất tiếc vì sự bất tiện này, mong quý khách vui lòng chọn một khung giờ khác.");
       return;
     }
     setIsSubmitting(true);
@@ -476,7 +468,7 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
       timeSlotId: Number(selectedTimeSlotId || 1),
       packageId: selectedPackageId,
       addonIds: selectedAddons || [],
-      notes: selectedVoucher ? `Ãp dá»¥ng voucher ${selectedVoucher.voucherCode}` : 'Äáº·t qua Mobile App',
+      notes: selectedVoucher ? `Áp dụng voucher ${selectedVoucher.voucherCode}` : 'Đặt qua Mobile App',
       voucherCode: selectedVoucher?.voucherCode || ''
     };
 
@@ -486,7 +478,7 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
       const response = await axios.post('/api/v1/customer/bookings', bookingData, { headers });
       const createdBooking = response.data;
 
-      alert(`Äáº·t lá»‹ch thÃ nh cÃ´ng! MÃ£ Ä‘Æ¡n cá»§a báº¡n lÃ : ${createdBooking.bookingCode || createdBooking.id}. HÃ£y Ä‘áº¿n tráº¡m Ä‘Ãºng giá» háº¹n.`);
+      alert(`Đặt lịch thành công! Mã đơn của bạn là: ${createdBooking.bookingCode || createdBooking.id}. Hãy đến trạm đúng giờ hẹn.`);
 
       // Sync local history fallback
       setUserHistory(prev => [
@@ -514,14 +506,14 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
       await loadCustomerVouchers();
     } catch (err) {
       console.error('Failed to create booking:', err);
-      const message = err.response?.data?.message || err.response?.data?.error || err.message || 'KhÃ´ng thá»ƒ lÆ°u Ä‘áº·t lá»‹ch. Vui lÃ²ng thá»­ láº¡i.';
-      alert('ÄÃ£ xáº£y ra lá»—i khi táº¡o Ä‘Æ¡n Ä‘áº·t lá»‹ch: ' + message);
+      const message = err.response?.data?.message || err.response?.data?.error || err.message || 'Không thể lưu đặt lịch. Vui lòng thử lại.';
+      alert('Đã xảy ra lỗi khi tạo đơn đặt lịch: ' + message);
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Format tiá»n tá»‡ VNÄ
+  // Format tiền tệ VNĐ
   const formatVnd = (val) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
   };
@@ -529,7 +521,7 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
   return (
     <div className="space-y-6 pb-12 text-left">
       
-      {/* THANH TAB CHá»ŒN PHÃ‚N Há»† Äáº¶T Lá»ŠCH / Lá»ŠCH Sá»¬ ÄÆ N */}
+      {/* THANH TAB CHỌN PHÂN HỆ ĐẶT LỊCH / LỊCH SỬ ĐƠN */}
       <div className="flex border-b border-slate-200 bg-white p-2 rounded-2xl">
         <button
           onClick={() => setBookingTab('new')}
@@ -539,7 +531,7 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
               : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
           }`}
         >
-          <CalendarIcon size={16} /> Äáº·t lá»‹ch rá»­a xe má»›i
+          <CalendarIcon size={16} /> Đặt lịch rửa xe mới
         </button>
         <button
           onClick={() => setBookingTab('history')}
@@ -549,30 +541,30 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
               : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
           }`}
         >
-          <History size={16} /> Lá»‹ch sá»­ Ä‘áº·t lá»‹ch ({userHistory.length})
+          <History size={16} /> Lịch sử đặt lịch ({userHistory.length})
         </button>
       </div>
 
       {bookingTab === 'new' ? (
         /* ========================================================================================= */
-        /* TAB 1: GIAO DIá»†N Äáº¶T Lá»ŠCH Má»šI (NEW BOOKING) */
+        /* TAB 1: GIAO DIỆN ĐẶT LỊCH MỚI (NEW BOOKING) */
         /* ========================================================================================= */
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
           <div className="lg:col-span-2 space-y-8">
-            {/* SECTION 1: CHá»ŒN XE MÃY */}
+            {/* SECTION 1: CHỌN XE MÁY */}
             <section className="bg-white border border-slate-150 rounded-2xl p-6 shadow-sm space-y-4">
               <div className="flex justify-between items-center">
                 <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wider flex items-center gap-2">
                   <span className="w-6 h-6 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold">1</span>
-                  Chá»n phÆ°Æ¡ng tiá»‡n dá»n rá»­a
+                  Chọn phương tiện dọn rửa
                 </h3>
                 {vehicles.length > 0 && (
                   <button 
                     onClick={openAddVehicleModal}
                     className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-bold"
                   >
-                    <Plus size={14} /> ÄÄƒng kÃ½ xe má»›i
+                    <Plus size={14} /> Đăng ký xe mới
                   </button>
                 )}
               </div>
@@ -598,7 +590,7 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
                             }}
                             className="absolute top-3 right-3 z-10 text-[10px] bg-slate-100 text-slate-500 border hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300 font-bold px-2 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-all shadow-sm"
                           >
-                            Äáº·t máº·c Ä‘á»‹nh
+                            Đặt mặc định
                           </button>
                         )}
                       </div>
@@ -609,22 +601,22 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
                   <div className="w-12 h-12 bg-white shadow-sm rounded-full flex items-center justify-center text-slate-300">
                     <Car size={24} className="text-blue-500" />
                   </div>
-                  <p>Ga-ra cá»§a báº¡n Ä‘ang trá»‘ng trÆ¡n. HÃ£y Ä‘Äƒng kÃ½ chiáº¿c xe Ä‘áº§u tiÃªn cá»§a mÃ¬nh nhÃ©!</p>
+                  <p>Ga-ra của bạn đang trống trơn. Hãy đăng ký chiếc xe đầu tiên của mình nhé!</p>
                   <button 
                     onClick={openAddVehicleModal}
                     className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-md transition-all"
                   >
-                    ÄÄƒng kÃ½ xe ngay
+                    Đăng ký xe ngay
                   </button>
                 </div>
               )}
             </section>
 
-            {/* SECTION 2: CHá»ŒN GÃ“I Rá»¬A CHÃNH */}
+            {/* SECTION 2: CHỌN GÓI RỬA CHÍNH */}
             <section className="bg-white border border-slate-150 rounded-2xl p-6 shadow-sm space-y-4">
               <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wider flex items-center gap-2">
                 <span className="w-6 h-6 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold">2</span>
-                Chá»n gÃ³i dá»‹ch vá»¥ chÃ­nh
+                Chọn gói dịch vụ chính
               </h3>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -651,7 +643,7 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
                       <div>
                         <h4 className="font-bold text-slate-800 text-sm">{pkg.name}</h4>
                         <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded mt-1 inline-block">
-                          â° {pkg.duration}
+                          ⏰ {pkg.duration}
                         </span>
                         <p className="text-xs text-slate-500 mt-3 leading-relaxed line-clamp-3">{pkg.description}</p>
                       </div>
@@ -667,11 +659,11 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
               </div>
             </section>
 
-            {/* SECTION 3: CHá»ŒN TIá»†N ÃCH Cá»˜NG THÃŠM */}
+            {/* SECTION 3: CHỌN TIỆN ÍCH CỘNG THÊM */}
             <section className="bg-white border border-slate-150 rounded-2xl p-6 shadow-sm space-y-4">
               <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wider flex items-center gap-2">
                 <span className="w-6 h-6 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold">3</span>
-                Tiá»‡n Ã­ch cá»™ng thÃªm (Add-ons)
+                Tiện ích cộng thêm (Add-ons)
               </h3>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -709,16 +701,16 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
               </div>
             </section>
 
-            {/* SECTION 4: CHá»ŒN NGÃ€Y & KHUNG GIá»œ Háº¸N Háº N Äá»ŠNH THEO TIER */}
+            {/* SECTION 4: CHỌN NGÀY & KHUNG GIỜ HẸN HẠN ĐỊNH THEO TIER */}
             <section className="bg-white border border-slate-150 rounded-2xl p-6 shadow-sm space-y-5">
               <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wider flex items-center gap-2">
                 <span className="w-6 h-6 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold">4</span>
-                Chá»n NgÃ y & Giá» rá»­a xe
+                Chọn Ngày & Giờ rửa xe
               </h3>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase mb-2">NgÃ y háº¹n dá»n xe</label>
+                  <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Ngày hẹn dọn xe</label>
                   <input 
                     type="date"
                     min={todayStr}
@@ -728,12 +720,12 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
                     className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
                   />
                   <span className="text-[10px] text-slate-400 block mt-2 leading-relaxed">
-                    * Háº¡ng **PLATINUM MEMBER** cá»§a báº¡n Ä‘Æ°á»£c Æ°u tiÃªn Ä‘áº·t trÆ°á»›c tá»‘i Ä‘a **{bookingWindowDays} ngÃ y** (Má»©c tráº§n cao nháº¥t há»‡ thá»‘ng).
+                    * Hạng **PLATINUM MEMBER** của bạn được ưu tiên đặt trước tối đa **{bookingWindowDays} ngày** (Mức trần cao nhất hệ thống).
                   </span>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Khung giá» hoáº¡t Ä‘á»™ng</label>
+                  <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Khung giờ hoạt động</label>
                   <div className="grid grid-cols-3 gap-2">
                     {timeSlots.map(slot => (
                       <button
@@ -752,7 +744,7 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
                           <span>{slot.time}</span>
                           {(slot.bookedCount >= slot.maxCapacity || slot.availableCapacity <= 0) && (
                                 <span className="text-[8px] font-extrabold uppercase mt-0.5 text-red-500">
-                                  Äáº¦Y
+                                  ĐẦY
                                 </span>
                               )}
                         </button>
@@ -767,45 +759,45 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
           <div className="space-y-6">
             <div className="bg-white border border-slate-150 rounded-2xl p-6 shadow-sm sticky top-20">
               <h3 className="font-bold text-slate-800 text-base border-b pb-4 mb-4 flex items-center gap-2">
-                <FileText size={18} className="text-blue-600" /> TÃ³m táº¯t lá»‹ch háº¹n dá»n xe
+                <FileText size={18} className="text-blue-600" /> Tóm tắt lịch hẹn dọn xe
               </h3>
 
               <div className="space-y-4 text-xs">
                 <div className="flex justify-between items-start">
-                  <span className="text-slate-400 font-medium">Xe dá»n rá»­a:</span>
+                  <span className="text-slate-400 font-medium">Xe dọn rửa:</span>
                   <span className="text-slate-800 font-bold text-right">
-                    {selectedVehicle ? `${selectedVehicle.model} (${selectedVehicle.licensePlate})` : 'ChÆ°a chá»n'}
+                    {selectedVehicle ? `${selectedVehicle.model} (${selectedVehicle.licensePlate})` : 'Chưa chọn'}
                   </span>
                 </div>
 
                 <div className="flex justify-between items-start">
-                  <span className="text-slate-400 font-medium">GÃ³i dá»n rá»­a:</span>
+                  <span className="text-slate-400 font-medium">Gói dọn rửa:</span>
                   <span className="text-slate-800 font-bold text-right">
-                    {selectedPackage ? selectedPackage.name : 'ChÆ°a chá»n'}
+                    {selectedPackage ? selectedPackage.name : 'Chưa chọn'}
                   </span>
                 </div>
 
                 <div className="flex justify-between items-start">
-                  <span className="text-slate-400 font-medium">Tiá»‡n Ã­ch kÃ¨m:</span>
+                  <span className="text-slate-400 font-medium">Tiện ích kèm:</span>
                   <span className="text-slate-800 font-bold text-right">
                     {selectedAddons.length > 0 
                       ? selectedAddons.map(id => addonServices.find(a => a.id === id)?.name).join(', ') 
-                      : 'KhÃ´ng chá»n'}
+                      : 'Không chọn'}
                   </span>
                 </div>
 
                 <div className="flex justify-between items-start">
-                  <span className="text-slate-400 font-medium">Lá»‹ch háº¹n dá»n:</span>
+                  <span className="text-slate-400 font-medium">Lịch hẹn dọn:</span>
                   <span className="text-slate-800 font-bold text-right">
-                    {selectedDate && selectedTime ? `${selectedTime} ngÃ y ${selectedDate}` : 'ChÆ°a chá»n'}
+                    {selectedDate && selectedTime ? `${selectedTime} ngày ${selectedDate}` : 'Chưa chọn'}
                   </span>
                 </div>
 
-                {/* Chá»n Voucher tá»« VÃ­ cÃ¡ nhÃ¢n */}
+                {/* Chọn Voucher từ Ví cá nhân */}
                 <div className="border-t my-4 pt-4 space-y-2">
-                  <span className="text-slate-400 font-bold block uppercase text-[10px]">Æ¯u Ä‘Ã£i cá»§a báº¡n:</span>
+                  <span className="text-slate-400 font-bold block uppercase text-[10px]">Ưu đãi của bạn:</span>
                   {myVouchers.length === 0 ? (
-                    <p className="text-[10px] text-slate-400 italic">VÃ­ cá»§a báº¡n hiá»‡n chÆ°a cÃ³ voucher kháº£ dá»¥ng.</p>
+                    <p className="text-[10px] text-slate-400 italic">Ví của bạn hiện chưa có voucher khả dụng.</p>
                   ) : (
                     <select
                       value={selectedVoucher ? selectedVoucher.voucherCode : ''}
@@ -816,13 +808,13 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
                       }}
                       className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs focus:border-blue-500 outline-none font-medium text-slate-700 bg-white"
                     >
-                      <option value="">-- Ãp dá»¥ng Voucher giáº£m giÃ¡ --</option>
+                      <option value="">-- Áp dụng Voucher giảm giá --</option>
                       {myVouchers.map(v => {
                         const discountDesc = v.discountType === 'FREE_SERVICE' 
-                          ? 'Miá»…n phÃ­ rá»­a xe' 
+                          ? 'Miễn phí rửa xe' 
                           : v.discountType === 'PERCENTAGE' 
-                            ? `Giáº£m ${v.value}%` 
-                            : `Giáº£m ${Number(v.value).toLocaleString('vi-VN')} Ä‘`;
+                            ? `Giảm ${v.value}%` 
+                            : `Giảm ${Number(v.value).toLocaleString('vi-VN')} đ`;
                         return (
                           <option key={v.voucherCode} value={v.voucherCode}>
                             [{v.voucherCode}] {v.title || 'Voucher'} ({discountDesc})
@@ -837,7 +829,7 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
 
                 <div className="space-y-2 pb-2">
                   <div className="flex justify-between items-center text-xs">
-                    <span className="text-slate-400 font-medium">Cá»™ng táº¡m tÃ­nh:</span>
+                    <span className="text-slate-400 font-medium">Cộng tạm tính:</span>
                     <span className="font-mono text-slate-800 font-bold">
                       {formatVnd(calculateTotalAmount())}
                     </span>
@@ -845,7 +837,7 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
 
                   {selectedVoucher && (
                     <div className="flex justify-between items-center text-xs text-emerald-600 font-bold">
-                      <span>Voucher giáº£m giÃ¡ ({selectedVoucher.voucherCode}):</span>
+                      <span>Voucher giảm giá ({selectedVoucher.voucherCode}):</span>
                       <span className="font-mono">
                         -{formatVnd(calculateDiscount())}
                       </span>
@@ -853,7 +845,7 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
                   )}
 
                   <div className="flex justify-between items-center pt-2 border-t border-dashed">
-                    <span className="text-slate-800 font-black text-sm">Tá»•ng hÃ³a Ä‘Æ¡n táº¡m tÃ­nh:</span>
+                    <span className="text-slate-800 font-black text-sm">Tổng hóa đơn tạm tính:</span>
                     <span className="font-mono text-lg font-black text-blue-600">
                       {formatVnd(Math.max(0, calculateTotalAmount() - calculateDiscount()))}
                     </span>
@@ -865,13 +857,13 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
                   onClick={handleConfirmBooking}
                   className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold shadow-md shadow-blue-200 transition-all flex items-center justify-center gap-2 disabled:bg-blue-400"
                 >
-                  {isSubmitting ? 'Äang táº¡o Ä‘Æ¡n háº¹n...' : 'XÃ¡c nháº­n Äáº·t lá»‹ch ngay'}
+                  {isSubmitting ? 'Đang tạo đơn hẹn...' : 'Xác nhận Đặt lịch ngay'}
                 </button>
 
                 <div className="flex items-start gap-2 bg-slate-50 p-3 rounded-xl border border-slate-100 mt-4 text-[10px] text-slate-500 leading-relaxed">
                   <AlertCircle size={14} className="text-blue-500 shrink-0 mt-0.5" />
                   <span>
-                    KhÃ´ng cáº§n thanh toÃ¡n trÆ°á»›c! Báº¡n chá»‰ cáº§n Ä‘áº¿n tráº¡m Ä‘Ãºng giá» háº¹n Ä‘á»ƒ check-in vÃ  thá»±c hiá»‡n rá»­a xe, tÃ­ch Ä‘iá»ƒm VIP.
+                    Không cần thanh toán trước! Bạn chỉ cần đến trạm đúng giờ hẹn để check-in và thực hiện rửa xe, tích điểm VIP.
                   </span>
                 </div>
               </div>
@@ -881,23 +873,23 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
         </div>
       ) : (
         /* ========================================================================================= */
-        /* TAB 2: Lá»ŠCH Sá»¬ Äáº¶T Lá»ŠCH Dá»ŒN XE Cá»¦A KHÃCH HÃ€NG */
+        /* TAB 2: LỊCH SỬ ĐẶT LỊCH DỌN XE CỦA KHÁCH HÀNG */
         /* ========================================================================================= */
         <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
-          <h3 className="font-bold text-slate-800 text-sm border-b pb-3 mb-4">Nháº­t kÃ½ lá»‹ch trÃ¬nh Ä‘áº·t háº¹n rá»­a xe mÃ¡y</h3>
+          <h3 className="font-bold text-slate-800 text-sm border-b pb-3 mb-4">Nhật ký lịch trình đặt hẹn rửa xe máy</h3>
           
           {userHistory.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full text-xs text-left text-slate-655 border-collapse">
                 <thead>
                   <tr className="border-b border-slate-100 text-slate-400 uppercase text-[10px] font-bold">
-                    <th className="py-3 px-2">MÃ£ ÄÆ¡n háº¹n</th>
-                    <th className="py-3 px-2">Thá»i gian háº¹n</th>
-                    <th className="py-3 px-2">PhÆ°Æ¡ng tiá»‡n</th>
-                    <th className="py-3 px-2">Dá»‹ch vá»¥ dá»n rá»­a</th>
-                    <th className="py-3 px-2 text-right">Tá»•ng tiá»n</th>
-                    <th className="py-3 px-2 text-center">Tráº¡ng thÃ¡i</th>
-                    <th className="py-3 px-2 text-right">Thao tÃ¡c</th>
+                    <th className="py-3 px-2">Mã Đơn hẹn</th>
+                    <th className="py-3 px-2">Thời gian hẹn</th>
+                    <th className="py-3 px-2">Phương tiện</th>
+                    <th className="py-3 px-2">Dịch vụ dọn rửa</th>
+                    <th className="py-3 px-2 text-right">Tổng tiền</th>
+                    <th className="py-3 px-2 text-center">Trạng thái</th>
+                    <th className="py-3 px-2 text-right">Thao tác</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -905,7 +897,7 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
                     <tr key={b.id} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
                       <td className="py-4 px-2 font-mono font-bold text-blue-600">{b.bookingCode}</td>
                       <td className="py-4 px-2 font-mono">
-                        {b.date} <span className="text-slate-400 font-sans">vÃ o</span> {b.time}
+                        {b.date} <span className="text-slate-400 font-sans">vào</span> {b.time}
                       </td>
                       <td className="py-4 px-2 font-medium">{b.model} ({b.licensePlate})</td>
                       <td className="py-4 px-2">{b.packageName}</td>
@@ -927,7 +919,7 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
                             onClick={() => handleCancelBooking(b.id)}
                             className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1.5 rounded transition-all flex items-center gap-1 text-[10px] font-bold ml-auto"
                           >
-                            <Trash2 size={12} /> Há»§y lá»‹ch háº¹n
+                            <Trash2 size={12} /> Hủy lịch hẹn
                           </button>
                         ) : (
                           <span className="text-slate-300">-</span>
@@ -940,7 +932,7 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
             </div>
           ) : (
             <div className="text-center py-12 text-slate-400">
-              ChÆ°a ghi nháº­n lá»‹ch háº¹n nÃ o trong lá»‹ch sá»­.
+              Chưa ghi nhận lịch hẹn nào trong lịch sử.
             </div>
           )}
         </div>
@@ -951,7 +943,7 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
           <div className="relative w-full max-w-md overflow-hidden rounded-2xl bg-white p-6 shadow-2xl">
             <div className="mb-4 flex items-center justify-between border-b pb-4">
               <h3 className="text-base font-bold text-slate-800">
-                {editingVehicle ? 'Cáº­p nháº­t thÃ´ng tin xe mÃ¡y' : 'ÄÄƒng kÃ½ xe mÃ¡y má»›i'}
+                {editingVehicle ? 'Cập nhật thông tin xe máy' : 'Đăng ký xe máy mới'}
               </h3>
               <button
                 onClick={closeVehicleModal}
@@ -964,13 +956,13 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
             <form onSubmit={handleSaveVehicle} className="space-y-4">
               <div>
                 <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                  TÃªn/DÃ²ng xe mÃ¡y
+                  Tên/Dòng xe máy
                 </label>
                 <input
                   type="text"
                   value={vehicleModel}
                   onChange={(e) => setVehicleModel(e.target.value)}
-                  placeholder="VÃ­ dá»¥: Honda SH 150i, Yamaha Exciter..."
+                  placeholder="Ví dụ: Honda SH 150i, Yamaha Exciter..."
                   className="w-full rounded-xl border border-slate-200 px-4 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                   required
                 />
@@ -978,13 +970,13 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
 
               <div>
                 <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wide text-slate-400">
-                  Biá»ƒn sá»‘ xe
+                  Biển số xe
                 </label>
                 <input
                   type="text"
                   value={vehicleLicensePlate}
                   onChange={handleVehicleLicensePlateChange}
-                  placeholder="VÃ­ dá»¥: 29-H1 888.88 hoáº·c 59-S3 123.45"
+                  placeholder="Ví dụ: 29-H1 888.88 hoặc 59-S3 123.45"
                   className="w-full rounded-xl border border-slate-200 px-4 py-2.5 font-mono text-sm tracking-wide outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                   required
                 />
@@ -999,14 +991,14 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
                   className="h-4 w-4 cursor-pointer rounded border-slate-300 text-blue-600 focus:ring-blue-500"
                 />
                 <label htmlFor="vehicleIsDefault" className="cursor-pointer text-xs font-semibold text-slate-600">
-                  Äáº·t chiáº¿c xe nÃ y lÃ m máº·c Ä‘á»‹nh Ä‘á»ƒ rá»­a
+                  Đặt chiếc xe này làm mặc định để rửa
                 </label>
               </div>
 
               <div className="flex items-start gap-2 rounded-xl border border-blue-100 bg-blue-50/50 p-3 text-[10px] leading-relaxed text-slate-500">
                 <AlertCircle size={14} className="mt-0.5 shrink-0 text-blue-500" />
                 <span>
-                  * Dá»‹ch vá»¥ dá»n rá»­a xe Ä‘Æ°á»£c Ä‘á»“ng giÃ¡ cho má»i dÃ²ng xe sá»‘, xe ga vÃ  PKL. Biá»ƒn sá»‘ xe sáº½ Ä‘Æ°á»£c ghi nháº­n vÃ o phiáº¿u check-in Ä‘á»‘i soÃ¡t.
+                  * Dịch vụ dọn rửa xe được đồng giá cho mọi dòng xe số, xe ga và PKL. Biển số xe sẽ được ghi nhận vào phiếu check-in đối soát.
                 </span>
               </div>
 
@@ -1016,13 +1008,13 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
                   onClick={closeVehicleModal}
                   className="rounded-xl border border-slate-200 px-4 py-2 text-xs font-bold text-slate-500 transition hover:bg-slate-50"
                 >
-                  Há»§y bá»
+                  Hủy bỏ
                 </button>
                 <button
                   type="submit"
                   className="rounded-xl bg-blue-600 px-5 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-blue-700"
                 >
-                  {editingVehicle ? 'LÆ°u thay Ä‘á»•i' : 'ÄÄƒng kÃ½ ngay'}
+                  {editingVehicle ? 'Lưu thay đổi' : 'Đăng ký ngay'}
                 </button>
               </div>
             </form>
@@ -1032,4 +1024,3 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
     </div>
   );
 }
-
