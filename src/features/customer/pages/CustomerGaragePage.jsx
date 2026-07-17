@@ -131,11 +131,16 @@ export default function CustomerGaragePage() {
   };
 
   // Click nhanh để đổi xe mặc định
-  const handleSetDefault = (veh) => {
-    setVehicles(vehicles.map(v => ({
-      ...v,
-      isDefault: v.vehicleId === veh.vehicleId
-    })));
+  const handleSetDefault = async (veh) => {
+    try {
+      await customerApi.setDefaultVehicle(veh.vehicleId || veh.id);
+      setVehicles(vehicles.map(v => ({
+        ...v,
+        isDefault: (v.vehicleId || v.id) === (veh.vehicleId || veh.id)
+      })));
+    } catch (err) {
+      console.error('Lỗi khi set default vehicle:', err);
+    }
   };
 
   return (
@@ -185,6 +190,7 @@ export default function CustomerGaragePage() {
               <VehicleCard 
                 vehicle={veh}
                 isDefault={veh.isDefault}
+                isSelected={veh.isDefault}
                 isSelectable={false}
                 onEdit={() => handleOpenEditModal(veh)}
                 onDelete={() => handleDeleteVehicle(veh)}

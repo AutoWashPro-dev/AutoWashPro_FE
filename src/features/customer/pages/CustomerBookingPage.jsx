@@ -336,6 +336,18 @@ export default function CustomerBookingPage() {
     setVehicleLicensePlate(e.target.value.toUpperCase());
   };
 
+  const handleSetDefault = async (veh) => {
+    try {
+      await customerApi.setDefaultVehicle(veh.vehicleId || veh.id);
+      setVehicles(vehicles.map(v => ({
+        ...v,
+        isDefault: (v.vehicleId || v.id) === (veh.vehicleId || veh.id)
+      })));
+    } catch (err) {
+      console.error('Lỗi khi set default vehicle:', err);
+    }
+  };
+
   const saveVehicleToBackend = async (payload) => {
     console.log('[CustomerBookingPage] save vehicle payload:', payload);
 
