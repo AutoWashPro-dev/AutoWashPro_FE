@@ -41,15 +41,29 @@ export const customerApi = {
     }
   },
 
-  // Get notifications
-  getNotifications: async () => {
+  getMyNotifications: async (limit = 20) => {
     try {
-      const res = await api.get('/customer/notifications');
+      const res = await api.get(`/customer/notifications?limit=${limit}`);
       return res.data || [];
     } catch (err) {
-      console.warn('API getNotifications error:', err.message);
+      console.warn('API getMyNotifications error:', err.message);
       return [];
     }
+  },
+
+  getUnreadCount: async () => {
+    try {
+      const res = await api.get('/customer/notifications/unread-count');
+      return res.data || { unreadCount: 0 };
+    } catch (err) {
+      console.warn('API getUnreadCount error:', err.message);
+      return { unreadCount: 0 };
+    }
+  },
+
+  markAllAsRead: async () => {
+    const res = await api.put('/customer/notifications/mark-all-read');
+    return res.data;
   },
 
   // Get active services from backend (core package + addons)

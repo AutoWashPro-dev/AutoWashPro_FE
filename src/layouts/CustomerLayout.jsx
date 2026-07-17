@@ -22,19 +22,24 @@ export default function CustomerLayout() {
 
   const [customer, setCustomer] = useState(null);
   const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
   React.useEffect(() => {
     const fetchData = async () => {
       try {
-        const [profileData, notifsData] = await Promise.all([
+        const [profileData, notifsData, unreadData] = await Promise.all([
           customerApi.getProfile(),
-          customerApi.getNotifications()
+          customerApi.getMyNotifications(20),
+          customerApi.getUnreadCount()
         ]);
         setCustomer(profileData);
-        setNotifications(notifsData);
+        setNotifications(notifsData || []);
+        setUnreadCount(unreadData?.unreadCount || 0);
       } catch (err) {
         console.error("Failed to fetch layout data:", err);
+        setNotifications([]);
+        setUnreadCount(0);
       } finally {
         setIsLoading(false);
       }
@@ -56,10 +61,23 @@ export default function CustomerLayout() {
     };
   }, [location.pathname]);
 
-  const handleMarkAllRead = () => {
-    const updated = notifications.map(n => ({...n, read: true}));
-    setNotifications(updated);
-    localStorage.setItem('autowash_cust_notifications', JSON.stringify(updated));
+  const handleMarkAllRead = async () => {
+    try {
+      await customerApi.markAllAsRead();
+      const updated = notifications.map(n => ({...n, isRead: true}));
+      setNotifications(updated);
+      setUnreadCount(0);
+    } catch (err) {
+      console.error("Failed to mark all as read:", err);
+    }
+  };
+
+  const toggleNotifOpen = async () => {
+    const willOpen = !isNotifOpen;
+    setIsNotifOpen(willOpen);
+    if (willOpen && unreadCount > 0) {
+      handleMarkAllRead();
+    }
   };
 
   const handleLogout = () => {
@@ -91,8 +109,6 @@ export default function CustomerLayout() {
     const activeItem = menuItems.find(item => location.pathname.startsWith(item.to));
     return activeItem ? activeItem.label : '';
   };
-
-  const unreadCount = notifications.filter(n => !n.read).length;
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden font-sans">
@@ -182,7 +198,7 @@ export default function CustomerLayout() {
             
             {/* Chuông thông báo */}
             <button 
-              onClick={() => setIsNotifOpen(!isNotifOpen)}
+              onClick={toggleNotifOpen}
               className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-xl transition-colors relative"
             >
               <Bell size={20} />
@@ -214,11 +230,12 @@ export default function CustomerLayout() {
                       <div 
                         key={notif.id}
                         className={`p-2.5 rounded-xl border text-[11px] leading-relaxed transition-all ${
-                          notif.read ? 'bg-white border-slate-100 text-slate-500' : 'bg-blue-50/20 border-blue-100 text-slate-800 font-medium'
+                          notif.isRead ? 'bg-white border-slate-100 text-slate-500' : 'bg-blue-50/50 border-blue-100 text-slate-800 font-medium'
                         }`}
                       >
-                        <p>{notif.text}</p>
-                        <span className="text-[9px] text-slate-400 mt-1 block font-semibold">{notif.time}</span>
+                        <p className="font-bold mb-1 text-sm">{notif.title}</p>
+                        <p>{notif.content}</p>
+                        <span className="text-[9px] text-slate-400 mt-1 block font-semibold">{notif.createdAtFormatted}</span>
                       </div>
                     ))
                   )}
