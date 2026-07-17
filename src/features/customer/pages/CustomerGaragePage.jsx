@@ -1,13 +1,39 @@
 import React, { useState } from 'react';
-import { Plus, Car, ShieldCheck, AlertCircle, X } from 'lucide-react';
+import { Plus, Car, ShieldCheck, AlertCircle, X, Loader2 } from 'lucide-react';
 import VehicleCard from '../components/VehicleCard';
+import { customerApi } from '../services/customerApi';
 
 export default function CustomerGaragePage() {
-  // Mẫu danh sách xe trong ga-ra của khách
-  const [vehicles, setVehicles] = useState([
-    { vehicleId: 1, licensePlate: "51K-123.45", model: "Ducati Panigale", vehicleType: "PKL", isDefault: false },
-    { vehicleId: 2, licensePlate: "29H-555.55", model: "Vespa GTS", vehicleType: "Scooter", isDefault: true }
-  ]);
+  const [vehicles, setVehicles] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  React.useEffect(() => {
+    const fetchVehicles = async () => {
+      try {
+        const data = await customerApi.getMyVehicles();
+        if (Array.isArray(data)) {
+          // Enforce strict data fallback logic
+          const mappedVehicles = data.map(v => ({
+            ...v,
+            vehicleId: v.vehicleId || v.id,
+            brand: v.brand || 'N/A',
+            model: v.model || 'N/A',
+            licensePlate: v.licensePlate || v.plate || 'N/A',
+            color: v.color || 'N/A',
+            year: v.year || 'N/A',
+            vehicleType: v.vehicleType || v.type || 'N/A',
+            isDefault: v.isDefault ?? false
+          }));
+          setVehicles(mappedVehicles);
+        }
+      } catch (err) {
+        console.error("Failed to fetch vehicles:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchVehicles();
+  }, []);
 
   // States quản lý Form Thêm/Sửa xe máy
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -38,7 +64,7 @@ export default function CustomerGaragePage() {
   };
 
   // Lưu thông tin xe (Thêm mới hoặc Cập nhật)
-  const handleSaveVehicle = (e) => {
+  const handleSaveVehicle = async (e) => {
     e.preventDefault();
 
     if (!model.trim() || !licensePlate.trim()) {
@@ -46,34 +72,49 @@ export default function CustomerGaragePage() {
       return;
     }
 
-    // Nếu đặt mặc định, chúng ta sẽ gỡ mặc định các xe khác trước
-    let updatedVehicles = [...vehicles];
-    if (isDefault) {
-      updatedVehicles = updatedVehicles.map(v => ({ ...v, isDefault: false }));
-    }
+    const payload = { model, licensePlate, vehicleType, isDefault };
 
-    if (editingVehicle) {
-      // Cập nhật xe cũ
-      setVehicles(updatedVehicles.map(v => 
-        v.vehicleId === editingVehicle.vehicleId 
-          ? { ...v, model, licensePlate, vehicleType, isDefault } 
-          : v
-      ));
-    } else {
-      // Thêm xe mới
-      setVehicles([
-        ...updatedVehicles,
-        {
-          vehicleId: Date.now(),
-          model,
-          licensePlate,
-          vehicleType,
-          isDefault: vehicles.length === 0 ? true : isDefault // Nếu chưa có xe nào thì tự đặt làm mặc định
+    try {
+      if (editingVehicle) {
+        // Cập nhật xe cũ (mô phỏng, backend cần PUT api)
+        let updatedVehicles = [...vehicles];
+        if (isDefault) {
+          updatedVehicles = updatedVehicles.map(v => ({ ...v, isDefault: false }));
         }
-      ]);
+        setVehicles(updatedVehicles.map(v => 
+          v.vehicleId === editingVehicle.vehicleId 
+            ? { ...v, model, licensePlate, vehicleType, isDefault } 
+            : v
+        ));
+      } else {
+        // Thêm xe mới qua API
+        const newVeh = await customerApi.addVehicle(payload);
+        
+        let updatedVehicles = [...vehicles];
+        if (isDefault) {
+          updatedVehicles = updatedVehicles.map(v => ({ ...v, isDefault: false }));
+        }
+        
+        // Enforce fallback for the new vehicle data
+        const safeVeh = {
+          ...newVeh,
+          vehicleId: newVeh.vehicleId || newVeh.id || Date.now(),
+          brand: newVeh.brand || 'N/A',
+          model: newVeh.model || model || 'N/A',
+          licensePlate: newVeh.licensePlate || licensePlate || 'N/A',
+          color: newVeh.color || 'N/A',
+          year: newVeh.year || 'N/A',
+          vehicleType: newVeh.vehicleType || vehicleType || 'N/A',
+          isDefault: vehicles.length === 0 ? true : isDefault
+        };
+        
+        setVehicles([...updatedVehicles, safeVeh]);
+      }
+      setIsModalOpen(false);
+    } catch (err) {
+      alert("Lỗi khi lưu thông tin xe.");
+      console.error(err);
     }
-
-    setIsModalOpen(false);
   };
 
   // Xóa xe máy khỏi ga-ra
@@ -108,16 +149,22 @@ export default function CustomerGaragePage() {
           </h1>
           <p className="text-xs text-slate-500 mt-1">Đăng ký sẵn các phương tiện cá nhân giúp quy trình đặt lịch rửa xe diễn ra nhanh gọn hơn.</p>
         </div>
-        <button 
-          onClick={handleOpenAddModal}
-          className="flex items-center gap-1.5 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow transition-all"
-        >
-          <Plus size={14} /> Thêm xe mới
-        </button>
+        {vehicles.length > 0 && (
+          <button 
+            onClick={handleOpenAddModal}
+            className="flex items-center gap-1.5 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow transition-all"
+          >
+            <Plus size={14} /> Thêm xe mới
+          </button>
+        )}
       </div>
 
       {/* LƯỚI THỂ HIỂN THỊ DANH SÁCH XE */}
-      {vehicles.length > 0 ? (
+      {isLoading ? (
+        <div className="flex justify-center items-center py-20 text-slate-400 gap-2">
+          <Loader2 className="animate-spin" size={24} /> Đang tải danh sách xe...
+        </div>
+      ) : vehicles.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           
           {/* Card đăng ký xe nhanh (Dạng nét đứt) */}

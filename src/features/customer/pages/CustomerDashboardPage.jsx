@@ -14,6 +14,7 @@ import {
 import VIPCard from '../components/VIPCard';
 import TierProgressBar from '../components/TierProgressBar';
 import QRModal from '../components/QRModal';
+import { customerApi } from '../services/customerApi';
 
 export default function CustomerDashboardPage() {
   const navigate = useNavigate();
@@ -27,78 +28,91 @@ export default function CustomerDashboardPage() {
     { tierId: 4, tierName: 'PLATINUM', minSpend: 10000000 },
   ];
 
-  // Dữ liệu khách hàng đăng nhập hiện tại Nguyễn Minh Anh (Đồng bộ tuyệt đối với Admin POS)
-  const customer = {
-    fullName: "Nguyễn Minh Anh",
-    tierSpending: 15400000, // Nguyễn Minh Anh chi tiêu 15.4M đạt hạng Platinum
-    lifetimeSpend: 15400000, 
-    loyaltyPoints: 1240,
-    visitCount: 24,
-    tier: {
-      tierId: 4,
-      tierName: 'PLATINUM'
-    }
-  };
-
-  // Khởi tạo cơ sở dữ liệu mẫu nếu chưa có trong localStorage (đảm bảo đồng bộ cho buổi demo)
-  const initializeBookingsDb = () => {
-    if (!localStorage.getItem('autowash_bookings')) {
-      const initialBookings = {
-        '2026-06-30': [
-          { id: 'AW-9801', slotTime: '08:30', custId: 'C-04', vehicle: { type: 'Xe máy', model: 'Yamaha Grande', plate: '29-D1 555.55' }, service: { name: 'Basic Wash', price: 70000 }, status: 'Completed', createdTime: '30/06, 07:15 AM via Mobile App', paymentMethod: 'VNPay', pointsRedeemed: 0, discount: 0, finalAmount: 70000, completedTime: '08:52 AM', estimatedDuration: 20, source: 'APP', paymentStatus: 'PAID' },
-          { id: 'AW-9802', slotTime: '10:00', custId: 'C-01', vehicle: { type: 'Xe máy', model: 'Honda Lead', plate: '30-H2 333.33' }, service: { name: 'Premium Wash + Wax', price: 150000 }, status: 'Completed', createdTime: '30/06, 08:30 AM via Mobile App', paymentMethod: 'Cash', pointsRedeemed: 50, discount: 50000, finalAmount: 100000, completedTime: '10:32 AM', estimatedDuration: 30, source: 'APP', paymentStatus: 'PAID' }
-        ],
-        '2026-07-01': [
-          { id: 'AW-9821', slotTime: '14:30', custId: 'C-01', vehicle: { type: 'Xe máy', model: 'Honda SH 150i', plate: '29-G1 888.88' }, service: { name: 'Premium Wash + Wax', price: 150000 }, status: 'Pending', createdTime: 'Hôm nay, 09:15 AM via Mobile App', paymentMethod: null, pointsRedeemed: 0, discount: 0, finalAmount: 150000, estimatedDuration: 25, source: 'APP', paymentStatus: 'UNPAID' },
-          { id: 'AW-9819', slotTime: '14:00', custId: 'C-04', vehicle: { type: 'Xe máy', model: 'Honda Vision', plate: '59-S2 123.45' }, service: { name: 'Basic Wash', price: 70000 }, status: 'Pending', createdTime: 'Hôm nay, 11:30 AM via Mobile App', paymentMethod: null, pointsRedeemed: 0, discount: 0, finalAmount: 70000, note: 'Khách đến muộn 15 phút', estimatedDuration: 15, source: 'APP', paymentStatus: 'UNPAID' },
-          { id: 'AW-9815', slotTime: '13:45', custId: 'C-02', vehicle: { type: 'Xe máy', model: 'Vespa GTS', plate: '30-K3 999.01' }, service: { name: 'Full Detail', price: 450000 }, status: 'Completed', createdTime: 'Hôm nay, 08:45 AM via Mobile App', paymentMethod: 'Cash', pointsRedeemed: 200, discount: 200000, finalAmount: 250000, completedTime: '14:30 PM', estimatedDuration: 40, source: 'APP', paymentStatus: 'PAID' },
-          { id: 'AW-9812', slotTime: '13:15', custId: 'C-03', vehicle: { type: 'Xe máy', model: 'Vespa Primavera', plate: '29-F1 112.23' }, service: { name: 'Engine Clean', price: 200000 }, status: 'Completed', createdTime: 'Hôm nay, 07:10 AM via Mobile App', paymentMethod: 'VNPay', pointsRedeemed: 0, discount: 0, finalAmount: 200000, completedTime: '14:02 PM', estimatedDuration: 30, source: 'APP', paymentStatus: 'PAID' }
-        ],
-        '2026-07-02': [
-          { id: 'AW-9830', slotTime: '09:00', custId: 'C-03', vehicle: { type: 'Xe máy', model: 'Honda Winner X', plate: '29-S1 222.11' }, service: { name: 'Premium Wash + Wax', price: 150000 }, status: 'Pending', createdTime: 'Hôm nay, 14:20 PM via Mobile App', paymentMethod: null, pointsRedeemed: 0, discount: 0, finalAmount: 150000, estimatedDuration: 25, source: 'APP', paymentStatus: 'UNPAID' }
-        ],
-        '2026-07-03': [
-          { id: 'AW-9840', slotTime: '15:30', custId: 'C-02', vehicle: { type: 'Xe máy', model: 'Suzuki Raider', plate: '59-S3 888.88' }, service: { name: 'Full Detail', price: 450000 }, status: 'Pending', createdTime: 'Hôm nay, 16:10 PM via Mobile App', paymentMethod: null, pointsRedeemed: 0, discount: 0, finalAmount: 450000, estimatedDuration: 40, source: 'APP', paymentStatus: 'UNPAID' }
-        ]
-      };
-      localStorage.setItem('autowash_bookings', JSON.stringify(initialBookings));
-    }
-  };
-
+  const [customer, setCustomer] = useState(null);
   const [upcomingBooking, setUpcomingBooking] = useState(null);
+  const [visitCount, setVisitCount] = useState(0);
+  const [vouchersCount, setVouchersCount] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Đọc động đơn dọn xe sắp tới từ localStorage
+  // Fetch real data from backend API
   React.useEffect(() => {
-    initializeBookingsDb();
-    
-    try {
-      const bookingsDb = JSON.parse(localStorage.getItem('autowash_bookings') || '{}');
-      let foundBooking = null;
-      
-      // Sắp xếp ngày để tìm đơn hàng PENDING gần nhất
-      const dates = Object.keys(bookingsDb).sort();
-      for (const dateKey of dates) {
-        const dayList = bookingsDb[dateKey] || [];
-        // Tìm đơn của Sarah Jenkins (custId: 'C-01') đang ở trạng thái 'Pending'
-        const pendingItem = dayList.find(b => b.custId === 'C-01' && b.status?.toLowerCase() === 'pending');
+    const fetchDashboardData = async () => {
+      try {
+        const [profile, bookings, vouchers] = await Promise.all([
+          customerApi.getProfile(),
+          customerApi.getMyBookings(),
+          customerApi.getMyVouchers('ISSUED')
+        ]);
         
-        if (pendingItem) {
-          foundBooking = {
-            bookingCode: pendingItem.id,
-            licensePlate: pendingItem.vehicle?.plate || 'Chưa có',
-            model: pendingItem.vehicle?.model || 'Xe máy',
-            packageName: pendingItem.service?.name || 'Rửa xe',
-            slotDate: dateKey,
-            slotTime: pendingItem.slotTime,
-            status: pendingItem.status?.toUpperCase()
-          };
-          break;
+        // Add minimal defaults if profile is missing some fields
+        const customerData = {
+          ...profile,
+          tierSpending: profile.tierSpending || 0,
+          lifetimeSpend: profile.lifetimeSpend || 0,
+          loyaltyPoints: profile.loyaltyPoints || 0,
+          tier: profile.tier || { tierId: 1, tierName: profile.tierName || 'MEMBER' }
+        };
+        setCustomer(customerData);
+
+        // Calculate visits and find upcoming booking
+        if (Array.isArray(bookings)) {
+          const completedBookings = bookings.filter(b => b.status === 'Completed' || b.status === 'COMPLETED');
+          setVisitCount(completedBookings.length);
+          
+          // Find first Pending/Confirmed booking for upcoming
+          const pending = bookings.find(b => ['Pending', 'PENDING', 'Confirmed', 'CONFIRMED'].includes(b.status));
+          if (pending) {
+            setUpcomingBooking({
+              bookingCode: pending.id || pending.bookingCode,
+              licensePlate: pending.vehicle?.plate || pending.vehicle?.licensePlate || 'Chưa có',
+              model: pending.vehicle?.model || 'Xe máy',
+              packageName: pending.service?.name || pending.serviceName || 'Rửa xe',
+              slotDate: pending.slotDate || pending.date || 'Sắp tới',
+              slotTime: pending.slotTime || pending.time || '',
+              status: pending.status?.toUpperCase()
+            });
+          }
+        } else {
+          // Flatten localStorage fallback for mock demo compatibility if no real array
+          const dates = Object.keys(bookings).sort();
+          let count = 0;
+          let foundPending = null;
+          
+          for (const dateKey of dates) {
+            const dayList = bookings[dateKey] || [];
+            count += dayList.filter(b => b.status?.toLowerCase() === 'completed').length;
+            
+            if (!foundPending) {
+              const p = dayList.find(b => b.status?.toLowerCase() === 'pending' || b.status?.toLowerCase() === 'confirmed');
+              if (p) {
+                foundPending = {
+                  bookingCode: p.id,
+                  licensePlate: p.vehicle?.plate || 'Chưa có',
+                  model: p.vehicle?.model || 'Xe máy',
+                  packageName: p.service?.name || 'Rửa xe',
+                  slotDate: dateKey,
+                  slotTime: p.slotTime,
+                  status: p.status?.toUpperCase()
+                };
+              }
+            }
+          }
+          setVisitCount(count);
+          setUpcomingBooking(foundPending);
         }
+
+        if (Array.isArray(vouchers)) {
+          setVouchersCount(vouchers.length);
+        }
+
+      } catch (err) {
+        console.error("Lỗi đọc dữ liệu dashboard:", err);
+      } finally {
+        setIsLoading(false);
       }
-      setUpcomingBooking(foundBooking);
-    } catch (error) {
-      console.error("Lỗi đọc dữ liệu đặt lịch từ localStorage:", error);
-    }
+    };
+    
+    fetchDashboardData();
   }, []);
 
   // Gợi ý dịch vụ dọn xe máy thực tế tại Việt Nam
@@ -112,17 +126,17 @@ export default function CustomerDashboardPage() {
     },
     {
       id: 2,
-      title: "Dọn rửa Chi tiết Côn tay / PKL (Deluxe)",
-      price: 150000,
-      description: "Tẩy ố lazang, vệ sinh sên đĩa xích, dưỡng bóng dàn áo xe phân khối lớn.",
-      tag: "CHUYÊN SÂU"
-    },
-    {
-      id: 3,
       title: "Phủ bóng Wax bóng bảo vệ sơn (Premium)",
       price: 90000,
       description: "Rửa xe cao cấp kết hợp phủ sáp siêu bóng bảo vệ dàn nhựa xe ga.",
       tag: "ƯU ĐÃI VIP"
+    },
+    {
+      id: 3,
+      title: "Dọn rửa Chi tiết Côn tay / PKL (Deluxe)",
+      price: 150000,
+      description: "Tẩy ố lazang, vệ sinh sên đĩa xích, dưỡng bóng dàn áo xe phân khối lớn.",
+      tag: "CHUYÊN SÂU"
     }
   ];
 
@@ -132,7 +146,7 @@ export default function CustomerDashboardPage() {
       {/* KHU VỰC CHÀO MỪNG KHÁCH HÀNG */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight">Chào bạn, {customer.fullName}!</h1>
+          <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight">Chào bạn, {isLoading || !customer ? 'N/A' : (customer.fullName || 'N/A')}!</h1>
           <p className="text-sm text-slate-500 mt-1">Hôm nay xế cưng của bạn đã sẵn sàng để dọn rửa chưa?</p>
         </div>
         <button 
@@ -149,15 +163,23 @@ export default function CustomerDashboardPage() {
         {/* CỘT TRÁI (RỘNG 1/3) - THÔNG TIN THẺ VIP & TIẾN TRÌNH */}
         <div className="space-y-6">
           {/* Thẻ VIP */}
-          <VIPCard customer={customer} />
+          {isLoading || !customer ? (
+            <div className="h-48 bg-slate-100 rounded-2xl animate-pulse"></div>
+          ) : (
+            <VIPCard customer={customer} />
+          )}
           
           {/* Thanh Tiến trình thăng hạng */}
-          <TierProgressBar customer={customer} tiers={tiers} />
+          {isLoading || !customer ? (
+            <div className="h-24 bg-slate-100 rounded-2xl animate-pulse mt-4"></div>
+          ) : (
+            <TierProgressBar customer={customer} tiers={tiers} />
+          )}
 
           {/* Khối thống kê nhỏ */}
           <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex flex-col justify-between">
             <span className="text-[10px] font-bold text-slate-400 uppercase">Tổng số lượt rửa xe tại trạm</span>
-            <p className="text-2xl font-black text-slate-800 mt-2">{customer.visitCount} <span className="text-xs font-normal text-slate-500">lần dọn xe</span></p>
+            <p className="text-2xl font-black text-slate-800 mt-2">{isLoading ? 'N/A' : (visitCount ?? 'N/A')} <span className="text-xs font-normal text-slate-500">lần dọn xe</span></p>
           </div>
         </div>
 
@@ -171,7 +193,7 @@ export default function CustomerDashboardPage() {
                 <Clock size={16} className="text-blue-500" /> Lịch hẹn dọn xe sắp tới
               </h3>
               <button 
-                onClick={() => navigate('/customer/account')} 
+                onClick={() => navigate('/customer/book', { state: { openHistoryModal: true } })} 
                 className="text-xs text-blue-600 hover:text-blue-800 font-bold flex items-center"
               >
                 Lịch sử <ChevronRight size={14} />
@@ -230,7 +252,7 @@ export default function CustomerDashboardPage() {
               </div>
               <div>
                 <h4 className="font-bold text-slate-800 text-sm">Ví Voucher Đang Có</h4>
-                <p className="text-xs text-slate-500 mt-0.5">Bạn đang sở hữu **3 Voucher** khả dụng (Hạn gần nhất: 12 ngày nữa)</p>
+                <p className="text-xs text-slate-500 mt-0.5">Bạn đang sở hữu <strong>{isLoading ? 'N/A' : (vouchersCount ?? 'N/A')} Voucher</strong> khả dụng</p>
               </div>
             </div>
             <button 
@@ -274,7 +296,7 @@ export default function CustomerDashboardPage() {
                 <p className="text-xs text-slate-500 mt-2 leading-relaxed">{service.description}</p>
               </div>
               <button 
-                onClick={() => navigate('/customer/book')}
+                onClick={() => navigate('/customer/book', { state: { autoSelectServiceId: service.id || service.serviceId } })}
                 className="mt-5 w-full py-2 bg-slate-50 hover:bg-blue-600 hover:text-white border border-slate-150 text-slate-600 rounded-lg text-xs font-bold transition-all"
               >
                 Đặt dịch vụ này

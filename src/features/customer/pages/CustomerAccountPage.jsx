@@ -4,32 +4,61 @@ import {
   Key, 
   Check, 
   Mail,
-  Send
+  Send,
+  Loader2
 } from 'lucide-react';
+import { customerApi } from '../services/customerApi';
 
 export default function CustomerAccountPage() {
   const [subTab, setSubTab] = useState('profile'); // 'profile', 'password'
 
-  // State thông tin cá nhân khách hàng (Đồng bộ tuyệt đối Nguyễn Minh Anh - C-01)
-  const [fullName, setFullName] = useState("Nguyễn Minh Anh");
-  const [email, setEmail] = useState("nguyenminhanh@gmail.com");
-  const [isEmailVerified, setIsEmailVerified] = useState(true);
+  // State thông tin cá nhân khách hàng
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [isEmailVerified, setIsEmailVerified] = useState(false);
   const [isSendingVerification, setIsSendingVerification] = useState(false);
+  
+  const [customerStats, setCustomerStats] = useState({
+    customerId: "N/A",
+    phone: "N/A",
+    tierName: "N/A",
+    pointsBalance: 0,
+    lifetimeSpend: 0,
+    joinedDate: "N/A"
+  });
+  const [isLoading, setIsLoading] = useState(true);
 
   // State mật khẩu
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  // Dữ liệu khách hàng Nguyễn Minh Anh
-  const customerStats = {
-    customerId: "CUS-00109",
-    phone: "0912345678",
-    tierName: "PLATINUM MEMBER",
-    pointsBalance: 1240,
-    lifetimeSpend: 15400000,
-    joinedDate: "15/02/2026"
-  };
+  React.useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const data = await customerApi.getProfile();
+        if (data) {
+          setFullName(data.fullName || "N/A");
+          setEmail(data.email || "N/A");
+          setIsEmailVerified(data.isEmailVerified ?? false);
+          
+          setCustomerStats({
+            customerId: data.customerId || data.id || "N/A",
+            phone: data.phone || data.phoneNumber || "N/A",
+            tierName: data.tierName || data.tier?.tierName || "N/A",
+            pointsBalance: data.loyaltyPoints ?? data.pointsBalance ?? 0,
+            lifetimeSpend: data.lifetimeSpend ?? data.totalSpend ?? 0,
+            joinedDate: data.joinedDate || data.createdAt || "N/A"
+          });
+        }
+      } catch (err) {
+        console.error("Failed to fetch account profile:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchProfile();
+  }, []);
 
   // Gửi email kích hoạt tài khoản mô phỏng
   const handleSendVerification = () => {
@@ -107,6 +136,12 @@ export default function CustomerAccountPage() {
           {subTab === 'profile' && (
             <div className="space-y-6">
               
+              {isLoading ? (
+                <div className="flex justify-center items-center py-20 text-slate-400 gap-2">
+                  <Loader2 className="animate-spin" size={24} /> Đang tải thông tin cá nhân...
+                </div>
+              ) : (
+                <>
               {/* Thẻ hiển thị các tham số cố định */}
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4 bg-slate-50 p-5 rounded-2xl border border-slate-100">
                 <div>
@@ -192,6 +227,8 @@ export default function CustomerAccountPage() {
                   Lưu thay đổi thông tin
                 </button>
               </form>
+              </>
+              )}
 
             </div>
           )}

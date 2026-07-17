@@ -12,6 +12,7 @@ import {
   X,
   MessageSquare
 } from 'lucide-react';
+import { customerApi } from '../features/customer/services/customerApi';
 
 export default function CustomerLayout() {
   const navigate = useNavigate();
@@ -19,38 +20,33 @@ export default function CustomerLayout() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
 
-  // Mẫu dữ liệu khách hàng Nguyễn Minh Anh trùng khớp 100% với C-01 ở database Admin POS
-  const customer = {
-    fullName: "Nguyễn Minh Anh",
-    tierName: "PLATINUM MEMBER",
-    loyaltyPoints: 1240
-  };
-
+  const [customer, setCustomer] = useState(null);
   const [notifications, setNotifications] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Đồng bộ hóa nạp thông báo từ localStorage khi đổi đường dẫn hoặc khi tab khác thay đổi (đường truyền chéo tab E2E)
   React.useEffect(() => {
-    const defaultNotifs = [
-      { id: 1, text: "Đơn dọn xe máy AW-9894 của bạn đã được đối soát hoàn thành.", time: "10 phút trước", read: false },
-      { id: 2, text: "Chúc mừng bạn đã thăng hạng PLATINUM MEMBER với đặc quyền rửa xe gấp đôi tích điểm!", time: "Hôm nay", read: false },
-      { id: 3, text: "Admin đã gửi tặng 1 Voucher Gold tri ân trị giá 50.000 đ vào ví của bạn.", time: "Hôm qua", read: true }
-    ];
-
-    const loadNotifications = () => {
-      const saved = localStorage.getItem('autowash_cust_notifications');
-      if (saved) {
-        setNotifications(JSON.parse(saved));
-      } else {
-        localStorage.setItem('autowash_cust_notifications', JSON.stringify(defaultNotifs));
-        setNotifications(defaultNotifs);
+    const fetchData = async () => {
+      try {
+        const [profileData, notifsData] = await Promise.all([
+          customerApi.getProfile(),
+          customerApi.getNotifications()
+        ]);
+        setCustomer(profileData);
+        setNotifications(notifsData);
+      } catch (err) {
+        console.error("Failed to fetch layout data:", err);
+      } finally {
+        setIsLoading(false);
       }
     };
 
-    loadNotifications();
+    fetchData();
 
+    // Listen to local storage changes for cross-tab sync if needed
     const handleStorage = (e) => {
       if (e.key === 'autowash_cust_notifications') {
-        loadNotifications();
+        const saved = localStorage.getItem('autowash_cust_notifications');
+        if (saved) setNotifications(JSON.parse(saved));
       }
     };
 
@@ -93,7 +89,7 @@ export default function CustomerLayout() {
   // Lấy tiêu đề trang hiện tại để hiển thị trên Header
   const getPageTitle = () => {
     const activeItem = menuItems.find(item => location.pathname.startsWith(item.to));
-    return activeItem ? activeItem.label : 'Cổng Khách Hàng';
+    return activeItem ? activeItem.label : '';
   };
 
   const unreadCount = notifications.filter(n => !n.read).length;
@@ -119,12 +115,14 @@ export default function CustomerLayout() {
         {/* Khối Profile người dùng thu nhỏ */}
         <div className="p-4 mx-4 my-4 bg-slate-50 border border-slate-150 rounded-2xl flex items-center gap-3 relative overflow-hidden">
           <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-base shadow-sm">
-            MA
+            {isLoading || !customer ? 'N/A' : (customer.fullName ? customer.fullName.substring(0, 2).toUpperCase() : 'N/A')}
           </div>
           <div className="flex-1 min-w-0">
-            <h4 className="font-bold text-slate-800 text-sm truncate">{customer.fullName}</h4>
-            <span className={`inline-block text-[9px] font-extrabold px-2 py-0.5 rounded-full border mt-1 tracking-wider ${getBadgeClass(customer.tierName)}`}>
-              {customer.tierName}
+            <h4 className="font-bold text-slate-800 text-sm truncate">
+              {isLoading || !customer ? 'N/A' : (customer.fullName || 'N/A')}
+            </h4>
+            <span className={`inline-block text-[9px] font-extrabold px-2 py-0.5 rounded-full border mt-1 tracking-wider ${getBadgeClass(customer?.tierName)}`}>
+              {isLoading || !customer ? 'N/A' : (customer.tierName || 'N/A')}
             </span>
           </div>
         </div>
@@ -179,7 +177,7 @@ export default function CustomerLayout() {
             {/* Điểm thưởng hiển thị nhanh trên Header máy tính */}
             <div className="hidden lg:flex items-center gap-1.5 bg-blue-50 text-blue-700 px-3 py-1.5 rounded-xl text-xs font-bold border border-blue-100">
               <Gift size={14} />
-              <span>{customer.loyaltyPoints} Pts</span>
+              <span>{isLoading || !customer ? 'N/A' : (customer.loyaltyPoints ?? 'N/A')} Pts</span>
             </div>
             
             {/* Chuông thông báo */}
@@ -209,17 +207,21 @@ export default function CustomerLayout() {
                 </div>
                 
                 <div className="space-y-2 max-h-60 overflow-y-auto">
-                  {notifications.map(notif => (
-                    <div 
-                      key={notif.id}
-                      className={`p-2.5 rounded-xl border text-[11px] leading-relaxed transition-all ${
-                        notif.read ? 'bg-white border-slate-100 text-slate-500' : 'bg-blue-50/20 border-blue-100 text-slate-800 font-medium'
-                      }`}
-                    >
-                      <p>{notif.text}</p>
-                      <span className="text-[9px] text-slate-400 mt-1 block font-semibold">{notif.time}</span>
-                    </div>
-                  ))}
+                  {notifications.length === 0 ? (
+                    <div className="text-slate-400 text-xs text-center py-4">Không có thông báo gì mới.</div>
+                  ) : (
+                    notifications.map(notif => (
+                      <div 
+                        key={notif.id}
+                        className={`p-2.5 rounded-xl border text-[11px] leading-relaxed transition-all ${
+                          notif.read ? 'bg-white border-slate-100 text-slate-500' : 'bg-blue-50/20 border-blue-100 text-slate-800 font-medium'
+                        }`}
+                      >
+                        <p>{notif.text}</p>
+                        <span className="text-[9px] text-slate-400 mt-1 block font-semibold">{notif.time}</span>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             )}

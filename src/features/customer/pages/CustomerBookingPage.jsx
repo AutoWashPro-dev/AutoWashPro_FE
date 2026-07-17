@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   Calendar as CalendarIcon, 
   Clock, 
@@ -11,7 +11,8 @@ import {
   HelpCircle,
   History,
   Trash2,
-  X
+  X,
+  Car
 } from 'lucide-react';
 import VehicleCard from '../components/VehicleCard';
 import { customerApi } from '../services/customerApi';
@@ -19,6 +20,7 @@ import axios from 'axios';
 
 export default function CustomerBookingPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [bookingTab, setBookingTab] = useState('new'); // 'new' hoặc 'history'
 
   // Mẫu dữ liệu xe máy của khách hàng
@@ -147,6 +149,31 @@ export default function CustomerBookingPage() {
     loadCustomerVouchers();
     loadServices();
   }, []);
+
+  // Xử lý luồng đặt dịch vụ tự động chọn (từ trang Dashboard)
+  useEffect(() => {
+    const autoSelectServiceId = location.state?.autoSelectServiceId;
+    if (autoSelectServiceId && corePackages.length > 0) {
+      const pkgToSelect = corePackages.find(p => p.id === autoSelectServiceId);
+      if (pkgToSelect) {
+        setSelectedPackage(pkgToSelect);
+        // Trì hoãn một chút để đảm bảo DOM đã render trạng thái selected
+        setTimeout(() => {
+          const el = document.getElementById(`package-${pkgToSelect.id}`);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }, 150);
+      }
+    }
+  }, [location.state, corePackages]);
+
+  // Xử lý tự động mở tab Lịch sử (theo yêu cầu openHistoryModal từ Dashboard)
+  useEffect(() => {
+    if (location.state?.openHistoryModal) {
+      setBookingTab('history');
+    }
+  }, [location.state]);
 
   // Tính toán động trạng thái các khung giờ từ API Backend
   useEffect(() => {
@@ -517,27 +544,44 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
                   <span className="w-6 h-6 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold">1</span>
                   Chọn phương tiện dọn rửa
                 </h3>
-                <button 
-                  onClick={openAddVehicleModal}
-                  className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-bold"
-                >
-                  <Plus size={14} /> Đăng ký xe mới
-                </button>
+                {vehicles.length > 0 && (
+                  <button 
+                    onClick={openAddVehicleModal}
+                    className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-bold"
+                  >
+                    <Plus size={14} /> Đăng ký xe mới
+                  </button>
+                )}
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {vehicles.map(veh => (
-                  <VehicleCard 
-                    key={veh.vehicleId || veh.id}
-                    vehicle={veh}
-                    isDefault={selectedVehicle?.vehicleId === veh.vehicleId}
-                    isSelectable={true}
-                    onSelect={(v) => setSelectedVehicle(v)}
-                    onEdit={() => openEditVehicleModal(veh)}
-                    onDelete={() => {}}
-                  />
-                ))}
-              </div>
+              {vehicles.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {vehicles.map(veh => (
+                    <VehicleCard 
+                      key={veh.vehicleId || veh.id}
+                      vehicle={veh}
+                      isDefault={selectedVehicle?.vehicleId === veh.vehicleId}
+                      isSelectable={true}
+                      onSelect={(v) => setSelectedVehicle(v)}
+                      onEdit={() => openEditVehicleModal(veh)}
+                      onDelete={() => {}}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-12 text-slate-400 text-sm bg-slate-50 border border-dashed border-slate-300 rounded-2xl flex flex-col items-center justify-center gap-4">
+                  <div className="w-12 h-12 bg-white shadow-sm rounded-full flex items-center justify-center text-slate-300">
+                    <Car size={24} className="text-blue-500" />
+                  </div>
+                  <p>Ga-ra của bạn đang trống trơn. Hãy đăng ký chiếc xe đầu tiên của mình nhé!</p>
+                  <button 
+                    onClick={openAddVehicleModal}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-md transition-all"
+                  >
+                    Đăng ký xe ngay
+                  </button>
+                </div>
+              )}
             </section>
 
             {/* SECTION 2: CHỌN GÓI RỬA CHÍNH */}
@@ -555,6 +599,7 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
                   return (
                     <div 
                       key={pkg.id}
+                      id={`package-${pkg.id}`}
                       onClick={() => setSelectedPackage(pkg)}
                       className={`border rounded-2xl p-5 cursor-pointer transition-all flex flex-col justify-between h-56 text-left relative ${
                         isSelected 

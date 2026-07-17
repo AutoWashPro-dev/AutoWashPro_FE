@@ -29,15 +29,24 @@ export const customerApi = {
       console.warn('API getProfile error:', err.message);
       // Fallback profile for mock
       return {
-        fullName: 'Sarah Jenkins',
-        loyaltyPoints: 1240,
-        tierName: 'GOLD MEMBER',
-        bookingWindowDays: 14,
+        fullName: 'N/A',
+        loyaltyPoints: 0,
+        tierName: 'MEMBER',
+        bookingWindowDays: 1,
         vehicles: [
-          { vehicleId: 1, licensePlate: "51K-123.45", model: "Ducati Panigale", isDefault: false },
-          { vehicleId: 2, licensePlate: "29H-555.55", model: "Vespa GTS", isDefault: true }
         ]
       };
+    }
+  },
+
+  // Get notifications
+  getNotifications: async () => {
+    try {
+      const res = await api.get('/customer/notifications');
+      return res.data || [];
+    } catch (err) {
+      console.warn('API getNotifications error:', err.message);
+      return [];
     }
   },
 
