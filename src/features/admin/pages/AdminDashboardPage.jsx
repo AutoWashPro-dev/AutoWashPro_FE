@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { 
   Banknote, 
   Calendar, 
@@ -9,13 +9,14 @@ import {
   XCircle, 
   HelpCircle 
 } from 'lucide-react';
+import WashbayGrid from '../components/WashbayGrid';
 import { dashboardApi } from '../services/dashboardApi';
 
 const AdminDashboardPage = () => {
   const [period, setPeriod] = useState('today'); // 'today', 'week', 'month', 'year'
   const [liveData, setLiveData] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [kpiSummary, setKpiSummary] = useState(null); // Lưu trữ trực tiếp response từ /api/v1/admin/dashboard/kpi-summary
+  const [kpiSummary, setKpiSummary] = useState(null); // LÆ°u trá»¯ trá»±c tiáº¿p response tá»« /api/v1/admin/dashboard/kpi-summary
   const [errorMsg, setErrorMsg] = useState(null);
 
   // AI Advisor States (E2E-3)
@@ -33,7 +34,7 @@ const AdminDashboardPage = () => {
       setAiProposal(res);
     } catch (err) {
       console.error('Failed to request AI Advisor proposal:', err);
-      alert('Không thể nhận đề xuất từ AI Advisor: ' + (err.response?.data?.message || err.message));
+      alert('KhÃ´ng thá»ƒ nháº­n Ä‘á» xuáº¥t tá»« AI Advisor: ' + (err.response?.data?.message || err.message));
     } finally {
       setLoadingAi(false);
     }
@@ -44,12 +45,12 @@ const AdminDashboardPage = () => {
     setApplyingProposal(true);
     try {
       const res = await dashboardApi.applyProposal(aiProposal.proposalId);
-      alert(res.message || 'Kích hoạt chiến dịch từ đề xuất AI thành công!');
+      alert(res.message || 'KÃ­ch hoáº¡t chiáº¿n dá»‹ch tá»« Ä‘á» xuáº¥t AI thÃ nh cÃ´ng!');
       // Reload dashboard stats
       setPeriod(period);
     } catch (err) {
       console.error('Failed to apply AI proposal:', err);
-      alert('Lỗi áp dụng đề xuất AI: ' + (err.response?.data?.message || err.message));
+      alert('Lá»—i Ã¡p dá»¥ng Ä‘á» xuáº¥t AI: ' + (err.response?.data?.message || err.message));
     } finally {
       setApplyingProposal(false);
     }
@@ -61,10 +62,10 @@ const AdminDashboardPage = () => {
     paid: 0,
     wait: 0,
     canceled: 0,
-    bookingsLabel: '0% so với kỳ trước',
-    bookingsSub: 'Đúng hẹn E2E-1: 0%',
-    revenueStr: '0 đ',
-    revenueLabel: '0% so với mục tiêu',
+    bookingsLabel: '0% so vá»›i ká»³ trÆ°á»›c',
+    bookingsSub: 'ÄÃºng háº¹n E2E-1: 0%',
+    revenueStr: '0 Ä‘',
+    revenueLabel: '0% so vá»›i má»¥c tiÃªu',
     loyaltyEarn: '0 Pts',
     loyaltyRedeem: '0 Pts',
     loyaltyNet: '0 Pts',
@@ -73,9 +74,9 @@ const AdminDashboardPage = () => {
     waitPct: 0,
     canceledPct: 0,
     capacityPct: '0%',
-    capacityPeak: '—',
+    capacityPeak: 'â€”',
     
-    yLeftLabels: ['10M', '7.5M', '5M', '2.5M', '0 đ'],
+    yLeftLabels: ['10M', '7.5M', '5M', '2.5M', '0 Ä‘'],
     yRightLabels: ['200k/xe', '150k/xe', '100k/xe', '50k/xe', '0'],
     
     donutDash: '0 100', donutOffset: '0',
@@ -83,10 +84,10 @@ const AdminDashboardPage = () => {
     donutUnpaidDash: '0 100', donutUnpaidOffset: '0',
     donutCanceledDash: '0 100', donutCanceledOffset: '0',
     
-    core1Name: 'Gói chính: Deluxe Wash', core1Price: '0 đ (0%)', core1Pct: '0%',
-    core2Name: 'Gói chính: Premium Wash', core2Price: '0 đ (0%)', core2Pct: '0%',
-    core3Name: 'Gói chính: Basic Wash', core3Price: '0 đ (0%)', core3Pct: '0%',
-    addonPrice: '0 đ (0%)', addonPct: '0%',
+    core1Name: 'GÃ³i chÃ­nh: Deluxe Wash', core1Price: '0 Ä‘ (0%)', core1Pct: '0%',
+    core2Name: 'GÃ³i chÃ­nh: Premium Wash', core2Price: '0 Ä‘ (0%)', core2Pct: '0%',
+    core3Name: 'GÃ³i chÃ­nh: Basic Wash', core3Price: '0 Ä‘ (0%)', core3Pct: '0%',
+    addonPrice: '0 Ä‘ (0%)', addonPct: '0%',
 
     stackedChart: [],
     occupancyChart: []
@@ -110,31 +111,31 @@ const AdminDashboardPage = () => {
         const rejected = [kpiRes, trendsRes, distRes, slotsRes].filter(r => r.status === 'rejected');
         if (rejected.length > 0) {
           const firstErr = rejected[0].reason;
-          console.error('Một hoặc nhiều API Dashboard bị lỗi (bị từ chối):', firstErr);
+          console.error('Má»™t hoáº·c nhiá»u API Dashboard bá»‹ lá»—i (bá»‹ tá»« chá»‘i):', firstErr);
           if (firstErr?.response?.status === 401 || firstErr?.response?.status === 403) {
-            setErrorMsg('⚠️ Phiên đăng nhập Admin đã hết hạn hoặc token không hợp lệ (Lỗi 401/403). Vui lòng ĐĂNG XUẤT và ĐĂNG NHẬP LẠI!');
+            setErrorMsg('âš ï¸ PhiÃªn Ä‘Äƒng nháº­p Admin Ä‘Ã£ háº¿t háº¡n hoáº·c token khÃ´ng há»£p lá»‡ (Lá»—i 401/403). Vui lÃ²ng ÄÄ‚NG XUáº¤T vÃ  ÄÄ‚NG NHáº¬P Láº I!');
           } else {
-            setErrorMsg(`⚠️ Không thể tải dữ liệu từ Backend API (${firstErr?.message || 'Lỗi kết nối/CORS'}). Vui lòng kiểm tra lại server port 8080!`);
+            setErrorMsg(`âš ï¸ KhÃ´ng thá»ƒ táº£i dá»¯ liá»‡u tá»« Backend API (${firstErr?.message || 'Lá»—i káº¿t ná»‘i/CORS'}). Vui lÃ²ng kiá»ƒm tra láº¡i server port 8080!`);
           }
         } else {
           setErrorMsg(null);
         }
 
         const kpi = kpiRes.status === 'fulfilled' && kpiRes.value ? kpiRes.value : {};
-        setKpiSummary(kpi); // Gắn dữ liệu API kpi-summary vào state
+        setKpiSummary(kpi); // Gáº¯n dá»¯ liá»‡u API kpi-summary vÃ o state
         const trends = trendsRes.status === 'fulfilled' && Array.isArray(trendsRes.value) ? trendsRes.value : [];
         const dist = distRes.status === 'fulfilled' && distRes.value ? distRes.value : {};
         const slots = slotsRes.status === 'fulfilled' && Array.isArray(slotsRes.value) ? slotsRes.value : [];
 
-        // 1. Phân phối trạng thái đơn hàng (Donut Chart)
+        // 1. PhÃ¢n phá»‘i tráº¡ng thÃ¡i Ä‘Æ¡n hÃ ng (Donut Chart)
         const distList = dist.distributions || [];
         const getDist = (st, altSt, altLabel) => distList.find(d => d.status === st || d.status === altSt || d.label === altLabel) || { count: 0, percentage: 0 };
-        const comp = getDist('COMPLETED', 'Hoàn thành');
-        const pd = getDist('PAID', 'CONFIRMED', 'Đã thanh toán');
-        const unpd = getDist('UNPAID', 'PENDING', 'Chưa thanh toán');
-        const canc = getDist('CANCELLED', 'CANCELLED_BY_CUSTOMER', 'Đã hủy đơn');
+        const comp = getDist('COMPLETED', 'HoÃ n thÃ nh');
+        const pd = getDist('PAID', 'CONFIRMED', 'ÄÃ£ thanh toÃ¡n');
+        const unpd = getDist('UNPAID', 'PENDING', 'ChÆ°a thanh toÃ¡n');
+        const canc = getDist('CANCELLED', 'CANCELLED_BY_CUSTOMER', 'ÄÃ£ há»§y Ä‘Æ¡n');
 
-        // 2. Tính toán tổng các gói dịch vụ từ dải trend
+        // 2. TÃ­nh toÃ¡n tá»•ng cÃ¡c gÃ³i dá»‹ch vá»¥ tá»« dáº£i trend
         const totalBasic = trends.reduce((acc, t) => acc + Number(t.standardWashRevenue || 0), 0);
         const totalCombo = trends.reduce((acc, t) => acc + Number(t.interiorComboRevenue || 0), 0);
         const totalVip = trends.reduce((acc, t) => acc + Number(t.ceramicVipRevenue || 0), 0);
@@ -144,7 +145,7 @@ const AdminDashboardPage = () => {
         const basicPct = ((totalBasic / totalSum) * 100).toFixed(1);
         const addonPct = Math.max(0, (100 - Number(vipPct) - Number(comboPct) - Number(basicPct))).toFixed(1);
 
-        // 3. Chuẩn hóa dữ liệu biểu đồ Stacked Bar
+        // 3. Chuáº©n hÃ³a dá»¯ liá»‡u biá»ƒu Ä‘á»“ Stacked Bar
         const stackedChartData = trends.map(t => {
           const basicVal = Number(t.standardWashRevenue || 0) / 1000;
           const comboVal = Number(t.interiorComboRevenue || 0) / 1000;
@@ -157,17 +158,17 @@ const AdminDashboardPage = () => {
             combo: Math.round(comboVal),
             vip: Math.round(vipVal),
             total: Math.round(totalVal),
-            totalStr: `${(totalVal * 1000).toLocaleString('vi-VN')} đ`,
+            totalStr: `${(totalVal * 1000).toLocaleString('vi-VN')} Ä‘`,
             aov: Math.round(aovVal / 1000), // k
-            aovStr: `${aovVal.toLocaleString('vi-VN')} đ/xe`,
+            aovStr: `${aovVal.toLocaleString('vi-VN')} Ä‘/xe`,
             cars: aovVal > 0 ? Math.round((totalVal * 1000) / aovVal) : 0
           };
         });
 
-        // 4. Tính toán trục động cho biểu đồ doanh thu & AOV
+        // 4. TÃ­nh toÃ¡n trá»¥c Ä‘á»™ng cho biá»ƒu Ä‘á»“ doanh thu & AOV
         const maxBar = Math.max(...stackedChartData.map(c => c.total), 1000);
         const fmtLabel = (valK) => valK >= 1000 ? `${(valK / 1000).toFixed(valK >= 10000 ? 0 : 1)}M` : `${Math.round(valK)}k`;
-        const yLeftLabels = [fmtLabel(maxBar), fmtLabel(maxBar * 0.75), fmtLabel(maxBar * 0.5), fmtLabel(maxBar * 0.25), '0 đ'];
+        const yLeftLabels = [fmtLabel(maxBar), fmtLabel(maxBar * 0.75), fmtLabel(maxBar * 0.5), fmtLabel(maxBar * 0.25), '0 Ä‘'];
 
         const maxAovK = Math.max(...stackedChartData.map(c => c.aov), 100);
         const yRightLabels = [`${Math.round(maxAovK)}k/xe`, `${Math.round(maxAovK * 0.75)}k/xe`, `${Math.round(maxAovK * 0.5)}k/xe`, `${Math.round(maxAovK * 0.25)}k/xe`, '0'];
@@ -178,10 +179,10 @@ const AdminDashboardPage = () => {
           paid: pd.count || 0,
           wait: unpd.count || 0,
           canceled: canc.count || 0,
-          bookingsLabel: `${(kpi.bookingsGrowthPercentage || 0) >= 0 ? '+' : ''}${kpi.bookingsGrowthPercentage || 0}% so với kỳ trước`,
-          bookingsSub: `Đúng hẹn E2E-1: ${kpi.onTimeRateE2E1 || 92}%`,
-          revenueStr: `${Number(kpi.actualRevenuePaid || 0).toLocaleString('vi-VN')} đ`,
-          revenueLabel: `${(kpi.revenueGrowthPercentage || 0) >= 0 ? '+' : ''}${kpi.revenueGrowthPercentage || 0}% so với mục tiêu`,
+          bookingsLabel: `${(kpi.bookingsGrowthPercentage || 0) >= 0 ? '+' : ''}${kpi.bookingsGrowthPercentage || 0}% so vá»›i ká»³ trÆ°á»›c`,
+          bookingsSub: `ÄÃºng háº¹n E2E-1: ${kpi.onTimeRateE2E1 || 92}%`,
+          revenueStr: `${Number(kpi.actualRevenuePaid || 0).toLocaleString('vi-VN')} Ä‘`,
+          revenueLabel: `${(kpi.revenueGrowthPercentage || 0) >= 0 ? '+' : ''}${kpi.revenueGrowthPercentage || 0}% so vá»›i má»¥c tiÃªu`,
           loyaltyEarn: `${Number(kpi.pointsIssued || 0).toLocaleString('vi-VN')} Pts`,
           loyaltyRedeem: `${Number(kpi.pointsRedeemed || 0).toLocaleString('vi-VN')} Pts`,
           loyaltyNet: `${Number(kpi.loyaltyPointsNet || 0).toLocaleString('vi-VN')} Pts`,
@@ -190,7 +191,7 @@ const AdminDashboardPage = () => {
           waitPct: Math.round(unpd.percentage || 0),
           canceledPct: Math.round(canc.percentage || 0),
           capacityPct: `${Number(kpi.slotOccupancyRate || 0).toFixed(0)}%`,
-          capacityPeak: `${kpi.peakForecastLabel || '—'} (Cao)`,
+          capacityPeak: `${kpi.peakForecastLabel || 'â€”'} (Cao)`,
           
           yLeftLabels,
           yRightLabels,
@@ -204,16 +205,16 @@ const AdminDashboardPage = () => {
           donutCanceledDash: `${canc.percentage || 0} ${100 - (canc.percentage || 0)}`,
           donutCanceledOffset: `-${(comp.percentage || 0) + (pd.percentage || 0) + (unpd.percentage || 0)}`,
           
-          core1Name: 'Gói chính: Deluxe Wash',
-          core1Price: `${totalVip.toLocaleString('vi-VN')} đ (${vipPct}%)`,
+          core1Name: 'GÃ³i chÃ­nh: Deluxe Wash',
+          core1Price: `${totalVip.toLocaleString('vi-VN')} Ä‘ (${vipPct}%)`,
           core1Pct: `${vipPct}%`,
-          core2Name: 'Gói chính: Premium Wash',
-          core2Price: `${totalCombo.toLocaleString('vi-VN')} đ (${comboPct}%)`,
+          core2Name: 'GÃ³i chÃ­nh: Premium Wash',
+          core2Price: `${totalCombo.toLocaleString('vi-VN')} Ä‘ (${comboPct}%)`,
           core2Pct: `${comboPct}%`,
-          core3Name: 'Gói chính: Basic Wash',
-          core3Price: `${totalBasic.toLocaleString('vi-VN')} đ (${basicPct}%)`,
+          core3Name: 'GÃ³i chÃ­nh: Basic Wash',
+          core3Price: `${totalBasic.toLocaleString('vi-VN')} Ä‘ (${basicPct}%)`,
           core3Pct: `${basicPct}%`,
-          addonPrice: `0 đ (${addonPct}%)`,
+          addonPrice: `0 Ä‘ (${addonPct}%)`,
           addonPct: `${addonPct}%`,
 
           stackedChart: stackedChartData,
@@ -233,8 +234,8 @@ const AdminDashboardPage = () => {
                 occStr: `${occ}% (${s.actualBooked || 0}/${s.configuredMaxCapacity || 0} xe)`,
                 level: occ >= 80 ? 'high' : occ >= 50 ? 'med' : 'low',
                 risk: risk,
-                riskStr: `${risk}% (${s.isHighRisk ? 'Cao 🔥' : 'Thấp'})`,
-                note: s.isHighRisk ? '⚠️ Cảnh báo E2E-1: Khung giờ rủi ro cao' : 'Hoạt động ổn định theo E2E-1'
+                riskStr: `${risk}% (${s.isHighRisk ? 'Cao ðŸ”¥' : 'Tháº¥p'})`,
+                note: s.isHighRisk ? 'âš ï¸ Cáº£nh bÃ¡o E2E-1: Khung giá» rá»§i ro cao' : 'Hoáº¡t Ä‘á»™ng á»•n Ä‘á»‹nh theo E2E-1'
               };
             });
           })(),
@@ -259,7 +260,7 @@ const AdminDashboardPage = () => {
         };
         setLiveData(mapped);
       } catch (err) {
-        console.error('Lỗi khi tải dữ liệu API từ backend:', err);
+        console.error('Lá»—i khi táº£i dá»¯ liá»‡u API tá»« backend:', err);
       } finally {
         if (isMounted) setLoading(false);
       }
@@ -280,7 +281,7 @@ return (
             onClick={() => { localStorage.removeItem('autowash_token'); localStorage.removeItem('token'); localStorage.removeItem('accessToken'); window.location.href = '/login'; }} 
             className="bg-rose-600 text-white px-4 py-1.5 rounded-lg font-bold hover:bg-rose-700 transition-all text-xs shrink-0 cursor-pointer shadow-sm"
           >
-            Đăng xuất & Đăng nhập lại ngay
+            ÄÄƒng xuáº¥t & ÄÄƒng nháº­p láº¡i ngay
           </button>
         </div>
       )}
@@ -290,11 +291,11 @@ return (
         <div>
           <div className="flex items-center gap-2">
             <h2 className="text-2xl font-extrabold font-outfit text-slate-800 tracking-tight">Command Center</h2>
-            {loading && <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium animate-pulse">Đang đồng bộ API...</span>}
-            {liveData && !loading && !errorMsg && <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-medium">⚡ Live Backend API</span>}
-            {errorMsg && !loading && <span className="text-xs bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full font-medium">⚠️ Lỗi kết nối API</span>}
+            {loading && <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium animate-pulse">Äang Ä‘á»“ng bá»™ API...</span>}
+            {liveData && !loading && !errorMsg && <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-medium">âš¡ Live Backend API</span>}
+            {errorMsg && !loading && <span className="text-xs bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full font-medium">âš ï¸ Lá»—i káº¿t ná»‘i API</span>}
           </div>
-          <p className="text-xs text-slate-400 font-semibold">Tổng quan hoạt động vận hành & Tỷ lệ lấp đầy trạm rửa xe máy.</p>
+          <p className="text-xs text-slate-400 font-semibold">Tá»•ng quan hoáº¡t Ä‘á»™ng váº­n hÃ nh & Tá»· lá»‡ láº¥p Ä‘áº§y tráº¡m rá»­a xe mÃ¡y.</p>
         </div>
         
         <div className="flex items-center gap-3 self-start md:self-auto">
@@ -303,7 +304,7 @@ return (
             className="flex items-center gap-1.5 bg-gradient-to-r from-violet-600 to-indigo-650 text-white text-xs font-black px-4.5 py-2.5 rounded-xl hover:shadow-lg hover:shadow-indigo-600/10 active:scale-[0.98] transition-all cursor-pointer shadow-sm"
           >
             <HelpCircle className="w-4 h-4 text-indigo-200 animate-bounce" />
-            Nhận Hiến Kế AI 💡
+            Nháº­n Hiáº¿n Káº¿ AI ðŸ’¡
           </button>
 
           <div className="bg-white border border-slate-200/80 rounded-xl p-1 flex gap-1.5 text-xs text-slate-500 shadow-sm">
@@ -313,7 +314,7 @@ return (
                 period === 'today' ? 'bg-slate-900 text-white shadow-sm' : 'hover:text-slate-800 hover:bg-slate-50'
               }`}
             >
-              Hôm nay
+              HÃ´m nay
             </button>
             <button 
               onClick={() => setPeriod('week')} 
@@ -321,7 +322,7 @@ return (
                 period === 'week' ? 'bg-slate-900 text-white shadow-sm' : 'hover:text-slate-800 hover:bg-slate-50'
               }`}
             >
-              Tuần
+              Tuáº§n
             </button>
             <button 
               onClick={() => setPeriod('month')} 
@@ -329,7 +330,7 @@ return (
                 period === 'month' ? 'bg-slate-900 text-white shadow-sm' : 'hover:text-slate-800 hover:bg-slate-50'
               }`}
             >
-              Tháng
+              ThÃ¡ng
             </button>
             <button 
               onClick={() => setPeriod('year')} 
@@ -337,7 +338,7 @@ return (
                 period === 'year' ? 'bg-slate-900 text-white shadow-sm' : 'hover:text-slate-800 hover:bg-slate-50'
               }`}
             >
-              Năm
+              NÄƒm
             </button>
           </div>
         </div>
@@ -356,7 +357,7 @@ return (
               </div>
               <div className="text-left">
                 <h3 className="font-extrabold text-sm tracking-tight font-outfit">AI Advisor Command</h3>
-                <p className="text-[10px] text-slate-400 font-semibold mt-0.5">Trợ lý AI phân tích hiệu suất và đề xuất chiến lược Win-back tự động.</p>
+                <p className="text-[10px] text-slate-400 font-semibold mt-0.5">Trá»£ lÃ½ AI phÃ¢n tÃ­ch hiá»‡u suáº¥t vÃ  Ä‘á» xuáº¥t chiáº¿n lÆ°á»£c Win-back tá»± Ä‘á»™ng.</p>
               </div>
             </div>
             <button 
@@ -370,17 +371,17 @@ return (
           {loadingAi ? (
             <div className="flex flex-col items-center justify-center py-12 space-y-3">
               <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-              <p className="text-slate-300 text-[11px] font-bold animate-pulse">Trợ lý AI đang thu thập dữ liệu dashboard và phân tích...</p>
+              <p className="text-slate-300 text-[11px] font-bold animate-pulse">Trá»£ lÃ½ AI Ä‘ang thu tháº­p dá»¯ liá»‡u dashboard vÃ  phÃ¢n tÃ­ch...</p>
             </div>
           ) : aiProposal ? (
             <div className="mt-5 space-y-5 text-left">
-              {/* Lời khuyên */}
+              {/* Lá»i khuyÃªn */}
               <div className="bg-slate-800/40 p-4.5 rounded-2xl border border-slate-700/40 leading-relaxed text-slate-200">
-                <h4 className="font-black text-indigo-300 uppercase tracking-wider text-[9px] mb-2">💡 Phân tích & Lời khuyên từ AI</h4>
-                <p className="whitespace-pre-line font-medium leading-relaxed">{aiProposal.advisoryText || 'Không phát hiện rủi ro nào đáng kể trong thời gian này.'}</p>
+                <h4 className="font-black text-indigo-300 uppercase tracking-wider text-[9px] mb-2">ðŸ’¡ PhÃ¢n tÃ­ch & Lá»i khuyÃªn tá»« AI</h4>
+                <p className="whitespace-pre-line font-medium leading-relaxed">{aiProposal.advisoryText || 'KhÃ´ng phÃ¡t hiá»‡n rá»§i ro nÃ o Ä‘Ã¡ng ká»ƒ trong thá»i gian nÃ y.'}</p>
               </div>
 
-              {/* Voucher đề xuất */}
+              {/* Voucher Ä‘á» xuáº¥t */}
               {aiProposal.proposedVoucher && (
                 <div className="bg-indigo-600/10 p-5 rounded-2xl border border-indigo-500/30 grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
                   <div className="md:col-span-3 space-y-1.5">
@@ -388,13 +389,13 @@ return (
                       <span className="bg-indigo-500 text-white font-mono font-black px-2.5 py-0.5 rounded text-[9px] tracking-wider uppercase">
                         {aiProposal.proposedVoucher.code}
                       </span>
-                      <span className="text-[9px] text-indigo-300 font-extrabold">Đề xuất Voucher Win-back</span>
+                      <span className="text-[9px] text-indigo-300 font-extrabold">Äá» xuáº¥t Voucher Win-back</span>
                     </div>
                     <h5 className="font-black text-white text-xs">{aiProposal.proposedVoucher.name}</h5>
                     <p className="text-[10px] text-slate-400 font-semibold leading-relaxed">
-                      Áp dụng cho hạng: <strong className="text-white">{aiProposal.proposedVoucher.minTier}+</strong> • 
-                      Vắng mặt: <strong className="text-white">&gt; {aiProposal.proposedVoucher.minRecencyDays} ngày</strong> • 
-                      Ngân sách: <strong className="text-white">{aiProposal.proposedVoucher.totalBudget} vouchers</strong>
+                      Ãp dá»¥ng cho háº¡ng: <strong className="text-white">{aiProposal.proposedVoucher.minTier}+</strong> â€¢ 
+                      Váº¯ng máº·t: <strong className="text-white">&gt; {aiProposal.proposedVoucher.minRecencyDays} ngÃ y</strong> â€¢ 
+                      NgÃ¢n sÃ¡ch: <strong className="text-white">{aiProposal.proposedVoucher.totalBudget} vouchers</strong>
                     </p>
                   </div>
                   <div className="text-right">
@@ -403,14 +404,14 @@ return (
                       disabled={applyingProposal}
                       className="w-full md:w-auto bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white text-[10px] font-black px-5 py-3 rounded-xl shadow-lg transition-all cursor-pointer disabled:opacity-50 active:scale-[0.98]"
                     >
-                      {applyingProposal ? "Đang kích hoạt..." : "✅ 1-Click Apply"}
+                      {applyingProposal ? "Äang kÃ­ch hoáº¡t..." : "âœ… 1-Click Apply"}
                     </button>
                   </div>
                 </div>
               )}
             </div>
           ) : (
-            <p className="text-slate-400 py-10 font-bold text-center">Không có đề xuất nào sẵn sàng. Bấm nút phía trên để nhận hiến kế.</p>
+            <p className="text-slate-400 py-10 font-bold text-center">KhÃ´ng cÃ³ Ä‘á» xuáº¥t nÃ o sáºµn sÃ ng. Báº¥m nÃºt phÃ­a trÃªn Ä‘á»ƒ nháº­n hiáº¿n káº¿.</p>
           )}
         </div>
       )}
@@ -418,12 +419,12 @@ return (
       {/* 1. KPI CARDS (4-Column Golden Ratio Grid) */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
         
-        {/* Card 1: Bookings - Gắn trực tiếp từ API /api/v1/admin/dashboard/kpi-summary */}
+        {/* Card 1: Bookings - Gáº¯n trá»±c tiáº¿p tá»« API /api/v1/admin/dashboard/kpi-summary */}
         <div className="bg-white border border-slate-200/60 p-5 rounded-2xl shadow-sm relative overflow-hidden flex flex-col justify-between">
           <div>
             <div className="flex justify-between items-start">
               <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Đặt lịch {period === 'today' ? 'Hôm nay' : period === 'week' ? 'Tuần này' : period === 'month' ? 'Tháng này' : 'Năm nay'}</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Äáº·t lá»‹ch {period === 'today' ? 'HÃ´m nay' : period === 'week' ? 'Tuáº§n nÃ y' : period === 'month' ? 'ThÃ¡ng nÃ y' : 'NÄƒm nay'}</p>
                 <h3 className="text-2xl font-extrabold font-outfit text-slate-800 mt-1">
                   {kpiSummary?.totalBookings !== undefined && kpiSummary?.totalBookings !== null ? kpiSummary.totalBookings : current.bookingsCount}
                 </h3>
@@ -436,22 +437,22 @@ return (
           <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
             <span className="font-bold text-emerald-600 flex items-center gap-1">
               <TrendingUp className="w-3.5 h-3.5" />
-              {kpiSummary?.bookingsGrowthPercentage !== undefined && kpiSummary?.bookingsGrowthPercentage !== null ? `${kpiSummary.bookingsGrowthPercentage >= 0 ? '+' : ''}${kpiSummary.bookingsGrowthPercentage}% so với kỳ trước` : current.bookingsLabel}
+              {kpiSummary?.bookingsGrowthPercentage !== undefined && kpiSummary?.bookingsGrowthPercentage !== null ? `${kpiSummary.bookingsGrowthPercentage >= 0 ? '+' : ''}${kpiSummary.bookingsGrowthPercentage}% so vá»›i ká»³ trÆ°á»›c` : current.bookingsLabel}
             </span>
             <span className="font-extrabold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100/80 text-[11px]">
-              {`Đúng hẹn E2E-1: ${kpiSummary?.onTimeRateE2E1 !== undefined && kpiSummary?.onTimeRateE2E1 !== null ? kpiSummary.onTimeRateE2E1 : 95}%`}
+              {`ÄÃºng háº¹n E2E-1: ${kpiSummary?.onTimeRateE2E1 !== undefined && kpiSummary?.onTimeRateE2E1 !== null ? kpiSummary.onTimeRateE2E1 : 95}%`}
             </span>
           </div>
         </div>
 
-        {/* Card 2: Revenue - Gắn trực tiếp từ API /api/v1/admin/dashboard/kpi-summary */}
+        {/* Card 2: Revenue - Gáº¯n trá»±c tiáº¿p tá»« API /api/v1/admin/dashboard/kpi-summary */}
         <div className="bg-white border border-slate-200/60 p-5 rounded-2xl shadow-sm relative overflow-hidden flex flex-col justify-between">
           <div>
             <div className="flex justify-between items-start">
               <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Doanh thu Thực thu (PAID)</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Doanh thu Thá»±c thu (PAID)</p>
                 <h3 className="text-2xl font-extrabold font-outfit text-slate-800 mt-1">
-                  {kpiSummary?.actualRevenuePaid !== undefined && kpiSummary?.actualRevenuePaid !== null ? `${Number(kpiSummary.actualRevenuePaid).toLocaleString('vi-VN')} đ` : current.revenueStr}
+                  {kpiSummary?.actualRevenuePaid !== undefined && kpiSummary?.actualRevenuePaid !== null ? `${Number(kpiSummary.actualRevenuePaid).toLocaleString('vi-VN')} Ä‘` : current.revenueStr}
                 </h3>
               </div>
               <div className="w-9 h-9 rounded-xl bg-indigo-50 border border-indigo-100 flex items-center justify-center">
@@ -462,17 +463,17 @@ return (
           <div className="mt-4 pt-3 border-t border-slate-100 flex items-center gap-1.5 text-xs text-emerald-600 font-bold">
             <TrendingUp className="w-3.5 h-3.5 shrink-0" />
             <span className="truncate">
-              {kpiSummary?.revenueGrowthPercentage !== undefined && kpiSummary?.revenueGrowthPercentage !== null ? `${kpiSummary.revenueGrowthPercentage >= 0 ? '+' : ''}${kpiSummary.revenueGrowthPercentage}% so với mục tiêu` : current.revenueLabel}
+              {kpiSummary?.revenueGrowthPercentage !== undefined && kpiSummary?.revenueGrowthPercentage !== null ? `${kpiSummary.revenueGrowthPercentage >= 0 ? '+' : ''}${kpiSummary.revenueGrowthPercentage}% so vá»›i má»¥c tiÃªu` : current.revenueLabel}
             </span>
           </div>
         </div>
 
-        {/* Card 3: Loyalty Pulse - Gắn trực tiếp từ API /api/v1/admin/dashboard/kpi-summary */}
+        {/* Card 3: Loyalty Pulse - Gáº¯n trá»±c tiáº¿p tá»« API /api/v1/admin/dashboard/kpi-summary */}
         <div className="bg-white border border-slate-200/60 p-5 rounded-2xl shadow-sm relative overflow-hidden flex flex-col justify-between">
           <div>
             <div className="flex justify-between items-start">
               <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Điểm tích / đổi (Loyalty)</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Äiá»ƒm tÃ­ch / Ä‘á»•i (Loyalty)</p>
                 <h3 className="text-2xl font-extrabold font-outfit text-slate-800 mt-1">
                   {kpiSummary?.loyaltyPointsNet !== undefined && kpiSummary?.loyaltyPointsNet !== null ? `${Number(kpiSummary.loyaltyPointsNet).toLocaleString('vi-VN')} Pts` : (current.loyaltyNet || current.loyaltyEarn)}
                 </h3>
@@ -484,20 +485,20 @@ return (
           </div>
           <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-semibold text-slate-500">
             <span className="text-emerald-600 flex items-center gap-0.5">
-              <PlusCircle className="w-3.5 h-3.5" /> Phát: {kpiSummary?.pointsIssued !== undefined && kpiSummary?.pointsIssued !== null ? `${Number(kpiSummary.pointsIssued).toLocaleString('vi-VN')} Pts` : current.loyaltyEarn}
+              <PlusCircle className="w-3.5 h-3.5" /> PhÃ¡t: {kpiSummary?.pointsIssued !== undefined && kpiSummary?.pointsIssued !== null ? `${Number(kpiSummary.pointsIssued).toLocaleString('vi-VN')} Pts` : current.loyaltyEarn}
             </span>
             <span className="text-rose-500 flex items-center gap-0.5">
-              <XCircle className="w-3.5 h-3.5" /> Đổi: {kpiSummary?.pointsRedeemed !== undefined && kpiSummary?.pointsRedeemed !== null ? `${Number(kpiSummary.pointsRedeemed).toLocaleString('vi-VN')} Pts` : current.loyaltyRedeem}
+              <XCircle className="w-3.5 h-3.5" /> Äá»•i: {kpiSummary?.pointsRedeemed !== undefined && kpiSummary?.pointsRedeemed !== null ? `${Number(kpiSummary.pointsRedeemed).toLocaleString('vi-VN')} Pts` : current.loyaltyRedeem}
             </span>
           </div>
         </div>
 
-        {/* Card 4: Slot Capacity - Gắn trực tiếp từ API /api/v1/admin/dashboard/kpi-summary */}
+        {/* Card 4: Slot Capacity - Gáº¯n trá»±c tiáº¿p tá»« API /api/v1/admin/dashboard/kpi-summary */}
         <div className="bg-white border border-slate-200/60 p-5 rounded-2xl shadow-sm relative overflow-hidden flex flex-col justify-between">
           <div>
             <div className="flex justify-between items-start">
               <div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Hiệu suất Slot lấp đầy</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Hiá»‡u suáº¥t Slot láº¥p Ä‘áº§y</p>
                 <h3 className="text-2xl font-extrabold font-outfit text-slate-800 mt-1">
                   {kpiSummary?.slotOccupancyRate !== undefined && kpiSummary?.slotOccupancyRate !== null ? `${Number(kpiSummary.slotOccupancyRate).toFixed(1)}%` : current.capacityPct}
                 </h3>
@@ -508,31 +509,31 @@ return (
             </div>
           </div>
           <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500 font-semibold">
-            <span>Đỉnh dự kiến:</span>
+            <span>Äá»‰nh dá»± kiáº¿n:</span>
             <span className="px-2 py-0.5 rounded bg-rose-50 text-rose-600 font-bold border border-rose-100">
-              {kpiSummary?.peakForecastLabel || current.capacityPeak || 'Các ngày lễ (Cao)'}
+              {kpiSummary?.peakForecastLabel || current.capacityPeak || 'CÃ¡c ngÃ y lá»… (Cao)'}
             </span>
           </div>
         </div>
 
       </div>
 
-      {/* 2. BIỂU ĐỒ 1: CỘT CHỒNG GÓI DỊCH VỤ & ĐƯỜNG AOV + PHÂN PHỐI ĐẶT LỊCH (DONUT) */}
+      {/* 2. BIá»‚U Äá»’ 1: Cá»˜T CHá»’NG GÃ“I Dá»ŠCH Vá»¤ & ÄÆ¯á»œNG AOV + PHÃ‚N PHá»I Äáº¶T Lá»ŠCH (DONUT) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* Biểu Đồ 1 (Left, spans 2 cols) */}
+        {/* Biá»ƒu Äá»“ 1 (Left, spans 2 cols) */}
         <div className="lg:col-span-2 bg-white border border-slate-200/60 p-5 rounded-2xl shadow-sm flex flex-col justify-between">
           <div>
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
-                <h3 className="font-bold text-base text-slate-850 font-outfit">Biểu đồ 1: Stacked Bar cơ cấu dịch vụ & đường AOV</h3>
-                <p className="text-[11px] text-slate-400 mt-0.5 font-medium">Doanh thu phân tầng theo gói (Tiêu chuẩn, Combo, VIP) & Giá trị trung bình xe AOV (API /revenue-trends).</p>
+                <h3 className="font-bold text-base text-slate-850 font-outfit">Biá»ƒu Ä‘á»“ 1: Stacked Bar cÆ¡ cáº¥u dá»‹ch vá»¥ & Ä‘Æ°á»ng AOV</h3>
+                <p className="text-[11px] text-slate-400 mt-0.5 font-medium">Doanh thu phÃ¢n táº§ng theo gÃ³i (TiÃªu chuáº©n, Combo, VIP) & GiÃ¡ trá»‹ trung bÃ¬nh xe AOV (API /revenue-trends).</p>
               </div>
               <div className="flex flex-wrap items-center gap-3 text-[10px] font-bold">
-                <span className="flex items-center gap-1 text-emerald-600"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> Rửa Tiêu Chuẩn</span>
-                <span className="flex items-center gap-1 text-amber-600"><span className="w-2.5 h-2.5 rounded-full bg-amber-500" /> Combo Nội Thất</span>
+                <span className="flex items-center gap-1 text-emerald-600"><span className="w-2.5 h-2.5 rounded-full bg-emerald-500" /> Rá»­a TiÃªu Chuáº©n</span>
+                <span className="flex items-center gap-1 text-amber-600"><span className="w-2.5 h-2.5 rounded-full bg-amber-500" /> Combo Ná»™i Tháº¥t</span>
                 <span className="flex items-center gap-1 text-violet-600"><span className="w-2.5 h-2.5 rounded-full bg-violet-500" /> Ceramic VIP</span>
-                <span className="flex items-center gap-1 text-indigo-600"><span className="w-4 h-1 rounded-full bg-indigo-600 inline-block relative"><span className="w-2 h-2 rounded-full bg-indigo-600 border border-white absolute -top-0.5 left-1" /></span> AOV (VNĐ/Xe)</span>
+                <span className="flex items-center gap-1 text-indigo-600"><span className="w-4 h-1 rounded-full bg-indigo-600 inline-block relative"><span className="w-2 h-2 rounded-full bg-indigo-600 border border-white absolute -top-0.5 left-1" /></span> AOV (VNÄ/Xe)</span>
               </div>
             </div>
           </div>
@@ -610,11 +611,11 @@ return (
                         <span>{col.totalStr}</span>
                       </div>
                       <div className="space-y-1 text-slate-300 font-medium">
-                        <div className="flex justify-between items-center"><span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500"/> Rửa Tiêu Chuẩn:</span><span className="font-extrabold text-emerald-400">{col.basic}k</span></div>
-                        <div className="flex justify-between items-center"><span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500"/> Combo Nội Thất:</span><span className="font-extrabold text-amber-400">{col.combo}k</span></div>
+                        <div className="flex justify-between items-center"><span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-500"/> Rá»­a TiÃªu Chuáº©n:</span><span className="font-extrabold text-emerald-400">{col.basic}k</span></div>
+                        <div className="flex justify-between items-center"><span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500"/> Combo Ná»™i Tháº¥t:</span><span className="font-extrabold text-amber-400">{col.combo}k</span></div>
                         <div className="flex justify-between items-center"><span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-violet-500"/> Ceramic VIP:</span><span className="font-extrabold text-violet-400">{col.vip}k</span></div>
                         {col.other > 0 && (
-                          <div className="flex justify-between items-center"><span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-slate-400"/> Dịch vụ khác:</span><span className="font-extrabold text-slate-300">{col.other}k</span></div>
+                          <div className="flex justify-between items-center"><span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-slate-400"/> Dá»‹ch vá»¥ khÃ¡c:</span><span className="font-extrabold text-slate-300">{col.other}k</span></div>
                         )}
                       </div>
                       <div className="bg-gradient-to-r from-indigo-600 to-violet-600 text-white font-extrabold px-2.5 py-1.5 rounded-xl shadow-inner mt-2 flex justify-between items-center text-[10px]">
@@ -629,20 +630,20 @@ return (
                       style={{ bottom: `${aovPct}%`, left: '50%', transform: 'translate(-50%, 50%)' }}
                     />
 
-                    {/* Stacked Torch Bar Column (Biểu đồ Đuốc Stacked Bar) */}
+                    {/* Stacked Torch Bar Column (Biá»ƒu Ä‘á»“ Äuá»‘c Stacked Bar) */}
                     <div 
                       className="w-full max-w-[36px] sm:max-w-[42px] rounded-t-xl overflow-hidden flex flex-col-reverse shadow-sm transition-all duration-300 group-hover:brightness-110 group-hover:-translate-y-0.5" 
                       style={{ height: `${heightPct}%` }}
                     >
-                      <div style={{ height: `${basicPct}%` }} className="bg-[#10b981] w-full transition-all duration-500" title={`Rửa Tiêu Chuẩn: ${col.basic}k`} />
-                      <div style={{ height: `${comboPct}%` }} className="bg-[#f59e0b] w-full transition-all duration-500" title={`Combo Nội Thất: ${col.combo}k`} />
+                      <div style={{ height: `${basicPct}%` }} className="bg-[#10b981] w-full transition-all duration-500" title={`Rá»­a TiÃªu Chuáº©n: ${col.basic}k`} />
+                      <div style={{ height: `${comboPct}%` }} className="bg-[#f59e0b] w-full transition-all duration-500" title={`Combo Ná»™i Tháº¥t: ${col.combo}k`} />
                       <div style={{ height: `${vipPct}%` }} className="bg-[#8b5cf6] w-full transition-all duration-500" title={`Ceramic VIP: ${col.vip}k`} />
-                      <div style={{ height: `${otherPct}%` }} className="bg-slate-400 w-full transition-all duration-500" title={`Dịch vụ khác: ${col.other}k`} />
+                      <div style={{ height: `${otherPct}%` }} className="bg-slate-400 w-full transition-all duration-500" title={`Dá»‹ch vá»¥ khÃ¡c: ${col.other}k`} />
                     </div>
                   </div>
                 );
               }) : (
-                <div className="w-full h-full flex items-center justify-center text-xs font-semibold text-slate-400">Chưa có dữ liệu giao dịch cho chu kỳ này</div>
+                <div className="w-full h-full flex items-center justify-center text-xs font-semibold text-slate-400">ChÆ°a cÃ³ dá»¯ liá»‡u giao dá»‹ch cho chu ká»³ nÃ y</div>
               )}
             </div>
             </div>
@@ -658,11 +659,11 @@ return (
           </div>
         </div>
 
-        {/* Donut Chart: Phân phối Đặt lịch (Right, spans 1 col) */}
+        {/* Donut Chart: PhÃ¢n phá»‘i Äáº·t lá»‹ch (Right, spans 1 col) */}
         <div className="bg-white border border-slate-200/60 p-5 rounded-2xl shadow-sm flex flex-col justify-between">
           <div>
-            <h3 className="font-bold text-base text-slate-800 font-outfit">Biểu đồ Donut: Phân phối trạng thái đơn hàng</h3>
-            <p className="text-xs text-slate-400 mt-0.5">Tỷ lệ các trạng thái đơn rửa xe trong chu kỳ lọc (API /booking-distribution).</p>
+            <h3 className="font-bold text-base text-slate-800 font-outfit">Biá»ƒu Ä‘á»“ Donut: PhÃ¢n phá»‘i tráº¡ng thÃ¡i Ä‘Æ¡n hÃ ng</h3>
+            <p className="text-xs text-slate-400 mt-0.5">Tá»· lá»‡ cÃ¡c tráº¡ng thÃ¡i Ä‘Æ¡n rá»­a xe trong chu ká»³ lá»c (API /booking-distribution).</p>
           </div>
 
           <div className="flex flex-col items-center justify-center py-2">
@@ -676,7 +677,7 @@ return (
               </svg>
               <div className="absolute text-center">
                 <span className="text-xl font-extrabold font-outfit text-slate-800">{current.bookingsCount}</span>
-                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">Lịch đặt</p>
+                <p className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mt-0.5">Lá»‹ch Ä‘áº·t</p>
               </div>
             </div>
 
@@ -686,28 +687,28 @@ return (
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shrink-0" />
                 <div>
                   <div className="text-slate-800 font-bold text-[11px]">{current.completedPct || 0}% ({current.completed})</div>
-                  <div className="text-[9px] text-slate-455">Hoàn thành</div>
+                  <div className="text-[9px] text-slate-455">HoÃ n thÃ nh</div>
                 </div>
               </div>
               <div className="flex items-center gap-2 border-b border-slate-50 pb-1.5">
                 <span className="w-2.5 h-2.5 rounded-full bg-cyan-500 shrink-0" />
                 <div>
                   <div className="text-slate-800 font-bold text-[11px]">{current.paidPct || 0}% ({current.paid})</div>
-                  <div className="text-[9px] text-slate-455">Đã thanh toán</div>
+                  <div className="text-[9px] text-slate-455">ÄÃ£ thanh toÃ¡n</div>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-amber-500 shrink-0" />
                 <div>
                   <div className="text-slate-800 font-bold text-[11px]">{current.waitPct || 0}% ({current.wait})</div>
-                  <div className="text-[9px] text-slate-455">Chưa thanh toán</div>
+                  <div className="text-[9px] text-slate-455">ChÆ°a thanh toÃ¡n</div>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0" />
                 <div>
                   <div className="text-slate-800 font-bold text-[11px]">{current.canceledPct || 0}% ({current.canceled})</div>
-                  <div className="text-[9px] text-slate-455">Đã hủy đơn</div>
+                  <div className="text-[9px] text-slate-455">ÄÃ£ há»§y Ä‘Æ¡n</div>
                 </div>
               </div>
             </div>
@@ -722,28 +723,28 @@ return (
           <HelpCircle className="w-5 h-5" />
         </div>
         <div>
-          <span className="font-extrabold uppercase tracking-wide text-indigo-700 mr-1.5">Mối liên hệ & Trí tuệ nhân tạo (AI Engine):</span> 
-          Biểu đồ 1 phản ánh chất lượng tăng trưởng thông qua cơ cấu dịch vụ và mức chi tiêu trung bình (AOV). Trong khi đó, <strong className="text-indigo-900 font-extrabold">Biểu Đồ 2</strong> phía dưới phân tích trực tiếp <strong className="text-indigo-900 font-extrabold">12 khung giờ E2E-1</strong>, tích hợp AI dự báo rủi ro bùng lịch (Churn Risk) và điều phối công suất thợ thời gian thực.
+          <span className="font-extrabold uppercase tracking-wide text-indigo-700 mr-1.5">Má»‘i liÃªn há»‡ & TrÃ­ tuá»‡ nhÃ¢n táº¡o (AI Engine):</span> 
+          Biá»ƒu Ä‘á»“ 1 pháº£n Ã¡nh cháº¥t lÆ°á»£ng tÄƒng trÆ°á»Ÿng thÃ´ng qua cÆ¡ cáº¥u dá»‹ch vá»¥ vÃ  má»©c chi tiÃªu trung bÃ¬nh (AOV). Trong khi Ä‘Ã³, <strong className="text-indigo-900 font-extrabold">Biá»ƒu Äá»“ 2</strong> phÃ­a dÆ°á»›i phÃ¢n tÃ­ch trá»±c tiáº¿p <strong className="text-indigo-900 font-extrabold">12 khung giá» E2E-1</strong>, tÃ­ch há»£p AI dá»± bÃ¡o rá»§i ro bÃ¹ng lá»‹ch (Churn Risk) vÃ  Ä‘iá»u phá»‘i cÃ´ng suáº¥t thá»£ thá»i gian thá»±c.
         </div>
       </div>
 
-      {/* 4. BIỂU ĐỒ 2: CÔNG SUẤT 12 KHUNG GIỜ E2E-1 & AI DỰ BÁO CHURN RISK (FULL WIDTH) */}
+      {/* 4. BIá»‚U Äá»’ 2: CÃ”NG SUáº¤T 12 KHUNG GIá»œ E2E-1 & AI Dá»° BÃO CHURN RISK (FULL WIDTH) */}
       <div className="bg-white border border-slate-200/60 p-5 rounded-2xl shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
           <div>
-            <h3 className="font-bold text-base text-slate-850 font-outfit">Biểu đồ 2: Hiệu suất 12 Khung giờ E2E-1 & Cảnh báo rủi ro</h3>
-            <p className="text-xs text-slate-400 mt-0.5 font-medium">Theo dõi công suất khai thác theo khung giờ và rủi ro hủy hẹn/trễ giờ theo thời gian thực (API /slot-performance).</p>
+            <h3 className="font-bold text-base text-slate-850 font-outfit">Biá»ƒu Ä‘á»“ 2: Hiá»‡u suáº¥t 12 Khung giá» E2E-1 & Cáº£nh bÃ¡o rá»§i ro</h3>
+            <p className="text-xs text-slate-400 mt-0.5 font-medium">Theo dÃµi cÃ´ng suáº¥t khai thÃ¡c theo khung giá» vÃ  rá»§i ro há»§y háº¹n/trá»… giá» theo thá»i gian thá»±c (API /slot-performance).</p>
           </div>
           <div className="flex flex-wrap gap-4 text-xs font-bold items-center">
-            <span className="flex items-center gap-1.5 text-cyan-600"><span className="w-3 h-3 rounded-full bg-[#06b6d4]" /> % Lấp đầy Slot (Occupancy)</span>
-            <span className="flex items-center gap-1.5 text-rose-600"><span className="w-5 h-1 rounded-full bg-rose-600 inline-block relative"><span className="w-2.5 h-2.5 rounded-full bg-rose-600 border border-white absolute -top-0.5 left-1" /></span> % Tỷ lệ Hủy Hẹn / No-Show</span>
+            <span className="flex items-center gap-1.5 text-cyan-600"><span className="w-3 h-3 rounded-full bg-[#06b6d4]" /> % Láº¥p Ä‘áº§y Slot (Occupancy)</span>
+            <span className="flex items-center gap-1.5 text-rose-600"><span className="w-5 h-1 rounded-full bg-rose-600 inline-block relative"><span className="w-2.5 h-2.5 rounded-full bg-rose-600 border border-white absolute -top-0.5 left-1" /></span> % Tá»· lá»‡ Há»§y Háº¹n / No-Show</span>
           </div>
         </div>
 
         {/* 12-Hour E2E-1 Combo Bar + Line Chart Display Area */}
         <div className="relative h-72 w-full bg-slate-50/40 rounded-xl p-4 flex flex-col justify-end border border-slate-100/80 mt-4">
           
-          {/* Left Y-Axis Label (% Lấp đầy Slot) */}
+          {/* Left Y-Axis Label (% Láº¥p Ä‘áº§y Slot) */}
           <div className="absolute left-2.5 top-4 bottom-10 flex flex-col justify-between text-[10px] text-cyan-600 font-extrabold text-left pointer-events-none">
             {(current.yLeftOccLabels || ['100%', '75%', '50%', '25%', '0%']).map((lbl, idx) => <span key={`yl-occ-${idx}`}>{lbl}</span>)}
           </div>
@@ -805,15 +806,15 @@ return (
                   {/* Hover Tooltip Card */}
                   <div className="absolute -top-32 left-1/2 transform -translate-x-1/2 bg-slate-900/95 text-white p-3 rounded-2xl shadow-2xl opacity-0 group-hover:opacity-100 transition-all pointer-events-none z-40 w-52 text-[11px] leading-relaxed border border-slate-700/80 backdrop-blur-sm">
                     <div className="font-extrabold text-cyan-400 border-b border-slate-700/80 pb-1 mb-1.5 flex justify-between items-center">
-                      <span>Khung giờ: {slot.time}</span>
-                      <span className="px-1.5 py-0.5 bg-cyan-950 text-cyan-300 rounded text-[10px]">Lấp đầy {slot.occ}%</span>
+                      <span>Khung giá»: {slot.time}</span>
+                      <span className="px-1.5 py-0.5 bg-cyan-950 text-cyan-300 rounded text-[10px]">Láº¥p Ä‘áº§y {slot.occ}%</span>
                     </div>
                     <div className="text-slate-200 font-medium mb-1.5 flex items-start gap-1">
-                      <span className="text-amber-400 shrink-0">📌</span>
+                      <span className="text-amber-400 shrink-0">ðŸ“Œ</span>
                       <span>{slot.note}</span>
                     </div>
                     <div className="bg-rose-950/80 text-rose-300 border border-rose-800/60 font-extrabold px-2 py-1 rounded-xl flex justify-between items-center text-[10px]">
-                      <span>⚠️ Rủi ro Hủy/Trễ hẹn:</span>
+                      <span>âš ï¸ Rá»§i ro Há»§y/Trá»… háº¹n:</span>
                       <span className="text-white bg-rose-600 px-1.5 py-0.5 rounded">{slot.risk}%</span>
                     </div>
                   </div>
@@ -829,18 +830,18 @@ return (
                     </span>
                   </div>
 
-                  {/* Column Bar (% Lấp đầy Slot) */}
+                  {/* Column Bar (% Láº¥p Ä‘áº§y Slot) */}
                   <div 
                     className={`w-full max-w-[28px] sm:max-w-[36px] rounded-t-xl overflow-hidden shadow-sm transition-all duration-300 group-hover:brightness-110 group-hover:-translate-y-0.5 ${
                       slot.isHighRisk ? 'bg-rose-500' : slot.occ >= 80 ? 'bg-amber-500' : isLowOrSilver ? 'bg-slate-300/90' : 'bg-[#06b6d4]'
                     }`} 
                     style={{ height: `${heightPct}%` }}
-                    title={`Khung giờ ${slot.time}: Lấp đầy ${slot.occ}%, Rủi ro No-Show ${slot.risk}%`}
+                    title={`Khung giá» ${slot.time}: Láº¥p Ä‘áº§y ${slot.occ}%, Rá»§i ro No-Show ${slot.risk}%`}
                   />
                 </div>
               );
             }) : (
-              <div className="w-full h-full flex items-center justify-center text-xs text-slate-400">Đang tải dữ liệu 12 khung giờ E2E-1...</div>
+              <div className="w-full h-full flex items-center justify-center text-xs text-slate-400">Äang táº£i dá»¯ liá»‡u 12 khung giá» E2E-1...</div>
             )}
             </div>
           </div>
@@ -859,9 +860,18 @@ return (
         <div className="mt-5 pt-4 border-t border-slate-100 flex items-center gap-2.5 text-xs font-semibold text-slate-600">
           <span className="w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0 inline-block animate-pulse" />
           <div>
-            <span className="font-extrabold text-rose-600 uppercase tracking-wide">Quy tắc E2E-1 / E2E-3:</span> Khi % Rủi ro vượt ngưỡng <span className="text-rose-600 font-extrabold underline">20%</span> tại các mốc vắng khách (&lt;50%), hệ thống tự động đề xuất kích hoạt chiến dịch Voucher Loyalty Win-back!
+            <span className="font-extrabold text-rose-600 uppercase tracking-wide">Quy táº¯c E2E-1 / E2E-3:</span> Khi % Rá»§i ro vÆ°á»£t ngÆ°á»¡ng <span className="text-rose-600 font-extrabold underline">20%</span> táº¡i cÃ¡c má»‘c váº¯ng khÃ¡ch (&lt;50%), há»‡ thá»‘ng tá»± Ä‘á»™ng Ä‘á» xuáº¥t kÃ­ch hoáº¡t chiáº¿n dá»‹ch Voucher Loyalty Win-back!
           </div>
         </div>
+      </div>
+          <h3 className="font-bold text-base text-slate-850 font-outfit">Quản lý Cấu hình Washbay &amp; Slots</h3>
+          <p className="text-xs text-slate-400 mt-0.5 font-medium">Danh sách các khoang rửa và khung giờ khả dụng.</p>
+      <div className="bg-white border border-slate-200/60 p-5 rounded-2xl shadow-sm relative overflow-hidden">
+        <div className="mb-4">
+          <h3 className="font-bold text-base text-slate-850 font-outfit">Quản lý Cấu hình Washbay & Slots</h3>
+          <p className="text-xs text-slate-400 mt-0.5 font-medium">Danh sách các khoang rửa và khung giờ khả dụng.</p>
+        </div>
+        <WashbayGrid selectedDate={period === 'today' ? new Date().toISOString().split('T')[0] : null} />
       </div>
 
     </div>
@@ -869,3 +879,4 @@ return (
 };
 
 export default AdminDashboardPage;
+
