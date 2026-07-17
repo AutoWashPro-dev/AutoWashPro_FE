@@ -339,6 +339,7 @@ export default function CustomerBookingPage() {
   const handleSetDefault = async (veh) => {
     try {
       await customerApi.setDefaultVehicle(veh.vehicleId || veh.id);
+      setSelectedVehicle(veh);
       setVehicles(vehicles.map(v => ({
         ...v,
         isDefault: (v.vehicleId || v.id) === (veh.vehicleId || veh.id)
