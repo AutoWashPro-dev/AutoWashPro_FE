@@ -38,14 +38,16 @@ export default function LoginPage() {
     try {
       const res = await authApi.login({ loginId: loginId.trim(), password });
       
+      const userRoles = res.roles || res.user?.roles || [];
       localStorage.setItem('autowash_token', res.accessToken);
       localStorage.setItem('autowash_user', JSON.stringify(res.user || res));
+      localStorage.setItem('user_roles', JSON.stringify(userRoles));
       
       if (res.redirectUrl) {
         navigate(res.redirectUrl, { replace: true });
       } else {
         const userType = res.userType || res.user?.userType || 'CUSTOMER';
-        const roles = res.roles || res.user?.roles || [];
+        const roles = userRoles;
         if (userType === 'STAFF' || roles.some(r => r.includes('ADMIN') || r.includes('MANAGER') || r.includes('STAFF'))) {
           navigate('/admin/dashboard', { replace: true });
         } else {

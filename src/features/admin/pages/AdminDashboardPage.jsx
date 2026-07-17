@@ -9,7 +9,8 @@ import {
   XCircle, 
   HelpCircle 
 } from 'lucide-react';
-import { dashboardApi } from '../services/dashboardApi';
+
+import { dashboardApi } from '../services/dashboardApi'; // Hoặc const { roles } = useContext(AuthContext);
 
 const AdminDashboardPage = () => {
   const [period, setPeriod] = useState('today'); // 'today', 'week', 'month', 'year'

@@ -24,6 +24,28 @@ const menuItems = [
 
 export default function AdminSidebar() {
   const navigate = useNavigate();
+  
+  let currentRoles = [];
+  try {
+    const storedRoles = localStorage.getItem('user_roles');
+    if (storedRoles) {
+      currentRoles = JSON.parse(storedRoles);
+    }
+  } catch (error) {
+    console.error('Error parsing user_roles from localStorage:', error);
+  }
+  
+  if (!Array.isArray(currentRoles)) {
+    currentRoles = [];
+  }
+
+  const isAdmin = currentRoles.includes('ROLE_ADMIN');
+
+  const filteredMenuItems = menuItems.filter(item => {
+    if (isAdmin) return true;
+    // Allow standard staff access only to Dashboard and Bookings & Slots
+    return ['/admin/dashboard', '/admin/bookings'].includes(item.to);
+  });
 
   const handleLogout = () => {
     alert('Đăng xuất hệ thống thành công.');
@@ -34,7 +56,7 @@ export default function AdminSidebar() {
     alert('Mở nhanh màn hình Đặt lịch (Bookings) để nhận xe...');
     navigate('/admin/bookings');
   };
-
+  
   return (
     <aside className="w-[260px] shrink-0 bg-white border-r border-slate-200 flex flex-col h-full z-20 shadow-sm">
       {/* Logo Header */}
@@ -50,7 +72,7 @@ export default function AdminSidebar() {
 
       {/* Navigation Links */}
       <nav className="flex-1 px-3 py-4 flex flex-col gap-1 overflow-y-auto no-scrollbar">
-        {menuItems.map(({ to, label, icon: Icon }) => (
+        {filteredMenuItems.map(({ to, label, icon: Icon }) => (
           <NavLink
             key={to}
             to={to}
