@@ -138,7 +138,8 @@ const [availableSlots, setAvailableSlots] = useState([]);
 }, [isSpecificSlotBlockEnabled, closureForm.closureDate, slots]);
 
 // Handlers for Closures
-const handleLockSlot = async () => {
+const handleLockSlot = async (e) => {
+  if (e) e.preventDefault();
   if (!closureForm.closureDate) {
     alert('Vui lòng chọn ngày nghỉ!');
     return;
@@ -150,16 +151,15 @@ const handleLockSlot = async () => {
   try {
     await serviceCatalogApi.lockSingleSlot({
       date: closureForm.closureDate,
-      slotId: Number(selectedSlotId)
+      slotId: Number(selectedSlotId),
+      lock: true
     });
     alert('Khóa thành công khung giờ được chọn cho ngày nghỉ trạm!');
-    setClosures(prev => [...prev, {
-      garageClosureId: `LOCK-${Date.now()}`,
-      closureDate: closureForm.closureDate,
-      reason: closureForm.reason || 'Khóa khung giờ cụ thể',
-      slotId: Number(selectedSlotId),
-      isFullDay: false
-    }]);
+    
+    // Nạp lại toàn bộ cấu hình closures từ API để có dữ liệu thực tế và chuẩn ID từ DB
+    const closuresData = await serviceCatalogApi.getAllClosures();
+    setClosures(closuresData);
+
     setClosureModalOpen(false);
     setClosureForm({ closureDate: '', reason: '', isFullDay: true });
     setIsSpecificSlotBlockEnabled(false);
@@ -186,6 +186,42 @@ const handleSaveClosure = async (e) => {
     setIsSpecificSlotBlockEnabled(false);
   } catch (err) {
     const errMsg = err.response?.data?.message || err.message || 'Lỗi khi thêm ngày nghỉ!';
+    alert(errMsg);
+  }
+};
+
+const handleDeleteClosure = async (id) => {
+  const target = closures.find(c => (c.closureId || c.garageClosureId) === id);
+  if (!target) return;
+
+  if (target.isFullDay === false) {
+    if (!confirm('Bạn có chắc chắn muốn mở khóa cho khung giờ này?')) {
+      return;
+    }
+    try {
+      await serviceCatalogApi.lockSingleSlot({
+        date: target.closureDate,
+        slotId: target.slotId,
+        lock: false
+      });
+      setClosures(prev => prev.filter(c => (c.closureId || c.garageClosureId) !== id));
+      alert('Đã mở khóa khung giờ thành công!');
+    } catch (err) {
+      const errMsg = err.response?.data?.message || err.message || 'Lỗi khi mở khóa khung giờ!';
+      alert(errMsg);
+    }
+    return;
+  }
+
+  if (!confirm('Bạn có chắc chắn muốn mở cửa hoạt động lại cho ngày nghỉ này?')) {
+    return;
+  }
+  try {
+    await serviceCatalogApi.deleteClosure(id);
+    setClosures(prev => prev.filter(c => c.closureId !== id && c.garageClosureId !== id));
+    alert('Đã mở cửa hoạt động lại thành công!');
+  } catch (err) {
+    const errMsg = err.response?.data?.message || err.message || 'Lỗi khi xóa lịch nghỉ!';
     alert(errMsg);
   }
 };
@@ -419,49 +455,55 @@ const handleSaveClosure = async (e) => {
   const totalDailyCapacity = slots.filter(sl => sl.isActive).reduce((sum, sl) => sum + sl.maxCapacity, 0);
 
   return (
-    <div className="flex flex-col h-full bg-[#f7fafd] text-slate-800 p-5 space-y-5 overflow-hidden">
+    <div className="flex flex-col h-full bg-[#f7fafd] text-slate-800 p-5 space-y-5 overflow-hidden font-sans">
       
-      {/* 1. Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0">
+      {/* 1. Page Header & Navigation Tabs */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0 pb-2 border-b border-slate-200/60">
         <div>
-          <h2 className="text-xl font-black text-slate-800 tracking-tight font-outfit">Services & Slots Manager</h2>
-          <p className="text-xs text-slate-400 font-semibold mt-0.5">Quản lý danh mục gói rửa xe đồng giá, add-on đi kèm và công suất khung giờ mẫu (Không có thông số khoang rửa).</p>
+          <h2 className="text-xl font-black text-slate-850 tracking-tight font-outfit flex items-center gap-2">
+            <Wrench className="w-5 h-5 text-indigo-600" />
+            Services & Slots Manager
+          </h2>
+          <p className="text-xs text-slate-400 font-semibold mt-0.5">Quản lý danh mục gói rửa xe đồng giá, add-on đi kèm, công suất slot mẫu và lịch đóng cửa trạm.</p>
         </div>
 
         {/* Tab switchers */}
-        <div className="bg-white border border-slate-200/80 rounded-xl p-1 flex gap-1 text-xs text-slate-500 shadow-sm self-start md:self-auto z-10">
+        <div className="bg-white border border-slate-200/80 rounded-2xl p-1 flex gap-1 text-xs text-slate-500 shadow-sm self-start md:self-auto shrink-0 overflow-x-auto no-scrollbar">
           <button
             onClick={() => setActiveTab('catalog')}
-            className={`px-4.5 py-2 rounded-lg font-black transition-all flex items-center gap-1.5 cursor-pointer ${
+            className={`px-4 py-2 rounded-xl font-extrabold transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap ${
               activeTab === 'catalog'
-                ? 'bg-slate-900 text-white shadow-sm'
-                : 'hover:text-slate-800 hover:bg-slate-50'
+                ? 'bg-slate-900 text-white shadow-md'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
             }`}
           >
             <Wrench className="w-4 h-4" />
-            Danh mục dịch vụ ({services.length})
+            <span>Danh mục dịch vụ</span>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${activeTab === 'catalog' ? 'bg-slate-800 text-slate-200' : 'bg-slate-100 text-slate-500'}`}>{services.length}</span>
           </button>
           <button
             onClick={() => setActiveTab('slots')}
-            className={`px-4.5 py-2 rounded-lg font-black transition-all flex items-center gap-1.5 cursor-pointer ${
+            className={`px-4 py-2 rounded-xl font-extrabold transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap ${
               activeTab === 'slots'
-                ? 'bg-slate-900 text-white shadow-sm'
-                : 'hover:text-slate-800 hover:bg-slate-50'
+                ? 'bg-slate-900 text-white shadow-md'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
             }`}
           >
             <Clock className="w-4 h-4" />
-            Khung giờ mẫu ({slots.length})
+            <span>Khung giờ mẫu</span>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${activeTab === 'slots' ? 'bg-slate-800 text-slate-200' : 'bg-slate-100 text-slate-500'}`}>{slots.length}</span>
           </button>
           <button
             onClick={() => setActiveTab('closures')}
-            className={`px-4.5 py-2 rounded-lg font-black transition-all flex items-center gap-1.5 cursor-pointer ${
+            className={`px-4 py-2 rounded-xl font-extrabold transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap ${
               activeTab === 'closures'
-                ? 'bg-slate-900 text-white shadow-sm'
-                : 'hover:text-slate-800 hover:bg-slate-50'
+                ? 'bg-slate-900 text-white shadow-md'
+                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
             }`}
           >
             <Calendar className="w-4 h-4" />
-            Lịch nghỉ trạm ({closures.length})
+            <span>Lịch nghỉ trạm</span>
+            <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${activeTab === 'closures' ? 'bg-slate-800 text-slate-200' : 'bg-slate-100 text-slate-500'}`}>{closures.length}</span>
           </button>
         </div>
       </div>
@@ -473,8 +515,10 @@ const handleSaveClosure = async (e) => {
         <div className="flex-1 flex flex-col min-h-0 space-y-4">
           
           {/* Flat pricing alert banner */}
-          <div className="flex items-center gap-3 p-3 bg-indigo-50/50 border border-indigo-100 text-indigo-900 rounded-2xl shadow-sm shrink-0">
-            <Cpu className="w-5 h-5 text-indigo-600 shrink-0" />
+          <div className="flex items-center gap-3 p-3.5 bg-gradient-to-r from-indigo-50/90 via-blue-50/50 to-indigo-50/30 border border-indigo-100/80 text-indigo-950 rounded-2xl shadow-sm shrink-0">
+            <div className="w-8 h-8 rounded-xl bg-indigo-600/10 text-indigo-600 flex items-center justify-center shrink-0 font-bold">
+              <Cpu className="w-4.5 h-4.5" />
+            </div>
             <div className="text-xs font-semibold">
               <span className="font-extrabold text-indigo-850">Chế độ Đồng giá xe máy hoạt động:</span> Hệ thống áp dụng mức giá đồng đều cho mọi dòng xe. Admin chỉ cần chỉnh sửa một khung giá trị cho gói chính hoặc add-on.
             </div>
@@ -482,19 +526,23 @@ const handleSaveClosure = async (e) => {
 
           {/* Subheader */}
           <div className="flex flex-col sm:flex-row gap-3 items-center justify-between shrink-0">
-            <div className="bg-white border border-slate-200/80 rounded-xl p-1 flex gap-1 text-[11px] text-slate-500 shadow-sm w-full sm:w-auto">
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-1 flex gap-1 text-xs text-slate-600 shadow-sm w-full sm:w-auto">
               <button
                 onClick={() => setCatalogSubTab('core')}
-                className={`px-4 py-1.5 rounded-lg text-center font-bold transition-all cursor-pointer ${
-                  catalogSubTab === 'core' ? 'bg-indigo-650 text-white shadow-sm' : 'hover:text-slate-800 hover:bg-slate-50'
+                className={`px-4 py-2 rounded-xl text-center font-extrabold transition-all cursor-pointer whitespace-nowrap ${
+                  catalogSubTab === 'core' 
+                    ? 'bg-slate-900 text-white shadow-md' 
+                    : 'hover:text-slate-900 hover:bg-slate-50'
                 }`}
               >
                 Gói dịch vụ chính ({services.filter(s=>s.type==='core').length})
               </button>
               <button
                 onClick={() => setCatalogSubTab('addons')}
-                className={`px-4 py-1.5 rounded-lg text-center font-bold transition-all cursor-pointer ${
-                  catalogSubTab === 'addons' ? 'bg-indigo-650 text-white shadow-sm' : 'hover:text-slate-800 hover:bg-slate-50'
+                className={`px-4 py-2 rounded-xl text-center font-extrabold transition-all cursor-pointer whitespace-nowrap ${
+                  catalogSubTab === 'addons' 
+                    ? 'bg-slate-900 text-white shadow-md' 
+                    : 'hover:text-slate-900 hover:bg-slate-50'
                 }`}
               >
                 Dịch vụ đi kèm / Add-on ({services.filter(s=>s.type==='addons').length})
@@ -503,7 +551,7 @@ const handleSaveClosure = async (e) => {
 
             <button
               onClick={handleOpenAddService}
-              className="w-full sm:w-auto bg-[#0047AB] hover:bg-[#003a8c] text-white text-xs font-black py-2.5 px-4.5 rounded-xl flex items-center justify-center gap-1.5 transition-colors shadow-sm cursor-pointer"
+              className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black py-2.5 px-4.5 rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-sm hover:shadow cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               Thêm dịch vụ mới
@@ -790,163 +838,195 @@ const handleSaveClosure = async (e) => {
       {/* ======================================================== */}
       {activeTab === 'closures' && (
         <div className="flex-1 flex flex-col min-h-0 space-y-4">
-          <div className="flex items-center justify-between shrink-0">
-            <div>
-              <h3 className="text-base font-extrabold text-slate-800 font-outfit">Lịch nghỉ lễ / Bảo trì toàn trạm</h3>
-              <p className="text-xs text-slate-400 font-semibold mt-0.5">Đặt ngày trạm đóng cửa nghỉ lễ hoặc bảo trì, hệ thống sẽ tự động khóa toàn bộ slot đặt lịch của ngày đó.</p>
+          
+          {/* Unified Subheader Bar */}
+          <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3 shrink-0">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center shrink-0 border border-amber-100">
+                <Calendar className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="text-sm font-extrabold text-slate-800 font-outfit">Lịch nghỉ lễ / Bảo trì toàn trạm</h3>
+                  <span className="px-2.5 py-0.5 bg-indigo-50 text-indigo-700 border border-indigo-100 rounded-full text-[10px] font-black">
+                    Đang có {closures.length} lịch đặt
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400 font-semibold mt-0.5">Đặt ngày trạm đóng cửa nghỉ lễ hoặc khóa slot lẻ. Hệ thống tự động ngăn chặn khách hàng đặt lịch.</p>
+              </div>
             </div>
+
             <button
               onClick={() => {
                 setClosureForm({ closureDate: '', reason: '', isFullDay: true });
                 setIsSpecificSlotBlockEnabled(false);
-  setSelectedSlotId('');
-  setAvailableSlots([]);
-  setClosureModalOpen(true);
+                setSelectedSlotId('');
+                setAvailableSlots([]);
+                setClosureModalOpen(true);
               }}
-              className="bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-black hover:bg-slate-800 transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm hover:shadow whitespace-nowrap self-start md:self-auto"
             >
               <Plus className="w-4 h-4" />
               Thêm ngày nghỉ trạm
             </button>
           </div>
 
-          <div className="flex-1 bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden flex flex-col">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-xs border-collapse">
-                <thead>
-                  <tr className="bg-slate-50 border-b border-slate-200/80 text-slate-400 font-extrabold select-none">
-                    <th className="px-5 py-3.5">Ngày nghỉ</th>
-                    <th className="px-5 py-3.5">Lý do nghỉ</th>
-                    <th className="px-5 py-3.5 text-center">Trạng thái</th>
-                    <th className="px-5 py-3.5 text-right">Thao tác</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 font-bold text-slate-700">
-                  {closures.length === 0 ? (
-                    <tr>
-                      <td colSpan="4" className="text-center py-10 text-slate-400 font-medium">Không có ngày nghỉ nào được cấu hình.</td>
-                    </tr>
-                  ) : (
-                    closures.map(c => (
-                      <tr key={c.garageClosureId} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="px-5 py-4 text-slate-900 font-black">
-                          {new Date(c.closureDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-                        </td>
-                        <td className="px-5 py-4">{c.reason || 'Không có lý do'}</td>
-                        <td className="px-5 py-4 text-center">
-                          <span className="inline-block px-2.5 py-1 bg-amber-50 text-amber-700 rounded-lg font-black text-[10px]">Nghỉ trọn ngày</span>
-                        </td>
-                        <td className="px-5 py-4 text-right">
-                          <button
-                            onClick={() => handleDeleteClosure(c.garageClosureId)}
-                            className="p-1.5 text-rose-500 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
-                            title="Xóa ngày nghỉ (Mở cửa lại)"
-                          >
-                            <Trash2 className="w-4.5 h-4.5" />
-                          </button>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
+          {closures.length === 0 ? (
+            <div className="flex-1 bg-white border border-slate-200/80 rounded-2xl shadow-sm p-12 flex flex-col items-center justify-center text-center">
+              <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 mb-4 animate-pulse">
+                <Calendar className="w-6 h-6" />
+              </div>
+              <h4 className="font-extrabold text-slate-800 text-sm">Chưa có lịch đóng cửa/khóa slot nào</h4>
+              <p className="text-xs text-slate-400 mt-1 max-w-xs font-semibold">Tất cả các ngày đều đang mở cửa hoạt động bình thường. Nhấn nút thêm mới để thiết lập lịch nghỉ lễ hoặc ngày bảo trì.</p>
             </div>
-          </div>
+          ) : (
+            <div className="flex-1 overflow-y-auto no-scrollbar pb-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {[...closures]
+                  .sort((a, b) => new Date(a.closureDate) - new Date(b.closureDate))
+                  .map(c => {
+                    const closureId = c.closureId || c.garageClosureId;
+                    const isFullDay = c.isFullDay !== false;
+                    
+                    const formattedDate = new Date(c.closureDate).toLocaleDateString('vi-VN', {
+                      weekday: 'long',
+                      day: '2-digit',
+                      month: '2-digit',
+                      year: 'numeric'
+                    });
+
+                    return (
+                      <div 
+                        key={closureId} 
+                        className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all duration-300 relative overflow-hidden group flex flex-col justify-between"
+                        style={{ borderTop: isFullDay ? '3px solid #f59e0b' : '3px solid #ef4444' }}
+                      >
+                        <div>
+                          <div className="flex justify-between items-start mb-3">
+                            <span className="text-[10px] text-slate-400 font-extrabold capitalize">{formattedDate.split(',')[0]}</span>
+                            {isFullDay ? (
+                              <span className="px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-100/80 rounded-lg font-black text-[9px] uppercase tracking-wider">Nghỉ trọn ngày</span>
+                            ) : (
+                              <span className="px-2 py-0.5 bg-rose-50 text-rose-700 border border-rose-100/80 rounded-lg font-black text-[9px] uppercase tracking-wider">Khóa khung giờ</span>
+                            )}
+                          </div>
+                          <h4 className="font-extrabold text-slate-800 text-sm mb-1">
+                            {new Date(c.closureDate).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                          </h4>
+                          <p className="text-xs text-slate-500 font-semibold mb-4 bg-slate-50 p-2.5 rounded-xl border border-slate-100 min-h-[44px]">
+                            {c.reason || 'Không có lý do được mô tả.'}
+                          </p>
+                        </div>
+                        <div className="flex justify-between items-center pt-2 border-t border-slate-100">
+                          <span className="text-[9px] text-slate-400 font-medium">Mã: #{closureId?.toString().slice(-4)}</span>
+                          <button
+                            onClick={() => handleDeleteClosure(closureId)}
+                            className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition-all hover:scale-105 flex items-center gap-1 cursor-pointer font-bold text-[10px]"
+                            title="Xóa cấu hình này"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            Mở cửa lại
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
       {/* MODAL: ADD CLOSURE */}
       {closureModalOpen && (
-<div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-<div className={isSpecificSlotBlockEnabled ? "bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4" : "bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl space-y-4"}>
-<div className="flex items-center justify-between pb-3 border-b border-slate-150">
-<h3 className="font-extrabold text-slate-850 flex items-center gap-1.5 text-sm">
-<Calendar className="w-5 h-5 text-indigo-650" />
-Thêm lịch nghỉ lễ/Bảo trì
-</h3>
-<button onClick={() => { setClosureModalOpen(false); setIsSpecificSlotBlockEnabled(false); }} className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg">
-<X className="w-4.5 h-4.5" />
-</button>
-</div>
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className={isSpecificSlotBlockEnabled ? "bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4 border border-slate-100" : "bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl space-y-4 border border-slate-100"}>
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <h3 className="font-extrabold text-slate-800 flex items-center gap-1.5 text-sm">
+                <Calendar className="w-5 h-5 text-indigo-600" />
+                Thêm lịch nghỉ lễ/Bảo trì
+              </h3>
+              <button onClick={() => { setClosureModalOpen(false); setIsSpecificSlotBlockEnabled(false); }} className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg cursor-pointer">
+                <X className="w-4.5 h-4.5" />
+              </button>
+            </div>
 
-<form onSubmit={isSpecificSlotBlockEnabled ? handleLockSlot : handleSaveClosure} className="space-y-4 text-xs">
-<div className="space-y-1">
-<label className="font-bold text-slate-600 block">Ngày nghỉ *</label>
-<input
-type="date"
-required
-value={closureForm.closureDate}
-onChange={e => { setClosureForm({...closureForm, closureDate: e.target.value}); setSelectedSlotId(''); }}
-className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-700 font-outfit"
-/>
-</div>
+            <form onSubmit={isSpecificSlotBlockEnabled ? handleLockSlot : handleSaveClosure} className="space-y-4 text-xs">
+              <div className="space-y-1">
+                <label className="font-bold text-slate-600 block">Ngày nghỉ *</label>
+                <input
+                  type="date"
+                  required
+                  value={closureForm.closureDate}
+                  onChange={e => { setClosureForm({...closureForm, closureDate: e.target.value}); setSelectedSlotId(''); }}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-700 font-outfit"
+                />
+              </div>
 
-{isSpecificSlotBlockEnabled && (
-<div className="space-y-1">
-<label className="font-bold text-slate-600 block">Chọn khung giờ cần khóa *</label>
-<select
-required
-value={selectedSlotId}
-onChange={e => setSelectedSlotId(e.target.value)}
-className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-700"
->
-<option value="">-- Chọn khung giờ --</option>
-{availableSlots.map(sl => (
-<option key={sl.id} value={sl.timeSlotId || sl.id}>
-{sl.time}
-</option>
-))}
-</select>
-</div>
-)}
+              {isSpecificSlotBlockEnabled && (
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-600 block">Chọn khung giờ cần khóa *</label>
+                  <select
+                    required
+                    value={selectedSlotId}
+                    onChange={e => setSelectedSlotId(e.target.value)}
+                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-700"
+                  >
+                    <option value="">-- Chọn khung giờ --</option>
+                    {availableSlots.map(sl => (
+                      <option key={sl.id} value={sl.timeSlotId || sl.id}>
+                        {sl.time}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
-{(
-<div className="space-y-1">
-<label className="font-bold text-slate-600 block">Lý do nghỉ / Tên dịp lễ *</label>
-<input
-type="text"
-required
-placeholder="Ví dụ: Tết Nguyên Đán, Bảo trì định kỳ..."
-value={closureForm.reason}
-onChange={e => setClosureForm({...closureForm, reason: e.target.value})}
-className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-700"
-/>
-</div>
-)}
+              <div className="space-y-1">
+                <label className="font-bold text-slate-600 block">Lý do nghỉ / Tên dịp lễ *</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ví dụ: Tết Nguyên Đán, Bảo trì định kỳ..."
+                  value={closureForm.reason}
+                  onChange={e => setClosureForm({...closureForm, reason: e.target.value})}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-700"
+                />
+              </div>
 
-<div className="flex items-center gap-2.5 py-1">
-<input
-type="checkbox"
-id="toggleSpecificSlot"
-checked={isSpecificSlotBlockEnabled}
-onChange={(e) => {
-  const checked = e.target.checked;
-  setIsSpecificSlotBlockEnabled(checked);
-  if (!checked) {
-    setSelectedSlotId('');
-  }
-}}
-className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer accent-indigo-600"
-/>
-<label htmlFor="toggleSpecificSlot" className="text-xs font-bold text-slate-600 cursor-pointer select-none">
-🔒 Chỉ khóa một khung giờ cụ thể (thay vì đóng cửa toàn ngày)
-</label>
-</div>
+              <div className="flex items-center gap-2.5 py-2 px-3 bg-slate-50 border border-slate-200/80 rounded-xl">
+                <input
+                  type="checkbox"
+                  id="toggleSpecificSlot"
+                  checked={isSpecificSlotBlockEnabled}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setIsSpecificSlotBlockEnabled(checked);
+                    if (!checked) {
+                      setSelectedSlotId('');
+                    }
+                  }}
+                  className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer accent-indigo-600"
+                />
+                <label htmlFor="toggleSpecificSlot" className="text-xs font-bold text-slate-700 cursor-pointer select-none">
+                  🔒 Chỉ khóa một khung giờ cụ thể (thay vì đóng cửa toàn ngày)
+                </label>
+              </div>
 
-<div className="flex gap-2.5 pt-1 justify-end">
-<button type="button" onClick={() => { setClosureModalOpen(false); setIsSpecificSlotBlockEnabled(false); }} className="px-4 py-2.5 bg-slate-100 text-slate-600 font-bold rounded-xl">Hủy</button>
-<button
-type="submit"
-className="px-4.5 py-2.5 font-black rounded-xl"
-style={{ backgroundColor: isSpecificSlotBlockEnabled ? '#e8590c' : '#4f46e5', color: '#fff' }}
->
-{isSpecificSlotBlockEnabled ? 'Khóa khung giờ' : 'Thêm mới'}
-</button>
-</div>
-</form>
-</div>
-</div>
-)}
+              <div className="flex gap-2.5 pt-1 justify-end">
+                <button type="button" onClick={() => { setClosureModalOpen(false); setIsSpecificSlotBlockEnabled(false); }} className="px-4 py-2.5 bg-slate-100 text-slate-600 font-bold rounded-xl cursor-pointer hover:bg-slate-200 transition-colors">Hủy</button>
+                <button
+                  type="submit"
+                  className="px-4.5 py-2.5 font-black text-white rounded-xl shadow-sm transition-all cursor-pointer"
+                  style={{ backgroundColor: isSpecificSlotBlockEnabled ? '#e8590c' : '#4f46e5' }}
+                >
+                  {isSpecificSlotBlockEnabled ? 'Khóa khung giờ' : 'Thêm ngày nghỉ'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
 {/* MODAL: EDIT SLOT */}
       {slotModalOpen && (

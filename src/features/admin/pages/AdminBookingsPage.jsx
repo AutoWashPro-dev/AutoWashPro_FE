@@ -288,17 +288,19 @@ export default function AdminBookingsPage() {
       '2026-07-01_SL-02': 1 // Default mock lock for SL-02 (09:00 - 10:00) on 2026-07-01 to match screenshots
     };
   });
+  const [occupancyData, setOccupancyData] = useState([]);
 
   // Sync occupancy locks with backend on date changes
   useEffect(() => {
     const fetchOccupancy = async () => {
       try {
         const monitorList = await bookingAdminApi.getOccupancyMonitor(selectedDate);
-        if (monitorList) {
+        if (monitorList && Array.isArray(monitorList)) {
+          setOccupancyData(monitorList);
           const newLocks = { ...slotLocks };
           monitorList.forEach(m => {
             const lockKey = `${selectedDate}_${m.slotId}`;
-            newLocks[lockKey] = m.lockedCount;
+            newLocks[lockKey] = m.isLocked || false;
           });
           setSlotLocks(newLocks);
         }
@@ -309,21 +311,22 @@ export default function AdminBookingsPage() {
     fetchOccupancy();
   }, [selectedDate]);
 
-  const adjustLock = async (slotId, delta) => {
+  const toggleLock = async (slotId, currentLocked) => {
     try {
-      const response = await bookingAdminApi.adjustLock(slotId, selectedDate, delta);
+      const nextLocked = !currentLocked;
+      const response = await bookingAdminApi.adjustLock(slotId, selectedDate, nextLocked);
       const lockKey = `${selectedDate}_${slotId}`;
       setSlotLocks(prev => ({
         ...prev,
-        [lockKey]: response.lockedCount
+        [lockKey]: response.isLocked
       }));
     } catch (err) {
       console.warn('API adjustLock error, falling back to localStorage:', err.message);
       const lockKey = `${selectedDate}_${slotId}`;
-      const current = slotLocks[lockKey] || 0;
+      const nextLocked = !currentLocked;
       const newLocks = {
         ...slotLocks,
-        [lockKey]: Math.max(0, current + delta)
+        [lockKey]: nextLocked
       };
       setSlotLocks(newLocks);
       localStorage.setItem('autowash_slot_locks', JSON.stringify(newLocks));
@@ -1254,17 +1257,23 @@ const allBookingsMapped = getAllBookings().map(b => {
             </div>
           </div>
 
-          {/* Right: Daily Availability Monitor */}
-          <div className="w-full lg:w-[420px] shrink-0 bg-white border border-slate-200/60 rounded-2xl shadow-sm flex flex-col min-h-0 overflow-hidden">
+          {/* Right: Daily Availability Monitor (Read-Only Operational Capacity Monitor) */}
+          <div className="w-full lg:w-[420px] shrink-0 bg-white border border-slate-200/60 rounded-2xl shadow-sm flex flex-col min-h-0 overflow-hidden font-sans">
             {/* Header */}
             <div className="p-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50/50">
-              <div className="flex items-center gap-2 text-slate-800 font-bold">
-                <ClipboardList className="w-5 h-5 text-indigo-600" />
-                <span className="font-outfit tracking-tight">Ngày giám sát</span>
+              <div className="flex items-center gap-2 text-slate-850 font-extrabold text-sm">
+                <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold border border-indigo-100/80">
+                  <Activity className="w-4.5 h-4.5" />
+                </div>
+                <div>
+                  <span className="font-outfit tracking-tight text-slate-800 text-sm block">Giám sát công suất</span>
+                  <span className="text-[10px] text-slate-400 font-semibold block">Trạng thái đặt lịch theo khung giờ</span>
+                </div>
               </div>
-              
-              {/* Date Navigator */}
-              
+
+              <span className="px-2.5 py-1 bg-slate-100 text-slate-600 border border-slate-200/70 rounded-full text-[10px] font-black">
+                {selectedDate}
+              </span>
             </div>
 
             {/* Slots Table */}
@@ -1272,81 +1281,73 @@ const allBookingsMapped = getAllBookings().map(b => {
               <table className="w-full text-left border-collapse">
                 <thead className="sticky top-0 bg-slate-50 border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-wider z-10">
                   <tr>
-                    <th className="py-3 px-4">Time Slot</th>
-                    <th className="py-3 px-4">Capacity</th>
-                    <th className="py-3 px-4">Booked / Locked</th>
-                    <th className="py-3 px-4">Remaining</th>
+                    <th className="py-3 px-3.5">Khung giờ</th>
+                    <th className="py-3 px-2 text-center">Tối đa</th>
+                    <th className="py-3 px-3">Tiến độ & Trạng thái</th>
+                    <th className="py-3 px-3.5 text-right">Trống</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 text-xs">
+                <tbody className="divide-y divide-slate-100 text-xs font-bold text-slate-700">
                   {getSlotsData().map(slot => {
-                    const booked = getBookedCount(slot.time);
                     const lockKey = `${selectedDate}_${slot.id}`;
-                    const locked = slotLocks[lockKey] || 0;
-                    const capacity = slot.isActive ? slot.maxCapacity : 0;
-                    const remaining = Math.max(0, capacity - booked - locked);
+
+                    // Match with real backend PostgreSQL occupancy data
+                    const apiItem = occupancyData.find(m => 
+                      String(m.slotId) === String(slot.id) || 
+                      String(m.slotId) === String(slot.timeSlotId || '') ||
+                      (m.startTime && slot.time.startsWith(m.startTime))
+                    );
+
+                    const booked = apiItem != null ? apiItem.bookedCount : getBookedCount(slot.time);
+                    const locked = apiItem != null ? (apiItem.isLocked ?? false) : (slotLocks[lockKey] === true);
+                    const capacity = apiItem != null ? (apiItem.maxCapacity ?? slot.maxCapacity) : (slot.isActive ? slot.maxCapacity : 0);
+                    const remaining = locked ? 0 : Math.max(0, capacity - booked);
+                    const formattedTime = slot.time.replace(/:00/g, '');
 
                     return (
-                      <tr key={slot.id} className="hover:bg-slate-50/50 transition-colors">
-                        <td className="py-3.5 px-4 font-mono font-bold text-slate-650">
-                          {slot.time}
+                      <tr key={slot.id} className={`hover:bg-slate-50/70 transition-colors ${locked ? 'bg-rose-50/20' : ''}`}>
+                        <td className="py-3.5 px-3.5 font-outfit font-black text-slate-800 whitespace-nowrap">
+                          <div className="flex items-center gap-1.5">
+                            <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                            <span>{formattedTime}</span>
+                          </div>
                         </td>
-                        <td className="py-3.5 px-4">
+                        <td className="py-3.5 px-2 text-center">
                           {slot.isActive ? (
-                            <span className="font-semibold text-slate-700">{slot.maxCapacity}</span>
+                            <span className="font-extrabold text-slate-700">{slot.maxCapacity}</span>
                           ) : (
-                            <div className="flex items-center gap-1 text-rose-500 font-bold text-[10px]" title="Slot này đã bị tắt hoặc giảm công suất">
-                              <AlertTriangle className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                              <span>0 (was {slot.maxCapacity})</span>
-                            </div>
+                            <span className="text-rose-500 font-bold text-[10px]">0</span>
                           )}
                         </td>
-                        <td className="py-3.5 px-4">
-                          <div className="flex flex-col gap-1.5">
-                            <div className="flex items-center justify-between group/lock">
-                              <span className="font-bold">
-                                <span className={booked > 0 ? (booked + locked >= capacity ? 'text-emerald-600' : 'text-sky-600') : 'text-slate-400'}>
-                                  {booked}
+                        <td className="py-3.5 px-3">
+                          <div className="flex flex-col gap-1">
+                            <div className="flex items-center justify-between">
+                              {locked ? (
+                                <span className="px-2 py-0.5 bg-rose-50 text-rose-700 border border-rose-100 rounded-lg text-[10px] font-black uppercase tracking-wider">
+                                  🔒 Đã khóa
                                 </span>
-                                <span className="text-slate-400 mx-1">/</span>
-                                <span className={locked > 0 ? 'text-amber-500 font-bold' : 'text-slate-400'}>
-                                  {locked}
+                              ) : remaining === 0 ? (
+                                <span className="px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-100 rounded-lg text-[10px] font-black uppercase tracking-wider">
+                                  Đã đầy chỗ
                                 </span>
-                              </span>
-                              
-                              {slot.isActive && ['ADMIN', 'MANAGER', 'ROLE_ADMIN', 'ROLE_MANAGER'].includes((localStorage.getItem('role') || 'ADMIN').toUpperCase()) && (
-                                <div className="opacity-0 group-hover/lock:opacity-100 flex items-center gap-1 transition-opacity">
-                                  <button 
-                                    onClick={() => adjustLock(slot.id, -1)}
-                                    className="w-4 h-4 rounded bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-[10px] font-black text-slate-655 cursor-pointer"
-                                    title="Giảm slot khóa"
-                                    disabled={locked <= 0}
-                                  >
-                                    -
-                                  </button>
-                                  <button 
-                                    onClick={() => adjustLock(slot.id, 1)}
-                                    className="w-4 h-4 rounded bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-[10px] font-black text-slate-655 cursor-pointer"
-                                    title="Tăng slot khóa"
-                                    disabled={booked + locked >= capacity}
-                                  >
-                                    +
-                                  </button>
-                                </div>
+                              ) : (
+                                <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-lg text-[10px] font-black uppercase tracking-wider">
+                                  Đang nhận ({booked}/{capacity})
+                                </span>
                               )}
                             </div>
                             {renderProgressBar(booked, locked, capacity)}
                           </div>
                         </td>
-                        <td className="py-3.5 px-4">
-                          {capacity === 0 ? (
-                            <span className="text-slate-400 font-semibold">0</span>
+                        <td className="py-3.5 px-3.5 text-right whitespace-nowrap">
+                          {locked ? (
+                            <span className="text-rose-500 font-black text-xs">🔒 0</span>
                           ) : remaining === 0 ? (
-                            <span className="text-slate-400 font-semibold">0</span>
+                            <span className="text-slate-400 font-bold text-xs">0</span>
                           ) : remaining <= 2 ? (
-                            <span className="text-amber-500 font-black text-[13px]">{remaining}</span>
+                            <span className="text-amber-600 font-black text-sm px-2 py-0.5 bg-amber-50 rounded-lg border border-amber-100">{remaining}</span>
                           ) : (
-                            <span className="text-slate-700 font-semibold">{remaining}</span>
+                            <span className="text-emerald-700 font-black text-sm px-2 py-0.5 bg-emerald-50 rounded-lg border border-emerald-100">{remaining}</span>
                           )}
                         </td>
                       </tr>

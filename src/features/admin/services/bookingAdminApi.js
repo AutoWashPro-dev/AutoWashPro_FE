@@ -111,11 +111,8 @@ export const bookingAdminApi = {
     return res.data;
   },
 
-  /**
-   * Điều chỉnh khóa slot thủ công
-   */
-  adjustLock: async (slotId, date, adjustment) => {
-    const res = await api.post(`/admin/slots/${slotId}/lock`, null, { params: { date, adjustment } });
+  adjustLock: async (slotId, date, isLocked) => {
+    const res = await api.post(`/admin/slots/${slotId}/lock`, null, { params: { date, lock: isLocked } });
     return res.data;
   }
 };

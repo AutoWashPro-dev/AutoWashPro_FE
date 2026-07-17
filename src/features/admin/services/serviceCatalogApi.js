@@ -116,7 +116,8 @@ export const serviceCatalogApi = {
       return res.data.map((item, idx) => ({
         ...item,
         id: `SL-0${idx + 1}`,
-        timeSlotId: item.timeSlotId || item.id,
+        slotId: item.slotId,
+        timeSlotId: item.slotId || item.timeSlotId || item.id,
         time: item.time || `${item.startTime} - ${item.endTime}`,
         startTime: item.startTime,
         endTime: item.endTime,
@@ -200,8 +201,15 @@ export const serviceCatalogApi = {
   // --- Garage Closures ---
   getAllClosures: async () => {
     try {
-      const res = await api.get('/admin/closures');
-      return res.data;
+      const [closuresRes, locksRes] = await Promise.allSettled([
+        api.get('/admin/closures'),
+        api.get('/admin/slots/locks')
+      ]);
+
+      const closures = closuresRes.status === 'fulfilled' ? closuresRes.value.data : [];
+      const locks = locksRes.status === 'fulfilled' ? locksRes.value.data : [];
+
+      return [...closures, ...locks];
     } catch (err) {
       console.warn('API getAllClosures offline or error:', err.message);
       return [];
@@ -217,8 +225,8 @@ export const serviceCatalogApi = {
     await api.delete(`/admin/closures/${id}`);
     return true;
   },
-  lockSingleSlot: async ({ date, slotId }) => {
-    const res = await api.post('/admin/slots/lock', { date, slotId });
+  lockSingleSlot: async ({ date, slotId, lock = true }) => {
+    const res = await api.post(`/admin/slots/${slotId}/lock`, null, { params: { date, lock } });
     return res.data;
-}
+  }
 };
