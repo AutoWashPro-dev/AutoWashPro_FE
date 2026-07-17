@@ -569,19 +569,32 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
               </div>
 
               {vehicles.length > 0 ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {vehicles.map(veh => (
-                    <VehicleCard 
-                      key={veh.vehicleId || veh.id}
-                      vehicle={veh}
-                      isDefault={selectedVehicle?.vehicleId === veh.vehicleId}
-                      isSelectable={true}
-                      onSelect={(v) => setSelectedVehicle(v)}
-                      onEdit={() => openEditVehicleModal(veh)}
-                      onDelete={() => {}}
-                    />
-                  ))}
-                </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {vehicles.map(veh => (
+                      <div key={veh.vehicleId || veh.id} className="relative group">
+                        <VehicleCard 
+                          vehicle={veh}
+                          isDefault={veh.isDefault}
+                          isSelected={selectedVehicle?.vehicleId === (veh.vehicleId || veh.id) || selectedVehicle?.id === (veh.vehicleId || veh.id)}
+                          isSelectable={true}
+                          onSelect={(v) => setSelectedVehicle(v)}
+                          onEdit={(e) => openEditVehicleModal(veh)}
+                          onDelete={() => {}}
+                        />
+                        {!veh.isDefault && (
+                          <button 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSetDefault(veh);
+                            }}
+                            className="absolute top-3 right-3 text-[10px] bg-slate-100 text-slate-500 border hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300 font-bold px-2 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-all shadow-sm"
+                          >
+                            Đặt mặc định
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
               ) : (
                 <div className="text-center py-12 text-slate-400 text-sm bg-slate-50 border border-dashed border-slate-300 rounded-2xl flex flex-col items-center justify-center gap-4">
                   <div className="w-12 h-12 bg-white shadow-sm rounded-full flex items-center justify-center text-slate-300">
