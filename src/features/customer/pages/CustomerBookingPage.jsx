@@ -588,7 +588,7 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
                               e.stopPropagation();
                               handleSetDefault(veh);
                             }}
-                            className="absolute top-3 right-3 text-[10px] bg-slate-100 text-slate-500 border hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300 font-bold px-2 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-all shadow-sm"
+                            className="absolute top-3 right-3 z-10 text-[10px] bg-slate-100 text-slate-500 border hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300 font-bold px-2 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-all shadow-sm"
                           >
                             Đặt mặc định
                           </button>
