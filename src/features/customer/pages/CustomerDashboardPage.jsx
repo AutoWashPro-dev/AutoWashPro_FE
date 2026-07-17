@@ -33,15 +33,17 @@ export default function CustomerDashboardPage() {
   const [visitCount, setVisitCount] = useState(0);
   const [vouchersCount, setVouchersCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [recommendedServices, setRecommendedServices] = useState([]);
 
   // Fetch real data from backend API
   React.useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const [profile, bookings, vouchers] = await Promise.all([
+        const [profile, bookings, vouchers, servicesData] = await Promise.all([
           customerApi.getProfile(),
           customerApi.getMyBookings(),
-          customerApi.getMyVouchers('ISSUED')
+          customerApi.getMyVouchers('ISSUED'),
+          customerApi.getActiveServices()
         ]);
         
         // Add minimal defaults if profile is missing some fields
@@ -105,6 +107,20 @@ export default function CustomerDashboardPage() {
           setVouchersCount(vouchers.length);
         }
 
+        if (servicesData && servicesData.length > 0) {
+          const sortedServices = [...servicesData].sort((a, b) => Number(a.price || 0) - Number(b.price || 0));
+          const pkgs = sortedServices.filter(s => s.serviceType === 'PACKAGE').map(s => ({
+            id: s.serviceId,
+            serviceId: s.serviceId,
+            title: s.serviceName,
+            price: Number(s.price),
+            description: s.description,
+            tag: "DỊCH VỤ CHÍNH"
+          }));
+          if (pkgs.length > 0) {
+            setRecommendedServices(pkgs.slice(0, 3));
+          }
+        }
       } catch (err) {
         console.error("Lỗi đọc dữ liệu dashboard:", err);
       } finally {
@@ -114,31 +130,6 @@ export default function CustomerDashboardPage() {
     
     fetchDashboardData();
   }, []);
-
-  // Gợi ý dịch vụ dọn xe máy thực tế tại Việt Nam
-  const recommendedServices = [
-    {
-      id: 1,
-      title: "Rửa xe bọt tuyết Siêu Sạch (Basic)",
-      price: 50000,
-      description: "Rửa sườn, xịt gầm, làm sạch bánh xe và thổi khô gas-đầy đủ.",
-      tag: "PHỔ BIẾN"
-    },
-    {
-      id: 2,
-      title: "Phủ bóng Wax bóng bảo vệ sơn (Premium)",
-      price: 90000,
-      description: "Rửa xe cao cấp kết hợp phủ sáp siêu bóng bảo vệ dàn nhựa xe ga.",
-      tag: "ƯU ĐÃI VIP"
-    },
-    {
-      id: 3,
-      title: "Dọn rửa Chi tiết Côn tay / PKL (Deluxe)",
-      price: 150000,
-      description: "Tẩy ố lazang, vệ sinh sên đĩa xích, dưỡng bóng dàn áo xe phân khối lớn.",
-      tag: "CHUYÊN SÂU"
-    }
-  ];
 
   return (
     <div className="space-y-8 pb-10">

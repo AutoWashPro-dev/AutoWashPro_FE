@@ -122,15 +122,17 @@ export default function CustomerBookingPage() {
   const loadServices = async () => {
     try {
       const data = await customerApi.getActiveServices();
-      if (data && data.length > 0) {
-        const pkgs = data.filter(s => s.serviceType === 'PACKAGE').map(s => ({
+      const sortedData = (data?.data || data || []).sort((a, b) => Number(a.price || 0) - Number(b.price || 0));
+      
+      if (sortedData.length > 0) {
+        const pkgs = sortedData.filter(s => s.serviceType === 'PACKAGE').map(s => ({
           id: s.serviceId,
           name: s.serviceName,
           basePrice: Number(s.price),
           duration: `${s.durationMinutes} minutes`,
           description: s.description
         }));
-        const addons = data.filter(s => s.serviceType === 'ADDON').map(s => ({
+        const addons = sortedData.filter(s => s.serviceType === 'ADDON').map(s => ({
           id: s.serviceId,
           name: s.serviceName,
           price: Number(s.price),
