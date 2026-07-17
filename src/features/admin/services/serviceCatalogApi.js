@@ -186,6 +186,17 @@ export const serviceCatalogApi = {
     }
   },
 
+  deleteSlot: async (id, timeSlotId) => {
+    try {
+      const actualId = timeSlotId || id;
+      await api.delete(`/admin/slots/${actualId}`);
+      return true;
+    } catch (err) {
+      console.warn('API deleteSlot fallback:', err.message);
+      return true;
+    }
+  },
+
   // --- Garage Closures ---
   getAllClosures: async () => {
     try {
@@ -205,5 +216,9 @@ export const serviceCatalogApi = {
   deleteClosure: async (id) => {
     await api.delete(`/admin/closures/${id}`);
     return true;
-  }
+  },
+  lockSingleSlot: async ({ date, slotId }) => {
+    const res = await api.post('/admin/slots/lock', { date, slotId });
+    return res.data;
+}
 };

@@ -330,15 +330,9 @@ export default function AdminBookingsPage() {
     }
   };
 
-  const isRestoreAllowed = (booking) => {
-    if (!booking) return false;
-    const statusUpper = (booking.status || '').toUpperCase();
-    if (statusUpper !== 'CANCELLED_NO_SHOW' && statusUpper !== 'CANCELED') return false;
-
-    const todayStr = new Date().toISOString().split('T')[0];
-    if (booking.bookingDate !== todayStr) return false;
-
-    if (!booking.slotTime) return false;
+  // ── Late-arrival detection: any customer arriving after their slot window = immediate NO_SHOW ──
+  const isLateArrival = (booking) => {
+    if (!booking || !booking.slotTime) return false;
     const startTimeStr = booking.slotTime.split(' - ')[0];
     const [slotHour, slotMin] = startTimeStr.split(':').map(Number);
     if (isNaN(slotHour) || isNaN(slotMin)) return false;
@@ -346,11 +340,86 @@ export default function AdminBookingsPage() {
     const slotStart = new Date();
     slotStart.setHours(slotHour, slotMin, 0, 0);
     const diffMinutes = (new Date() - slotStart) / 60000;
-
-    return diffMinutes > 5 && diffMinutes <= 10;
+    return diffMinutes > 0; // Any positive diff = late
   };
 
-  const handleCheckinLate = async (bookingId) => {
+  // ── Check if a booking is a NO_SHOW candidate eligible for staff override ("Cứu Đơn") ──
+  const isNoShowOverrideCandidate = (booking) => {
+    if (!booking) return false;
+    const statusUpper = (booking.status || '').toUpperCase();
+    // Only cancelled-no-show or no_show bookings for today qualify
+    if (statusUpper !== 'CANCELLED_NO_SHOW' && statusUpper !== 'NO_SHOW' && statusUpper !== 'CANCELED') return false;
+
+    const todayStr = getLocalDateString();
+    if (booking.bookingDate !== todayStr) return false;
+    return true;
+  };
+
+  // ── Downstream slot availability lookup ──
+  const checkDownstreamSlotAvailability = (booking) => {
+    if (!booking || !booking.slotTime) return { hasCapacity: false, checkedSlots: [] };
+
+    const slots = getSlotsData();
+    const startTimeStr = booking.slotTime.split(' - ')[0];
+    const [bookingHour] = startTimeStr.split(':').map(Number);
+    if (isNaN(bookingHour)) return { hasCapacity: false, checkedSlots: [] };
+
+    // Find all consecutive slots immediately AFTER the booking's current slot
+    const subsequentSlots = slots
+      .filter(s => {
+        if (!s.isActive) return false;
+        const slotStartHour = parseInt(s.time.split(':')[0], 10);
+        return slotStartHour > bookingHour;
+      })
+      .sort((a, b) => parseInt(a.time.split(':')[0], 10) - parseInt(b.time.split(':')[0], 10));
+
+    // Check consecutive slots only (stop at the first gap)
+    const checkedSlots = [];
+    let expectedHour = bookingHour + 1;
+    for (const slot of subsequentSlots) {
+      const slotStartHour = parseInt(slot.time.split(':')[0], 10);
+      if (slotStartHour !== expectedHour) break; // Gap detected, stop
+
+      const lockKey = `${selectedDate}_${slot.id}`;
+      const lockedCount = slotLocks[lockKey] || 0;
+      const bookedCount = getBookedCount(slot.time);
+      const effectiveBooked = bookedCount + lockedCount;
+      const availableCapacity = slot.maxCapacity - effectiveBooked;
+
+      checkedSlots.push({
+        ...slot,
+        bookedCount: effectiveBooked,
+        availableCapacity,
+        isFull: availableCapacity <= 0
+      });
+
+      expectedHour++;
+    }
+
+    // Override is allowed if at least one subsequent consecutive slot has remaining capacity
+    const hasCapacity = checkedSlots.some(s => s.availableCapacity > 0);
+    return { hasCapacity, checkedSlots };
+  };
+
+  // ── Staff Override: "Cứu Đơn" – check-in late with downstream availability guard ──
+  const handleCheckinLateOverride = async (bookingId) => {
+    const booking = allBookingsMapped.find(b => (b.bookingCode || b.id || String(b.bookingId || '')) === bookingId) || selectedBooking;
+    if (!booking) return;
+
+    // Step 1: Verify downstream slot availability
+    const { hasCapacity, checkedSlots } = checkDownstreamSlotAvailability(booking);
+
+    if (!hasCapacity) {
+      // All subsequent slots are full → block the override
+      const slotSummary = checkedSlots.map(s => `${s.time}: ${s.bookedCount}/${s.maxCapacity}`).join(', ');
+      alert(
+        `Khách hàng đi trễ và các khung giờ tiếp theo đã đầy công suất! Không thể thực hiện check-in.\n\n` +
+        `Chi tiết khung giờ tiếp theo: ${slotSummary || 'Không có khung giờ nào khả dụng'}`
+      );
+      return;
+    }
+
+    // Step 2: Downstream capacity available → proceed with override
     try {
       await bookingAdminApi.checkinLate(bookingId);
 
@@ -369,10 +438,15 @@ export default function AdminBookingsPage() {
         return updated;
       });
 
-      alert("Khôi phục đơn trễ thành công! Trạng thái đơn đã chuyển về PENDING. Hãy tiến hành thanh toán cho khách tai quầy.");
+      const availableSlot = checkedSlots.find(s => s.availableCapacity > 0);
+      alert(
+        `✅ Cứu đơn thành công! Trạng thái đơn đã chuyển về PENDING.\n` +
+        `Khung giờ khả dụng tiếp theo: ${availableSlot?.time || 'N/A'} (còn ${availableSlot?.availableCapacity || 0} chỗ).\n` +
+        `Hãy tiến hành thanh toán cho khách tại quầy.`
+      );
       setViewMode('list');
     } catch (err) {
-      alert("Lỗi check-in trễ: " + (err.response?.data?.message || err.message));
+      alert("Lỗi cứu đơn check-in trễ: " + (err.response?.data?.message || err.message));
     }
   };
 
@@ -715,6 +789,29 @@ const allBookingsMapped = getAllBookings().map(b => {
     if (!selectedBooking) return;
 
     const bookingId = selectedBooking.bookingId || selectedBooking.id;
+    const statusUpper = (selectedBooking.status || '').toUpperCase();
+
+    // ── NO_SHOW Late-Arrival Guard ("Cứu Đơn" at payment step) ──
+    // If customer arrived late and booking was flagged as NO_SHOW, enforce downstream check
+    if (isLateArrival(selectedBooking) || statusUpper === 'NO_SHOW' || statusUpper === 'CANCELLED_NO_SHOW') {
+      const { hasCapacity, checkedSlots } = checkDownstreamSlotAvailability(selectedBooking);
+
+      if (!hasCapacity) {
+        // Block: subsequent slots are fully booked
+        const slotSummary = checkedSlots.map(s => `${s.time}: ${s.bookedCount}/${s.maxCapacity}`).join(', ');
+        alert(
+          `Khách hàng đi trễ và các khung giờ tiếp theo đã đầy công suất! Không thể thực hiện check-in.\n\n` +
+          `Chi tiết: ${slotSummary || 'Không có khung giờ tiếp theo'}`
+        );
+        return; // ← Hard stop: do NOT proceed with payment
+      }
+
+      // Capacity available → log the override and continue with payment
+      console.log(
+        `🛡️ [Cứu Đơn Override] Staff authorized late check-in for ${bookingId}. ` +
+        `Available downstream slots: ${checkedSlots.filter(s => s.availableCapacity > 0).map(s => s.time).join(', ')}`
+      );
+    }
 
     try {
       await bookingAdminApi.checkoutBooking(bookingId, {
@@ -1484,15 +1581,15 @@ const allBookingsMapped = getAllBookings().map(b => {
                         <p className="italic mt-1 leading-relaxed">{selectedBooking.cancelReason || 'Quá hạn thời gian slot (No-Show)'}</p>
                       </div>
 
-                      {/* Restore and Check-in late button */}
-                      {isRestoreAllowed(selectedBooking) && (
+                      {/* Staff Override: "Cứu Đơn" – check-in late with downstream availability guard */}
+                      {isNoShowOverrideCandidate(selectedBooking) && (
                           <button
-                            onClick={() => handleCheckinLate(selectedBooking.id || selectedBooking.bookingId)}
-                            className="w-full bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white text-xs font-black py-2.5
+                            onClick={() => handleCheckinLateOverride(selectedBooking.id || selectedBooking.bookingId)}
+                            className="w-full bg-amber-600 hover:bg-amber-700 active:scale-[0.98] text-white text-xs font-black py-2.5
                         px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer font-outfit"
                           >
                             <Play className="w-4 h-4" />
-                            Khôi phục đơn & Đợi thanh toán quầy
+                            🛡️ Cứu Đơn – Kiểm tra & Check-in trễ
                           </button>
                       )}
                     </div>
