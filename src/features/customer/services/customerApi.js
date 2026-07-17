@@ -27,13 +27,15 @@ export const customerApi = {
       return res.data;
     } catch (err) {
       console.warn('API getProfile error:', err.message);
-      // Fallback profile for mock
+      // Fallback profile for mock - ensure customerId is present to load real API data
       return {
-        fullName: 'N/A',
-        loyaltyPoints: 0,
-        tierName: 'MEMBER',
-        bookingWindowDays: 1,
+        customerId: 1, // Default customerId = 1 (Nguyễn Minh Anh)
+        fullName: 'Nguyễn Minh Anh',
+        loyaltyPoints: 1240,
+        tierName: 'PLATINUM MEMBER',
+        bookingWindowDays: 14,
         vehicles: [
+          { vehicleId: 1, licensePlate: "51A-12345", model: "Honda SH 150i", isDefault: true }
         ]
       };
     }
@@ -73,10 +75,9 @@ export const customerApi = {
   },
 
   // Get customer's voucher wallet
-  getMyVouchers: async (status = 'ISSUED') => {
+  getMyVouchers: async (customerId = 1, status = 'ISSUED') => {
     try {
-      // If we have local override testing customerId, append it
-      const res = await api.get(`/customer/rewards/my-vouchers?status=${status}&customerId=1`);
+      const res = await api.get(`/customer/rewards/my-vouchers?status=${status}&customerId=${customerId}`);
       return res.data || [];
     } catch (err) {
       console.warn('API getMyVouchers error:', err.message);
@@ -108,9 +109,9 @@ export const customerApi = {
   },
 
   // Get rewards shop listing
-  getRewardShop: async () => {
+  getRewardShop: async (customerId = 1) => {
     try {
-      const res = await api.get('/customer/rewards/shop?customerId=1');
+      const res = await api.get(`/customer/rewards/shop?customerId=${customerId}`);
       return res.data || [];
     } catch (err) {
       console.warn('API getRewardShop error:', err.message);
@@ -119,21 +120,21 @@ export const customerApi = {
   },
 
   // Claim free voucher (costPoints = 0)
-  claimFreeVoucher: async (promotionId) => {
-    const res = await api.post(`/customer/rewards/${promotionId}/claim?customerId=1`);
+  claimFreeVoucher: async (promotionId, customerId = 1) => {
+    const res = await api.post(`/customer/rewards/${promotionId}/claim?customerId=${customerId}`);
     return res.data;
   },
 
   // Exchange points for a voucher
-  exchangePoints: async (promotionId) => {
-    const res = await api.post(`/customer/rewards/${promotionId}/exchange?customerId=1`);
+  exchangePoints: async (promotionId, customerId = 1) => {
+    const res = await api.post(`/customer/rewards/${promotionId}/exchange?customerId=${customerId}`);
     return res.data;
   },
 
   // Get customer's feedback history
-  getMyFeedbacks: async () => {
+  getMyFeedbacks: async (customerId = 1) => {
     try {
-      const res = await api.get('/customer/feedbacks/my-feedbacks?customerId=1');
+      const res = await api.get(`/customer/feedbacks/my-feedbacks?customerId=${customerId}`);
       return res.data || [];
     } catch (err) {
       console.warn('API getMyFeedbacks error:', err.message);
@@ -142,8 +143,8 @@ export const customerApi = {
   },
 
   // Submit feedback
-  createFeedback: async (feedbackData) => {
-    const res = await api.post('/customer/feedbacks?customerId=1', feedbackData);
+  createFeedback: async (feedbackData, customerId = 1) => {
+    const res = await api.post(`/customer/feedbacks?customerId=${customerId}`, feedbackData);
     return res.data;
   },
 

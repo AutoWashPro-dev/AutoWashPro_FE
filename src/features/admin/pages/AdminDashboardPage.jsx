@@ -18,6 +18,43 @@ const AdminDashboardPage = () => {
   const [kpiSummary, setKpiSummary] = useState(null); // Lưu trữ trực tiếp response từ /api/v1/admin/dashboard/kpi-summary
   const [errorMsg, setErrorMsg] = useState(null);
 
+  // AI Advisor States (E2E-3)
+  const [aiProposal, setAiProposal] = useState(null);
+  const [loadingAi, setLoadingAi] = useState(false);
+  const [applyingProposal, setApplyingProposal] = useState(false);
+  const [showAiPanel, setShowAiPanel] = useState(false);
+
+  const handleRequestAiHelp = async () => {
+    setLoadingAi(true);
+    setShowAiPanel(true);
+    try {
+      const timeRange = period.toUpperCase();
+      const res = await dashboardApi.analyzeDashboard(timeRange);
+      setAiProposal(res);
+    } catch (err) {
+      console.error('Failed to request AI Advisor proposal:', err);
+      alert('Không thể nhận đề xuất từ AI Advisor: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setLoadingAi(false);
+    }
+  };
+
+  const handleApplyAiProposal = async () => {
+    if (!aiProposal || !aiProposal.proposalId) return;
+    setApplyingProposal(true);
+    try {
+      const res = await dashboardApi.applyProposal(aiProposal.proposalId);
+      alert(res.message || 'Kích hoạt chiến dịch từ đề xuất AI thành công!');
+      // Reload dashboard stats
+      setPeriod(period);
+    } catch (err) {
+      console.error('Failed to apply AI proposal:', err);
+      alert('Lỗi áp dụng đề xuất AI: ' + (err.response?.data?.message || err.message));
+    } finally {
+      setApplyingProposal(false);
+    }
+  };
+
   const initialEmptyData = {
     bookingsCount: 0,
     completed: 0,
@@ -259,41 +296,124 @@ return (
           </div>
           <p className="text-xs text-slate-400 font-semibold">Tổng quan hoạt động vận hành & Tỷ lệ lấp đầy trạm rửa xe máy.</p>
         </div>
-        <div className="bg-white border border-slate-200/80 rounded-xl p-1 flex gap-1.5 text-xs text-slate-500 shadow-sm self-start md:self-auto">
-          <button 
-            onClick={() => setPeriod('today')} 
-            className={`px-3.5 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
-              period === 'today' ? 'bg-slate-900 text-white shadow-sm' : 'hover:text-slate-800 hover:bg-slate-50'
-            }`}
+        
+        <div className="flex items-center gap-3 self-start md:self-auto">
+          <button
+            onClick={handleRequestAiHelp}
+            className="flex items-center gap-1.5 bg-gradient-to-r from-violet-600 to-indigo-650 text-white text-xs font-black px-4.5 py-2.5 rounded-xl hover:shadow-lg hover:shadow-indigo-600/10 active:scale-[0.98] transition-all cursor-pointer shadow-sm"
           >
-            Hôm nay
+            <HelpCircle className="w-4 h-4 text-indigo-200 animate-bounce" />
+            Nhận Hiến Kế AI 💡
           </button>
-          <button 
-            onClick={() => setPeriod('week')} 
-            className={`px-3.5 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
-              period === 'week' ? 'bg-slate-900 text-white shadow-sm' : 'hover:text-slate-800 hover:bg-slate-50'
-            }`}
-          >
-            Tuần
-          </button>
-          <button 
-            onClick={() => setPeriod('month')} 
-            className={`px-3.5 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
-              period === 'month' ? 'bg-slate-900 text-white shadow-sm' : 'hover:text-slate-800 hover:bg-slate-50'
-            }`}
-          >
-            Tháng
-          </button>
-          <button 
-            onClick={() => setPeriod('year')} 
-            className={`px-3.5 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
-              period === 'year' ? 'bg-slate-900 text-white shadow-sm' : 'hover:text-slate-800 hover:bg-slate-50'
-            }`}
-          >
-            Năm
-          </button>
+
+          <div className="bg-white border border-slate-200/80 rounded-xl p-1 flex gap-1.5 text-xs text-slate-500 shadow-sm">
+            <button 
+              onClick={() => setPeriod('today')} 
+              className={`px-3.5 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                period === 'today' ? 'bg-slate-900 text-white shadow-sm' : 'hover:text-slate-800 hover:bg-slate-50'
+              }`}
+            >
+              Hôm nay
+            </button>
+            <button 
+              onClick={() => setPeriod('week')} 
+              className={`px-3.5 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                period === 'week' ? 'bg-slate-900 text-white shadow-sm' : 'hover:text-slate-800 hover:bg-slate-50'
+              }`}
+            >
+              Tuần
+            </button>
+            <button 
+              onClick={() => setPeriod('month')} 
+              className={`px-3.5 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                period === 'month' ? 'bg-slate-900 text-white shadow-sm' : 'hover:text-slate-800 hover:bg-slate-50'
+              }`}
+            >
+              Tháng
+            </button>
+            <button 
+              onClick={() => setPeriod('year')} 
+              className={`px-3.5 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
+                period === 'year' ? 'bg-slate-900 text-white shadow-sm' : 'hover:text-slate-800 hover:bg-slate-50'
+              }`}
+            >
+              Năm
+            </button>
+          </div>
         </div>
       </div>
+
+      {/* AI Advisor Panel */}
+      {showAiPanel && (
+        <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white rounded-3xl p-6 shadow-2xl relative overflow-hidden border border-indigo-500/20 text-xs">
+          <div className="absolute top-0 right-0 w-80 h-80 bg-violet-600/10 rounded-full blur-3xl pointer-events-none"></div>
+          <div className="absolute -left-20 -bottom-20 w-80 h-80 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+          
+          <div className="flex items-center justify-between pb-3.5 border-b border-slate-700/50">
+            <div className="flex items-center gap-2.5">
+              <div className="bg-indigo-500/20 p-2 rounded-xl border border-indigo-400/30">
+                <Gauge className="w-5 h-5 text-indigo-400 animate-pulse" />
+              </div>
+              <div className="text-left">
+                <h3 className="font-extrabold text-sm tracking-tight font-outfit">AI Advisor Command</h3>
+                <p className="text-[10px] text-slate-400 font-semibold mt-0.5">Trợ lý AI phân tích hiệu suất và đề xuất chiến lược Win-back tự động.</p>
+              </div>
+            </div>
+            <button 
+              onClick={() => setShowAiPanel(false)}
+              className="p-1.5 text-slate-400 hover:text-white bg-slate-800/40 hover:bg-slate-800 rounded-xl transition-all cursor-pointer"
+            >
+              <XCircle className="w-4 h-4" />
+            </button>
+          </div>
+
+          {loadingAi ? (
+            <div className="flex flex-col items-center justify-center py-12 space-y-3">
+              <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+              <p className="text-slate-300 text-[11px] font-bold animate-pulse">Trợ lý AI đang thu thập dữ liệu dashboard và phân tích...</p>
+            </div>
+          ) : aiProposal ? (
+            <div className="mt-5 space-y-5 text-left">
+              {/* Lời khuyên */}
+              <div className="bg-slate-800/40 p-4.5 rounded-2xl border border-slate-700/40 leading-relaxed text-slate-200">
+                <h4 className="font-black text-indigo-300 uppercase tracking-wider text-[9px] mb-2">💡 Phân tích & Lời khuyên từ AI</h4>
+                <p className="whitespace-pre-line font-medium leading-relaxed">{aiProposal.advisoryText || 'Không phát hiện rủi ro nào đáng kể trong thời gian này.'}</p>
+              </div>
+
+              {/* Voucher đề xuất */}
+              {aiProposal.proposedVoucher && (
+                <div className="bg-indigo-600/10 p-5 rounded-2xl border border-indigo-500/30 grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
+                  <div className="md:col-span-3 space-y-1.5">
+                    <div className="flex items-center gap-2">
+                      <span className="bg-indigo-500 text-white font-mono font-black px-2.5 py-0.5 rounded text-[9px] tracking-wider uppercase">
+                        {aiProposal.proposedVoucher.code}
+                      </span>
+                      <span className="text-[9px] text-indigo-300 font-extrabold">Đề xuất Voucher Win-back</span>
+                    </div>
+                    <h5 className="font-black text-white text-xs">{aiProposal.proposedVoucher.name}</h5>
+                    <p className="text-[10px] text-slate-400 font-semibold leading-relaxed">
+                      Áp dụng cho hạng: <strong className="text-white">{aiProposal.proposedVoucher.minTier}+</strong> • 
+                      Vắng mặt: <strong className="text-white">&gt; {aiProposal.proposedVoucher.minRecencyDays} ngày</strong> • 
+                      Ngân sách: <strong className="text-white">{aiProposal.proposedVoucher.totalBudget} vouchers</strong>
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <button
+                      onClick={handleApplyAiProposal}
+                      disabled={applyingProposal}
+                      className="w-full md:w-auto bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white text-[10px] font-black px-5 py-3 rounded-xl shadow-lg transition-all cursor-pointer disabled:opacity-50 active:scale-[0.98]"
+                    >
+                      {applyingProposal ? "Đang kích hoạt..." : "✅ 1-Click Apply"}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-slate-400 py-10 font-bold text-center">Không có đề xuất nào sẵn sàng. Bấm nút phía trên để nhận hiến kế.</p>
+          )}
+        </div>
+      )}
 
       {/* 1. KPI CARDS (4-Column Golden Ratio Grid) */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">

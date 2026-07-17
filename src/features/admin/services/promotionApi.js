@@ -61,8 +61,8 @@ export const promotionApi = {
 
   createPromotion: async (data) => {
     let backendType = 'FIXED_AMOUNT';
-    if (data.discountType === 'percent') backendType = 'PERCENTAGE';
-    if (data.discountType === 'free_wash') backendType = 'FREE_SERVICE';
+    if (data.discountType === 'percent' || data.discountType === 'PERCENTAGE') backendType = 'PERCENTAGE';
+    if (data.discountType === 'free_wash' || data.discountType === 'FREE_SERVICE') backendType = 'FREE_SERVICE';
     
     // Parse dates to correct ISO formats if present, or let them pass
     const payload = {
@@ -76,8 +76,12 @@ export const promotionApi = {
       minRecencyDays: Number(data.minRecencyDays) || 0,
       maxClaimPerUser: Number(data.maxClaimPerUser) || 0,
       totalBudget: Number(data.totalBudget) || 0,
-      startDate: data.startDate ? `${data.startDate}T00:00:00` : null,
-      endDate: data.endDate ? `${data.endDate}T23:59:59` : null
+      startDate: data.startDate ? (data.startDate.includes('T') ? data.startDate : `${data.startDate}T00:00:00`) : null,
+      endDate: data.endDate ? (data.endDate.includes('T') ? data.endDate : `${data.endDate}T23:59:59`) : null,
+      applicableServiceCode: data.applicableServiceCode || null,
+      applicableDays: data.applicableDays || null,
+      maxDiscountAmount: data.maxDiscountAmount != null ? Number(data.maxDiscountAmount) : null,
+      minOrderValue: data.minOrderValue != null ? Number(data.minOrderValue) : null
     };
 
     const res = await api.post('/admin/promotions', payload);

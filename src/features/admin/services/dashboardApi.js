@@ -82,5 +82,34 @@ export const dashboardApi = {
       console.warn('API getSlotPerformance error or offline:', error.message);
       throw error;
     }
+  },
+
+  /**
+   * 5. AI Advisor: Phân tích và sinh lời khuyên / chiến dịch Win-back
+   */
+  analyzeDashboard: async (timeRange = 'TODAY', fromDate, toDate) => {
+    try {
+      const params = new URLSearchParams({ timeRange });
+      if (fromDate) params.append('fromDate', fromDate);
+      if (toDate) params.append('toDate', toDate);
+      const res = await api.post(`/admin/dashboard/ai-advisor/analyze?${params.toString()}`);
+      return res.data;
+    } catch (error) {
+      console.error('API analyzeDashboard error:', error.message);
+      throw error;
+    }
+  },
+
+  /**
+   * 6. AI Advisor: 1-Click Apply đề xuất chiến dịch
+   */
+  applyProposal: async (proposalId) => {
+    try {
+      const res = await api.post(`/admin/dashboard/ai-advisor/apply-proposal/${proposalId}`);
+      return res.data;
+    } catch (error) {
+      console.error('API applyProposal error:', error.message);
+      throw error;
+    }
   }
 };
