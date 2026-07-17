@@ -186,7 +186,7 @@ export default function CustomerGaragePage() {
 
           {/* Render danh sách xe */}
           {vehicles.map(veh => (
-            <div key={veh.vehicleId} className="relative group">
+            <div key={veh.vehicleId} className={`relative group transition-all duration-300 ${!veh.isDefault ? 'hover:-translate-y-1 hover:shadow-lg rounded-xl' : ''}`}>
               <VehicleCard 
                 vehicle={veh}
                 isDefault={veh.isDefault}

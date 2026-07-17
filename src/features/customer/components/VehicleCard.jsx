@@ -5,9 +5,9 @@ export default function VehicleCard({ vehicle, isDefault, isSelected, onSelect, 
   return (
     <div 
       onClick={() => isSelectable && onSelect?.(vehicle)}
-      className={`border rounded-xl p-4 bg-white relative transition-all group ${
+      className={`rounded-xl p-4 bg-white relative transition-all group ${
         isSelectable ? 'cursor-pointer hover:border-blue-500 hover:shadow-md' : ''
-      } ${isSelected ? 'border-blue-500 bg-blue-50/20' : 'border-slate-200'}`}
+      } ${isSelected ? 'border-2 border-blue-600 bg-blue-50/20 shadow-md' : 'border border-slate-200'}`}
     >
       {isDefault && (
         <span className="absolute top-3 right-3 flex items-center gap-1 text-xs text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full font-medium">

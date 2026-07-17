@@ -572,7 +572,7 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
               {vehicles.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {vehicles.map(veh => (
-                      <div key={veh.vehicleId || veh.id} className="relative group">
+                      <div key={veh.vehicleId || veh.id} className={`relative group transition-all duration-300 ${!veh.isDefault ? 'hover:-translate-y-1 hover:shadow-lg rounded-xl' : ''}`}>
                         <VehicleCard 
                           vehicle={veh}
                           isDefault={veh.isDefault}
