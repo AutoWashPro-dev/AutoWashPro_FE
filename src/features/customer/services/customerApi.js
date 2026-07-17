@@ -177,5 +177,11 @@ export const customerApi = {
   addVehicle: async (vehicleData) => {
     const res = await api.post('/customer/vehicles', vehicleData);
     return res.data;
+  },
+
+  // Set default vehicle
+  setDefaultVehicle: async (vehicleId) => {
+    const res = await api.patch(`/customer/vehicles/${vehicleId}/default`);
+    return res.data;
   }
 };
