@@ -132,14 +132,19 @@ export default function CustomerGaragePage() {
 
   // Click nhanh để đổi xe mặc định
   const handleSetDefault = async (veh) => {
+    // Optimistic UI update
+    const previousVehicles = [...vehicles];
+    setVehicles(vehicles.map(v => ({
+      ...v,
+      isDefault: (v.vehicleId || v.id) === (veh.vehicleId || veh.id)
+    })));
+
     try {
       await customerApi.setDefaultVehicle(veh.vehicleId || veh.id);
-      setVehicles(vehicles.map(v => ({
-        ...v,
-        isDefault: (v.vehicleId || v.id) === (veh.vehicleId || veh.id)
-      })));
     } catch (err) {
       console.error('Lỗi khi set default vehicle:', err);
+      // Rollback on failure
+      setVehicles(previousVehicles);
     }
   };
 
