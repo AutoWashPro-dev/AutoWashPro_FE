@@ -147,6 +147,7 @@ export default function AdminBookingsPage() {
   const [tierMatrix, setTierMatrix] = useState([]);
   const [viewMode, setViewMode] = useState('list'); // 'list' or 'detail'
   const [activeMainTab, setActiveMainTab] = useState('queue'); // 'queue' vs 'history'
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [selectedBookingId, setSelectedBookingId] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [queueSubFilter, setQueueSubFilter] = useState('ALL_QUEUE'); // 'ALL_QUEUE', 'Pending', 'Paid'
@@ -245,7 +246,7 @@ export default function AdminBookingsPage() {
   return () => {
     isCurrentRequest = false;
   };
-}, [selectedDate, searchQuery]);
+}, [selectedDate, searchQuery, refreshTrigger]);
 
   // Dates available in day selector
   const availableDates = [
@@ -710,48 +711,61 @@ const allBookingsMapped = getAllBookings().map(b => {
     }
   };
 
-  const getLoyaltyProgressData = (newTier, newTotalSpend, tiers = tierMatrix) => {
-    const sortedTiers = [...(tiers || [])].sort((a, b) => a.minSpend - b.minSpend);
-    const tierByKey = Object.fromEntries((sortedTiers || []).map((tier) => [tier.key, tier]));
+  const getLoyaltyProgressData = (newTier, newTotalSpend, customerName) => {
+    try {
+      const updatedTotalSpending = Number(newTotalSpend) || 0;
+      const safeName = customerName || 'Quý khách';
 
-    const nextTargetByTier = {
-      Member: tierByKey.Silver || { key: 'Silver', name: 'Silver', minSpend: 1000000 },
-      Silver: tierByKey.Gold || { key: 'Gold', name: 'Gold', minSpend: 5000000 },
-      Gold: tierByKey.Platinum || { key: 'Platinum', name: 'Platinum', minSpend: 10000000 }
-    };
+      let targetLimit = 1000000;
+      let nextTierLabel = 'SILVER';
 
-    if (newTier === 'Platinum') {
+      if (updatedTotalSpending >= 10000000) {
+        targetLimit = updatedTotalSpending;
+        nextTierLabel = 'PLATINUM';
+      } else if (updatedTotalSpending >= 5000000) {
+        targetLimit = 10000000;
+        nextTierLabel = 'PLATINUM';
+      } else if (updatedTotalSpending >= 1000000) {
+        targetLimit = 5000000;
+        nextTierLabel = 'GOLD';
+      }
+
+      const isMax = updatedTotalSpending >= 10000000;
+      const amountNeededNextTier = Math.max(0, targetLimit - updatedTotalSpending);
+      const progressPercent = targetLimit > 0 ? Math.min(100, Math.floor((updatedTotalSpending / targetLimit) * 100)) : 100;
+
+      if (isMax) {
+        return {
+          isMax: true,
+          percent: 100,
+          remaining: 0,
+          amountNeededNextTier: 0,
+          nextTierLabel: 'PLATINUM',
+          targetName: 'Platinum',
+          description: `Quý khách ${safeName} đã đạt hạng cao nhất — Platinum`
+        };
+      }
+
       return {
-        isMax: true,
-        percent: 100,
-        remaining: 0,
-        targetName: 'Platinum',
-        description: 'Maximum Rank Achieved'
+        isMax: false,
+        percent: progressPercent,
+        remaining: amountNeededNextTier,
+        amountNeededNextTier,
+        nextTierLabel,
+        targetName: nextTierLabel,
+        description: `Quý khách ${safeName} cần thanh toán thêm ${amountNeededNextTier.toLocaleString('vi-VN')} VND để thăng hạng ${nextTierLabel}`
       };
-    }
-
-    const targetTier = nextTargetByTier[newTier];
-    if (!targetTier) {
+    } catch {
       return {
         isMax: false,
         percent: 0,
         remaining: 0,
+        amountNeededNextTier: 0,
+        nextTierLabel: 'SILVER',
         targetName: 'Silver',
-        description: 'Need 0 more VND to reach Silver'
+        description: 'Đang tính toán...'
       };
     }
-
-    const targetSpend = Math.max(targetTier.minSpend || 0, 0);
-    const remaining = Math.max(0, targetSpend - newTotalSpend);
-    const percent = Math.min(100, Math.max(0, Math.round((newTotalSpend / (targetSpend || 1)) * 100)));
-
-    return {
-      isMax: false,
-      percent,
-      remaining,
-      targetName: targetTier.name || targetTier.key,
-      description: `Need ${remaining.toLocaleString('vi-VN')} more VND to reach ${targetTier.name || targetTier.key}`
-    };
   };
 
   const selectedVoucher = customerVouchers.find(v => v.code === selectedVoucherCode) || null;
@@ -777,7 +791,9 @@ const allBookingsMapped = getAllBookings().map(b => {
     const dateKey = updatedBooking.bookingDate || selectedDate;
     if (allBookings[dateKey]) {
       allBookings[dateKey] = allBookings[dateKey].map(b => {
-        if (b.id === updatedBooking.id) {
+        const bId = String(b.bookingCode || b.id || b.bookingId || '');
+        const uId = String(updatedBooking.bookingCode || updatedBooking.id || updatedBooking.bookingId || '');
+        if (bId === uId) {
           // Strip the transient mapped customer object to prevent database redundancy
           const { customer, bookingDate, ...rest } = updatedBooking;
           return rest;
@@ -926,15 +942,31 @@ const allBookingsMapped = getAllBookings().map(b => {
       tier: selectedBooking.customer.tier
     };
 
+    // Compute loyalty metrics using hardcoded thresholds to prevent NaN
+    const updatedTotalSpending = Number(customerAfterCheckout.totalSpend) || 0;
+    const updatedLoyaltyPoints = Number(customerAfterCheckout.points) || 0;
+    const customerRecord = {
+      fullName: customerAfterCheckout.name || selectedBooking.customer.name || 'Quý khách',
+      totalSpending: updatedTotalSpending,
+      loyaltyPoints: updatedLoyaltyPoints,
+      tier: customerAfterCheckout.tier || 'Member'
+    };
+
+    const loyaltyProgress = getLoyaltyProgressData(customerRecord.tier, updatedTotalSpending, customerRecord.fullName);
+
     setSuccessModalData({
       finalAmount,
       pointsEarned,
-      totalPoints: customerAfterCheckout.points,
+      totalPoints: updatedLoyaltyPoints,
       customer: customerAfterCheckout,
+      customerRecord,
+      updatedLoyaltyPoints,
+      updatedTotalSpending,
       alertUpgradeMessage,
-      loyaltyProgress: getLoyaltyProgressData(customerAfterCheckout.tier, customerAfterCheckout.totalSpend, tierMatrix)
+      loyaltyProgress
     });
     setShowSuccessModal(true);
+    setRefreshTrigger(prev => prev + 1); // Trigger an explicit re-fetch of the bookings list
     setSelectedDate(selectedDate);
     setViewMode('list');
   };
@@ -1777,21 +1809,16 @@ const allBookingsMapped = getAllBookings().map(b => {
             <div className="w-9 h-9 bg-indigo-50 rounded-xl flex items-center justify-center"><CreditCard className="w-4 h-4 text-indigo-600" /></div>
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Thành tiền thực thu</span>
           </div>
-          <span className="text-sm font-black text-slate-800 font-mono">{successModalData.finalAmount.toLocaleString('vi-VN')} {' '}₫</span>
+          <span className="text-sm font-black text-slate-800 font-mono">{(successModalData.finalAmount || 0).toLocaleString('vi-VN')} đ</span>
         </div>
         <div className="flex items-center justify-between py-4">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 bg-amber-50 rounded-xl flex items-center justify-center"><Coins className="w-4 h-4 text-amber-600" /></div>
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Điểm tích lũy đơn này</span>
           </div>
-          <span className="text-sm font-black text-emerald-600">+{successModalData.pointsEarned} {' '}Pts</span>
+          <span className="text-sm font-black text-emerald-600">+{successModalData.pointsEarned || 0} Pts</span>
         </div>
         <div className="flex items-center justify-between py-4">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-purple-50 rounded-xl flex items-center justify-center"><Gift className="w-4 h-4 text-purple-600" /></div>
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">Tổng điểm ví hiện tại</span>
-          </div>
-          <span className="text-sm font-black text-slate-800">{successModalData.totalPoints?.toLocaleString('vi-VN')} {' '}Pts</span>
         </div>
       </div>
       {successModalData.alertUpgradeMessage && (
@@ -1800,29 +1827,7 @@ const allBookingsMapped = getAllBookings().map(b => {
         </div>
       )}
 
-      {successModalData.loyaltyProgress && (
-        <div className="mt-3 rounded-2xl border border-slate-200 bg-slate-50/80 p-4 text-left">
-          <div className="flex items-start justify-between gap-2">
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-500">Loyalty Progress Bar</p>
-              <p className="mt-1 text-sm font-semibold text-slate-700">
-                {successModalData.loyaltyProgress.isMax ? 'Maximum Rank Achieved' : successModalData.loyaltyProgress.description}
-              </p>
-            </div>
-            {successModalData.loyaltyProgress.isMax ? (
-              <span className="rounded-full bg-emerald-100 px-3 py-1 text-[11px] font-black text-emerald-700">Maximum Rank Achieved</span>
-            ) : (
-              <span className="text-sm font-black text-slate-700">{successModalData.loyaltyProgress.percent}%</span>
-            )}
-          </div>
-          <div className="mt-3 h-3 w-full overflow-hidden rounded-full bg-slate-200/80">
-            <div
-              className="h-full rounded-full bg-gradient-to-r from-sky-400 via-cyan-500 to-emerald-500 transition-all duration-700 ease-out"
-              style={{ width: `${successModalData.loyaltyProgress.percent}%` }}
-            />
-          </div>
-        </div>
-      )}
+      
     </div>
 
     <div className="p-6 pt-2">
