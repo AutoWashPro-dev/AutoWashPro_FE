@@ -22,19 +22,40 @@ export default function CustomerLayout() {
 
   const [customer, setCustomer] = useState(null);
   const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
   React.useEffect(() => {
     const fetchData = async () => {
       try {
-        const [profileData, notifsData] = await Promise.all([
-          customerApi.getProfile(),
-          customerApi.getNotifications()
+        const profilePromise = customerApi.getProfile().catch(err => {
+          console.error("Failed to fetch profile:", err);
+          return null;
+        });
+        const countPromise = customerApi.getUnreadCount().catch(err => {
+          console.error("Failed to fetch unread count:", err);
+          return { unreadCount: 0 };
+        });
+        const notifsPromise = customerApi.getMyNotifications(20).catch(err => {
+          console.error("Failed to fetch notifications:", err);
+          return [];
+        });
+
+        const [profileData, countData, notifsData] = await Promise.all([
+          profilePromise, countPromise, notifsPromise
         ]);
-        setCustomer(profileData);
-        setNotifications(notifsData);
+
+        if (profileData) setCustomer(profileData);
+        
+        const count = countData?.unreadCount ?? countData?.data?.unreadCount ?? 0;
+        setUnreadCount(count);
+        
+        const notifs = Array.isArray(notifsData) ? notifsData : (notifsData?.data || []);
+        setNotifications(notifs);
       } catch (err) {
         console.error("Failed to fetch layout data:", err);
+        setNotifications([]);
+        setUnreadCount(0);
       } finally {
         setIsLoading(false);
       }
@@ -56,10 +77,28 @@ export default function CustomerLayout() {
     };
   }, [location.pathname]);
 
+  const markAllAsReadApi = async () => {
+    try {
+      await customerApi.markAllAsRead();
+      setUnreadCount(0);
+      setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+    } catch (error) {
+      console.error("Failed to mark all as read:", error);
+    }
+  };
+
+  const handleToggleNotification = () => {
+    const opening = !isNotifOpen;
+    setIsNotifOpen(opening);
+    if (opening && unreadCount > 0) {
+      markAllAsReadApi();
+    }
+  };
+
   const handleMarkAllRead = () => {
-    const updated = notifications.map(n => ({...n, read: true}));
-    setNotifications(updated);
-    localStorage.setItem('autowash_cust_notifications', JSON.stringify(updated));
+    if (unreadCount > 0) {
+      markAllAsReadApi();
+    }
   };
 
   const handleLogout = () => {
@@ -92,7 +131,7 @@ export default function CustomerLayout() {
     return activeItem ? activeItem.label : '';
   };
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  // unreadCount is handled in state
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden font-sans">
@@ -182,7 +221,7 @@ export default function CustomerLayout() {
             
             {/* Chuông thông báo */}
             <button 
-              onClick={() => setIsNotifOpen(!isNotifOpen)}
+              onClick={handleToggleNotification}
               className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-xl transition-colors relative"
             >
               <Bell size={20} />
@@ -210,15 +249,18 @@ export default function CustomerLayout() {
                   {notifications.length === 0 ? (
                     <div className="text-slate-400 text-xs text-center py-4">Không có thông báo gì mới.</div>
                   ) : (
-                    notifications.map(notif => (
+                    notifications.map((notif, index) => (
                       <div 
-                        key={notif.id}
+                        key={notif.id || index}
                         className={`p-2.5 rounded-xl border text-[11px] leading-relaxed transition-all ${
-                          notif.read ? 'bg-white border-slate-100 text-slate-500' : 'bg-blue-50/20 border-blue-100 text-slate-800 font-medium'
+                          notif.isRead === false 
+                            ? 'bg-blue-50/50 border-blue-100 text-slate-800 font-medium' 
+                            : 'bg-white border-slate-100 text-slate-500'
                         }`}
                       >
-                        <p>{notif.text}</p>
-                        <span className="text-[9px] text-slate-400 mt-1 block font-semibold">{notif.time}</span>
+                        <p className="font-bold text-[12px] mb-1">{notif.title}</p>
+                        <p>{notif.content}</p>
+                        <span className="text-[9px] text-slate-400 mt-1 block font-semibold">{notif.createdAtFormatted}</span>
                       </div>
                     ))
                   )}

@@ -52,6 +52,39 @@ export const customerApi = {
     }
   },
 
+  // Get notifications history
+  getMyNotifications: async (limit = 20) => {
+    try {
+      const res = await api.get(`/customer/notifications?limit=${limit}`);
+      return res.data || [];
+    } catch (err) {
+      console.warn('API getMyNotifications error:', err.message);
+      throw err;
+    }
+  },
+
+  // Get unread count
+  getUnreadCount: async () => {
+    try {
+      const res = await api.get('/customer/notifications/unread-count');
+      return res.data || { unreadCount: 0 };
+    } catch (err) {
+      console.warn('API getUnreadCount error:', err.message);
+      throw err;
+    }
+  },
+
+  // Mark all as read
+  markAllAsRead: async () => {
+    try {
+      const res = await api.put('/customer/notifications/mark-all-read');
+      return res.data;
+    } catch (err) {
+      console.warn('API markAllAsRead error:', err.message);
+      throw err;
+    }
+  },
+
   // Get active services from backend (core package + addons)
   getActiveServices: async () => {
     try {
