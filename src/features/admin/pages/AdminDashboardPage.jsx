@@ -277,7 +277,15 @@ return (
             <span>{errorMsg}</span>
           </div>
           <button 
-            onClick={() => { localStorage.removeItem('autowash_token'); localStorage.removeItem('token'); localStorage.removeItem('accessToken'); window.location.href = '/login'; }} 
+            onClick={() => { 
+              localStorage.removeItem('autowash_token'); 
+              localStorage.removeItem('autowash_user');
+              localStorage.removeItem('token'); 
+              localStorage.removeItem('role');
+              localStorage.removeItem('user_roles');
+              localStorage.removeItem('accessToken'); 
+              window.location.href = '/login'; 
+            }} 
             className="bg-rose-600 text-white px-4 py-1.5 rounded-lg font-bold hover:bg-rose-700 transition-all text-xs shrink-0 cursor-pointer shadow-sm"
           >
             Đăng xuất & Đăng nhập lại ngay

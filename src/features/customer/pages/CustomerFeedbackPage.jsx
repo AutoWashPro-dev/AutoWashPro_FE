@@ -8,21 +8,24 @@ export default function CustomerFeedbackPage() {
   const [completedBookings, setCompletedBookings] = useState([]);
   const [selectedBookingId, setSelectedBookingId] = useState('');
   const [feedbacks, setFeedbacks] = useState([]);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
 
   const fetchCompletedBookings = async () => {
     try {
-      const data = await customerApi.getMyBookings();
-      const completed = data.filter(b => b.status === 'COMPLETED').map(b => ({
-        id: b.bookingCode,
-        date: String(b.bookingDate),
-        serviceName: b.items && b.items.length > 0 ? b.items[0].serviceNameSnapshot : 'Rửa xe máy'
+      const data = await customerApi.getMyBookings('COMPLETED');
+      const completed = data.map(b => ({
+        bookingId: b.bookingId,
+        bookingCode: b.bookingCode,
+        date: b.bookingDate || b.date || 'N/A',
+        licensePlate: b.licensePlate || (b.vehicle ? b.vehicle.licensePlate : 'N/A')
       }));
       setCompletedBookings(completed);
       if (completed.length > 0) {
-        setSelectedBookingId(completed[0].id);
+        setSelectedBookingId(completed[0].bookingId);
       }
     } catch (err) {
-      console.error(err);
+      console.error("Failed to fetch completed bookings:", err);
     }
   };
 
@@ -47,14 +50,14 @@ export default function CustomerFeedbackPage() {
           id: f.id,
           bookingId: f.bookingId,
           date: f.createdAt ? new Date(f.createdAt).toLocaleString('vi-VN') : 'Mới đây',
-          rating: f.ratingStars,
+          rating: f.ratingStars || f.rating || 5,
           comment: f.comment,
           response: responseMsg
         };
       });
       setFeedbacks(mapped);
     } catch (err) {
-      console.error(err);
+      console.error("Failed to load feedbacks:", err);
     }
   };
 
@@ -73,29 +76,32 @@ export default function CustomerFeedbackPage() {
 
   const handleSubmitFeedback = async (e) => {
     e.preventDefault();
+    setSuccessMessage('');
+    setErrorMessage('');
     if (!comment.trim()) {
-      alert("Vui lòng nhập nội dung nhận xét của bạn.");
+      setErrorMessage("Vui lòng nhập nội dung nhận xét của bạn.");
       return;
     }
     if (!selectedBookingId) {
-      alert("Vui lòng chọn một đơn hàng đã hoàn thành để phản hồi.");
+      setErrorMessage("Vui lòng chọn một đơn hàng đã hoàn thành để phản hồi.");
       return;
     }
 
     try {
       const feedbackData = {
-        bookingCode: selectedBookingId,
-        ratingStars: rating,
+        bookingId: Number(selectedBookingId),
+        rating: rating,
         comment: comment
       };
 
       await customerApi.createFeedback(feedbackData);
-      alert("Gửi phản hồi thành công! Cảm ơn bạn đã đóng góp ý kiến.");
+      setSuccessMessage("Gửi ý kiến phản hồi thành công! Cảm ơn bạn đã đóng góp ý kiến.");
       setComment('');
+      setRating(5);
       await loadFeedbacks();
     } catch (err) {
       console.error('Failed to submit feedback:', err);
-      alert('Không thể gửi phản hồi: ' + (err.response?.data?.message || err.message));
+      setErrorMessage(err.response?.data?.message || 'Không thể gửi phản hồi. Vui lòng thử lại!');
     }
   };
 
@@ -109,6 +115,22 @@ export default function CustomerFeedbackPage() {
             <MessageSquare size={18} className="text-blue-600" /> Gửi phản hồi & Đánh giá dịch vụ
           </h3>
 
+          {/* Success Message Banner */}
+          {successMessage && (
+            <div className="mb-6 p-4 bg-emerald-50 border border-emerald-250 text-emerald-800 rounded-2xl flex items-center gap-2 font-bold text-xs animate-fade-in">
+              <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping"></span>
+              {successMessage}
+            </div>
+          )}
+
+          {/* Error Message Banner */}
+          {errorMessage && (
+            <div className="mb-6 p-4 bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl flex items-center gap-2 font-bold text-xs animate-fade-in">
+              <span className="w-1.5 h-1.5 bg-rose-500 rounded-full animate-ping"></span>
+              {errorMessage}
+            </div>
+          )}
+
           <form onSubmit={handleSubmitFeedback} className="space-y-5">
             
             {/* Chọn lịch hẹn để đánh giá */}
@@ -119,9 +141,12 @@ export default function CustomerFeedbackPage() {
                 onChange={(e) => setSelectedBookingId(e.target.value)}
                 className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 bg-white font-medium"
               >
+                {completedBookings.length === 0 && (
+                  <option value="">Không có lịch hẹn đã dọn rửa</option>
+                )}
                 {completedBookings.map(b => (
-                  <option key={b.id} value={b.id}>
-                    Mã đơn {b.id} - Ngày {b.date} ({b.serviceName})
+                  <option key={b.bookingId} value={b.bookingId}>
+                    {b.date} - {b.licensePlate}
                   </option>
                 ))}
               </select>
@@ -190,7 +215,7 @@ export default function CustomerFeedbackPage() {
 
           <div className="space-y-4">
             {feedbacks.map(f => (
-              <div key={f.id} className="p-4 bg-slate-50 border border-slate-100 rounded-xl space-y-3">
+              <div key={f.id} className="p-4 bg-slate-50 border border-slate-100 rounded-xl space-y-3 animate-fade-in">
                 <div className="flex justify-between items-center text-[10px]">
                   <span className="font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded">Đơn: {f.bookingId}</span>
                   <span className="text-slate-400 font-semibold">{f.date}</span>
@@ -198,7 +223,7 @@ export default function CustomerFeedbackPage() {
                 
                 <div className="flex gap-0.5 text-amber-400">
                   {Array.from({ length: f.rating }).map((_, i) => (
-                    <Star key={i} size={12} fill="currentColor" />
+                    <Star key={i} size={12} fill="currentColor" className="text-amber-400" />
                   ))}
                 </div>
 
@@ -212,6 +237,9 @@ export default function CustomerFeedbackPage() {
                 )}
               </div>
             ))}
+            {feedbacks.length === 0 && (
+              <div className="text-center py-8 text-xs text-slate-400">Chưa có phản hồi nào được gửi.</div>
+            )}
           </div>
         </div>
       </div>

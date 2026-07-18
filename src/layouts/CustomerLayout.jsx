@@ -67,9 +67,24 @@ export default function CustomerLayout() {
     }
   };
 
+  const [logoutModalPhase, setLogoutModalPhase] = useState(null); // null = closed, 'confirm' = step 1, 'success' = step 2
+
   const handleLogout = () => {
-    localStorage.removeItem('token');
-    navigate('/login');
+    setLogoutModalPhase('confirm');
+  };
+
+  const confirmLogout = () => {
+    setLogoutModalPhase('success');
+    setTimeout(() => {
+      localStorage.removeItem('autowash_token');
+      localStorage.removeItem('autowash_user');
+      localStorage.removeItem('token');
+      localStorage.removeItem('role');
+      localStorage.removeItem('user_roles');
+      localStorage.removeItem('accessToken');
+      setLogoutModalPhase(null);
+      navigate('/login', { replace: true });
+    }, 1500);
   };
 
   // Cấu hình màu sắc thẻ nhỏ theo hạng VIP trên sidebar
@@ -270,6 +285,38 @@ export default function CustomerLayout() {
         </nav>
       </div>
 
+      {/* Single Logout Modal */}
+      {logoutModalPhase !== null && (
+        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-[100] p-4 animate-fade-in">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-slate-100 text-center">
+            {logoutModalPhase === 'confirm' ? (
+              <div className="space-y-4">
+                <h3 className="font-extrabold text-slate-800 text-base">Xác nhận đăng xuất</h3>
+                <p className="text-xs text-slate-500 font-semibold">Bạn có chắc chắn muốn đăng xuất không?</p>
+                <div className="flex gap-3 justify-center pt-2">
+                  <button 
+                    onClick={() => setLogoutModalPhase(null)}
+                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-xl text-xs transition-colors cursor-pointer"
+                  >
+                    Hủy
+                  </button>
+                  <button 
+                    onClick={confirmLogout}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-xl text-xs transition-colors cursor-pointer"
+                  >
+                    Xác nhận
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-green-50 text-green-700 p-6 rounded-xl flex flex-col items-center justify-center gap-3 font-bold text-sm">
+                <span className="text-xl">✓</span>
+                <span>Đăng xuất thành công</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

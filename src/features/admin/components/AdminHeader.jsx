@@ -5,7 +5,7 @@ import { notificationApi } from '../services/notificationApi';
 
 export default function AdminHeader() {
   const [showNotifications, setShowNotifications] = useState(false);
-  const [notifications, setNotifications] = useState([]);
+  const [adminNotifications, setAdminNotifications] = useState([]);
   const location = useLocation();
   const isBookingsPage = location.pathname.includes('/bookings');
 
@@ -14,7 +14,7 @@ export default function AdminHeader() {
     const loadNotifications = async () => {
       try {
         const data = await notificationApi.getStaffNotifications(20);
-        setNotifications(data);
+        setAdminNotifications(data);
         localStorage.setItem('autowash_admin_notifications', JSON.stringify(data));
       } catch (err) {
         console.error('Failed to load admin notifications:', err);
@@ -40,13 +40,13 @@ export default function AdminHeader() {
 
   const handleMarkAllRead = async () => {
     await notificationApi.markAllAsRead();
-    const updated = notifications.map(n => ({ ...n, read: true, isRead: true }));
-    setNotifications(updated);
+    const updated = adminNotifications.map(n => ({ ...n, read: true, isRead: true }));
+    setAdminNotifications(updated);
     localStorage.setItem('autowash_admin_notifications', JSON.stringify(updated));
     setShowNotifications(false);
   };
 
-  const hasUnread = notifications.some(n => !(n.isRead ?? n.read));
+  const unreadAdminCount = adminNotifications.filter(notif => !notif.isRead).length;
 
   // Chọn icon dựa theo loại thông báo
   const getIcon = (type) => {
@@ -104,8 +104,10 @@ export default function AdminHeader() {
             className="p-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 hover:text-slate-800 transition-all relative shadow-sm"
           >
             <Bell className="w-5 h-5" />
-            {hasUnread && (
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-rose-500 rounded-full ring-2 ring-white animate-pulse" />
+            {unreadAdminCount > 0 && (
+              <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-rose-500 text-white text-[8px] font-black rounded-full flex items-center justify-center">
+                {unreadAdminCount}
+              </span>
             )}
           </button>
 
@@ -126,22 +128,22 @@ export default function AdminHeader() {
               </div>
               
               <div className="mt-3 space-y-3 max-h-80 overflow-y-auto no-scrollbar">
-                {notifications.map(notif => (
+                {adminNotifications.map(notif => (
                   <div 
                     key={notif.notificationId || notif.id} 
                     className={`flex gap-3 p-2 rounded-xl hover:bg-slate-50 transition-all border border-transparent hover:border-slate-100 text-left ${
-                      !(notif.isRead ?? notif.read) ? 'bg-blue-50/10 font-medium' : ''
+                      !notif.isRead ? 'bg-blue-50/10 font-medium' : ''
                     }`}
                   >
                     {getIcon(notif.type)}
                     <div>
                       <h4 className="text-xs font-bold text-slate-800">{notif.title}</h4>
                       <p className="text-[11px] text-slate-500 mt-0.5 leading-relaxed">{notif.content || notif.desc}</p>
-                      <span className="text-[9px] text-slate-400 mt-1 block font-semibold">{notif.createdAtFormatted || notif.time}</span>
+                      <span className="text-[9px] text-slate-404 mt-1 block font-semibold">{notif.createdAtFormatted || notif.time}</span>
                     </div>
                   </div>
                 ))}
-                {notifications.length === 0 && (
+                {adminNotifications.length === 0 && (
                   <div className="text-center py-6 text-xs text-slate-400">Không có thông báo mới</div>
                 )}
               </div>

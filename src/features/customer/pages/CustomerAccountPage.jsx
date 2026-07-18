@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   User, 
   Key, 
@@ -19,21 +19,24 @@ export default function CustomerAccountPage() {
   const [isSendingVerification, setIsSendingVerification] = useState(false);
   
   const [customerStats, setCustomerStats] = useState({
+    id: "N/A",
     customerId: "N/A",
-    phone: "N/A",
-    tierName: "N/A",
-    pointsBalance: 0,
-    lifetimeSpend: 0,
-    joinedDate: "N/A"
+    phoneNumber: "N/A",
+    membershipTier: "N/A",
+    loyaltyPoints: 0,
+    totalSpent: 0,
+    createdAt: "N/A"
   });
   const [isLoading, setIsLoading] = useState(true);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
 
   // State mật khẩu
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  React.useEffect(() => {
+  useEffect(() => {
     const fetchProfile = async () => {
       try {
         const data = await customerApi.getProfile();
@@ -43,12 +46,13 @@ export default function CustomerAccountPage() {
           setIsEmailVerified(data.isEmailVerified ?? false);
           
           setCustomerStats({
-            customerId: data.customerId || data.id || "N/A",
-            phone: data.phone || data.phoneNumber || "N/A",
-            tierName: data.tierName || data.tier?.tierName || "N/A",
-            pointsBalance: data.loyaltyPoints ?? data.pointsBalance ?? 0,
-            lifetimeSpend: data.lifetimeSpend ?? data.totalSpend ?? 0,
-            joinedDate: data.joinedDate || data.createdAt || "N/A"
+            id: data.id || data.customerId || "N/A",
+            customerId: data.id || data.customerId || "N/A",
+            phoneNumber: data.phoneNumber || data.phone || "N/A",
+            membershipTier: data.membershipTier || data.tierName || "REGULAR",
+            loyaltyPoints: data.loyaltyPoints ?? 0,
+            totalSpent: data.totalSpent ?? data.totalSpending ?? 0,
+            createdAt: data.createdAt ? new Date(data.createdAt).toLocaleDateString('vi-VN') : "N/A"
           });
         }
       } catch (err) {
@@ -60,38 +64,73 @@ export default function CustomerAccountPage() {
     fetchProfile();
   }, []);
 
-  // Gửi email kích hoạt tài khoản mô phỏng
-  const handleSendVerification = () => {
+  // Gửi email kích hoạt tài khoản
+  const handleSendVerification = async () => {
     setIsSendingVerification(true);
-    setTimeout(() => {
-      setIsSendingVerification(false);
+    setSuccessMessage('');
+    setErrorMessage('');
+    try {
+      const res = await customerApi.requestEmailVerification();
       setIsEmailVerified(true);
-      alert("Hệ thống đã gửi link kích hoạt đến Gmail của bạn. Trạng thái đã được xác thực!");
-    }, 1500);
+      setSuccessMessage(res.message || "Hệ thống đã gửi link kích hoạt đến Gmail của bạn. Trạng thái đã được xác thực!");
+    } catch (err) {
+      console.error("Failed to request email verification:", err);
+      setErrorMessage(err.response?.data?.message || "Gửi yêu cầu xác thực thất bại. Vui lòng thử lại!");
+    } finally {
+      setIsSendingVerification(false);
+    }
   };
 
   // Cập nhật thông tin tài khoản
-  const handleUpdateProfile = (e) => {
+  const handleUpdateProfile = async (e) => {
     e.preventDefault();
-    alert("Cập nhật thông tin tài khoản thành công!");
+    setSuccessMessage('');
+    setErrorMessage('');
+    try {
+      const updatedData = await customerApi.updateProfile({ fullName, email });
+      if (updatedData) {
+        setFullName(updatedData.fullName || "N/A");
+        setEmail(updatedData.email || "N/A");
+        setIsEmailVerified(updatedData.isEmailVerified ?? false);
+        setCustomerStats({
+          id: updatedData.id || updatedData.customerId || "N/A",
+          customerId: updatedData.id || updatedData.customerId || "N/A",
+          phoneNumber: updatedData.phoneNumber || updatedData.phone || "N/A",
+          membershipTier: updatedData.membershipTier || updatedData.tierName || "REGULAR",
+          loyaltyPoints: updatedData.loyaltyPoints ?? 0,
+          totalSpent: updatedData.totalSpent ?? updatedData.totalSpending ?? 0,
+          createdAt: updatedData.createdAt ? new Date(updatedData.createdAt).toLocaleDateString('vi-VN') : "N/A"
+        });
+      }
+      setSuccessMessage("Cập nhật thông tin tài khoản thành công!");
+    } catch (err) {
+      console.error("Failed to update profile:", err);
+      setErrorMessage(err.response?.data?.message || "Cập nhật thông tin thất bại. Vui lòng thử lại!");
+    }
   };
 
   // Đổi mật khẩu tài khoản
-  const handleChangePassword = (e) => {
+  const handleChangePassword = async (e) => {
     e.preventDefault();
+    setSuccessMessage('');
+    setErrorMessage('');
     if (newPassword !== confirmPassword) {
-      alert("Mật khẩu mới và Xác nhận mật khẩu không trùng khớp!");
+      setErrorMessage("Mật khẩu mới và Xác nhận mật khẩu không trùng khớp!");
       return;
     }
-    alert("Thay đổi mật khẩu tài khoản thành công!");
-    setCurrentPassword('');
-    setNewPassword('');
-    setConfirmPassword('');
-  };
-
-  // Format tiền tệ VNĐ
-  const formatVnd = (val) => {
-    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
+    try {
+      await customerApi.changePassword({
+        oldPassword: currentPassword,
+        newPassword: newPassword
+      });
+      setSuccessMessage("Thay đổi mật khẩu tài khoản thành công!");
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err) {
+      console.error("Failed to change password:", err);
+      setErrorMessage(err.response?.data?.message || "Thay đổi mật khẩu thất bại. Vui lòng kiểm tra lại mật khẩu hiện tại!");
+    }
   };
 
   return (
@@ -103,11 +142,15 @@ export default function CustomerAccountPage() {
         {/* ========================================================================================= */}
         <aside className="w-full lg:w-[240px] shrink-0 flex flex-row lg:flex-col gap-1 border-b lg:border-b-0 lg:border-r border-slate-150 pb-4 lg:pb-0 lg:pr-6 overflow-x-auto">
           <button
-            onClick={() => setSubTab('profile')}
+            onClick={() => {
+              setSubTab('profile');
+              setSuccessMessage('');
+              setErrorMessage('');
+            }}
             className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold whitespace-nowrap transition-all w-full text-left ${
               subTab === 'profile'
                 ? 'bg-blue-50 text-blue-600'
-                : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+                : 'text-slate-500 hover:bg-slate-55 hover:text-slate-800'
             }`}
           >
             <User size={16} />
@@ -115,11 +158,15 @@ export default function CustomerAccountPage() {
           </button>
 
           <button
-            onClick={() => setSubTab('password')}
+            onClick={() => {
+              setSubTab('password');
+              setSuccessMessage('');
+              setErrorMessage('');
+            }}
             className={`flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold whitespace-nowrap transition-all w-full text-left ${
               subTab === 'password'
                 ? 'bg-blue-50 text-blue-600'
-                : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+                : 'text-slate-500 hover:bg-slate-55 hover:text-slate-800'
             }`}
           >
             <Key size={16} />
@@ -132,6 +179,22 @@ export default function CustomerAccountPage() {
         {/* ========================================================================================= */}
         <div className="flex-1">
           
+          {/* Success Message Banner */}
+          {successMessage && (
+            <div className="mb-6 p-4 bg-emerald-50 border border-emerald-250 text-emerald-800 rounded-2xl flex items-center gap-2 font-bold text-xs">
+              <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping"></span>
+              {successMessage}
+            </div>
+          )}
+
+          {/* Error Message Banner */}
+          {errorMessage && (
+            <div className="mb-6 p-4 bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl flex items-center gap-2 font-bold text-xs">
+              <span className="w-1.5 h-1.5 bg-rose-500 rounded-full animate-ping"></span>
+              {errorMessage}
+            </div>
+          )}
+
           {/* TAB 1: THÔNG TIN CÁ NHÂN (PROFILE) */}
           {subTab === 'profile' && (
             <div className="space-y-6">
@@ -142,92 +205,96 @@ export default function CustomerAccountPage() {
                 </div>
               ) : (
                 <>
-              {/* Thẻ hiển thị các tham số cố định */}
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 bg-slate-50 p-5 rounded-2xl border border-slate-100">
-                <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase block">Mã Khách hàng</span>
-                  <span className="text-sm font-bold font-mono text-slate-800">{customerStats.customerId}</span>
-                </div>
-                <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase block">Số điện thoại (ID)</span>
-                  <span className="text-sm font-bold font-mono text-slate-800">{customerStats.phone}</span>
-                </div>
-                <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase block">Hạng VIP hiện tại</span>
-                  <span className="text-sm font-bold text-blue-600 uppercase">{customerStats.tierName}</span>
-                </div>
-                <div className="mt-2 pt-2 border-t border-slate-100/50 col-span-2 md:col-span-3"></div>
-                <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase block">Điểm tích lũy</span>
-                  <span className="text-sm font-bold text-slate-800">{customerStats.pointsBalance} Pts</span>
-                </div>
-                <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase block">Doanh thu trọn đời</span>
-                  <span className="text-sm font-bold text-slate-800">{formatVnd(customerStats.lifetimeSpend)}</span>
-                </div>
-                <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase block">Ngày gia nhập trạm</span>
-                  <span className="text-sm font-bold text-slate-800">{customerStats.joinedDate}</span>
-                </div>
-              </div>
-
-              {/* Form chỉnh sửa thông tin */}
-              <form onSubmit={handleUpdateProfile} className="space-y-4 max-w-xl text-left">
-                <h3 className="font-bold text-slate-800 text-sm border-b pb-2 mb-4">Cập nhật thông tin tài khoản</h3>
-                
-                <div>
-                  <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">Họ và tên</label>
-                  <input 
-                    type="text" 
-                    value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <div className="flex justify-between items-center mb-1.5">
-                    <label className="block text-[10px] font-bold text-slate-400 uppercase">Địa chỉ Email</label>
-                    {isEmailVerified ? (
-                      <span className="text-[10px] font-bold text-emerald-600 flex items-center gap-0.5">
-                        <Check size={12} /> Đã xác thực
-                      </span>
-                    ) : (
-                      <span className="text-[10px] font-bold text-red-500 flex items-center gap-0.5">
-                        [ Chưa xác thực ]
-                      </span>
-                    )}
+                {/* Thẻ hiển thị các tham số cố định */}
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4 bg-slate-50 p-5 rounded-2xl border border-slate-100">
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase block">Mã Khách hàng</span>
+                    <span className="text-sm font-bold font-mono text-slate-800">{customerStats.id || customerStats.customerId}</span>
                   </div>
-                  <div className="flex gap-2">
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase block">Số điện thoại (ID)</span>
+                    <span className="text-sm font-bold font-mono text-slate-800">{customerStats.phoneNumber}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase block">Hạng VIP hiện tại</span>
+                    <span className="text-sm font-bold text-blue-600 uppercase">{customerStats.membershipTier}</span>
+                  </div>
+                  <div className="mt-2 pt-2 border-t border-slate-100/50 col-span-2 md:col-span-3"></div>
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase block">Điểm tích lũy</span>
+                    <span className="text-sm font-bold text-slate-800">{customerStats.loyaltyPoints} Pts</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase block">Doanh thu trọn đời</span>
+                    <span className="text-sm font-bold text-slate-800">
+                      {customerStats.totalSpent !== undefined && customerStats.totalSpent !== null 
+                        ? `${customerStats.totalSpent.toLocaleString('vi-VN')} d` 
+                        : '0 d'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase block">Ngày gia nhập trạm</span>
+                    <span className="text-sm font-bold text-slate-800">{customerStats.createdAt || 'N/A'}</span>
+                  </div>
+                </div>
+
+                {/* Form chỉnh sửa thông tin */}
+                <form onSubmit={handleUpdateProfile} className="space-y-4 max-w-xl text-left">
+                  <h3 className="font-bold text-slate-800 text-sm border-b pb-2 mb-4">Cập nhật thông tin tài khoản</h3>
+                  
+                  <div>
+                    <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">Họ và tên</label>
                     <input 
-                      type="email" 
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="flex-1 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500"
+                      type="text" 
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                       required
                     />
-                    {!isEmailVerified && (
-                      <button
-                        type="button"
-                        disabled={isSendingVerification}
-                        onClick={handleSendVerification}
-                        className="px-4 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-400 flex items-center gap-1 shrink-0 transition-colors"
-                      >
-                        <Send size={12} /> {isSendingVerification ? 'Đang gửi...' : 'Gửi mã xác thực'}
-                      </button>
-                    )}
                   </div>
-                </div>
 
-                <button 
-                  type="submit" 
-                  className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all"
-                >
-                  Lưu thay đổi thông tin
-                </button>
-              </form>
-              </>
+                  <div>
+                    <div className="flex justify-between items-center mb-1.5">
+                      <label className="block text-[10px] font-bold text-slate-400 uppercase">Địa chỉ Email</label>
+                      {isEmailVerified ? (
+                        <span className="text-[10px] font-bold text-emerald-600 flex items-center gap-0.5">
+                          <Check size={12} /> Đã xác thực
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-bold text-red-500 flex items-center gap-0.5">
+                          [ Chưa xác thực ]
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex gap-2">
+                      <input 
+                        type="email" 
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className="flex-1 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500"
+                        required
+                      />
+                      {!isEmailVerified && (
+                        <button
+                          type="button"
+                          disabled={isSendingVerification}
+                          onClick={handleSendVerification}
+                          className="px-4 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-400 flex items-center gap-1 shrink-0 transition-colors"
+                        >
+                          <Send size={12} /> {isSendingVerification ? 'Đang gửi...' : 'Gửi mã xác thực'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <button 
+                    type="submit" 
+                    className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all"
+                  >
+                    Lưu thay đổi thông tin
+                  </button>
+                </form>
+                </>
               )}
 
             </div>

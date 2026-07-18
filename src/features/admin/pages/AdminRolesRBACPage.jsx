@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Shield, 
   ShieldCheck, 
@@ -26,6 +27,41 @@ import { roleApi } from '../services/roleApi';
 export default function AdminRolesRBACPage() {
   const [activeTab, setActiveTab] = useState('roles'); // 'roles' | 'matrix'
   const [loading, setLoading] = useState(true);
+  
+  const getRoles = () => {
+    try {
+      const userRolesRaw = localStorage.getItem('user_roles');
+      if (userRolesRaw) {
+        const parsed = JSON.parse(userRolesRaw);
+        if (Array.isArray(parsed)) return parsed;
+        if (typeof parsed === 'string') return [parsed];
+      }
+    } catch (e) {}
+
+    try {
+      const autowashUserRaw = localStorage.getItem('autowash_user');
+      if (autowashUserRaw) {
+        const user = JSON.parse(autowashUserRaw);
+        const roles = user.roles || user.user?.roles || user.user_roles;
+        if (Array.isArray(roles)) return roles;
+        if (typeof roles === 'string') return [roles];
+      }
+    } catch (e) {}
+
+    return [];
+  };
+
+  const userRoles = getRoles();
+  const isManager = userRoles.includes('ROLE_MANAGER');
+
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (isManager) {
+      navigate('/admin/dashboard', { replace: true });
+    }
+  }, [isManager, navigate]);
+
   const [roles, setRoles] = useState([]);
   const [permissions, setPermissions] = useState([]);
   
@@ -251,13 +287,15 @@ export default function AdminRolesRBACPage() {
             </button>
           )}
 
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="px-4.5 py-2.5 bg-[#0047AB] hover:bg-[#003a8c] text-white text-xs font-black rounded-xl transition-all flex items-center gap-2 shadow-lg shadow-[#0047AB]/20 cursor-pointer hover:scale-[1.02]"
-          >
-            <Plus className="w-4 h-4" />
-            Tạo Vai Trò Mới (Custom Role)
-          </button>
+          {!isManager && (
+            <button
+              onClick={() => setShowCreateModal(true)}
+              className="px-4.5 py-2.5 bg-[#0047AB] hover:bg-[#003a8c] text-white text-xs font-black rounded-xl transition-all flex items-center gap-2 shadow-lg shadow-[#0047AB]/20 cursor-pointer hover:scale-[1.02]"
+            >
+              <Plus className="w-4 h-4" />
+              Tạo Vai Trò Mới (Custom Role)
+            </button>
+          )}
         </div>
       </div>
 
@@ -272,23 +310,25 @@ export default function AdminRolesRBACPage() {
           }`}
         >
           <Key className="w-4 h-4 text-amber-400" />
-          Danh Sách Vai Trò ({roles.length})
+          Danh Sách Vai Trò ({roles.filter(role => !(isManager && role.roleName === 'ROLE_ADMIN')).length})
         </button>
 
-        <button
-          onClick={() => setActiveTab('matrix')}
-          className={`px-5 py-2.5 rounded-xl text-xs font-black flex items-center gap-2 transition-all cursor-pointer ${
-            activeTab === 'matrix'
-              ? 'bg-slate-900 text-white shadow-md shadow-slate-900/20'
-              : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-          }`}
-        >
-          <Layers className="w-4 h-4 text-indigo-400" />
-          Ma Trận Quyền (RBAC Matrix)
-          {hasUnsavedChanges && (
-            <span className="w-2 h-2 rounded-full bg-[#57f287] animate-pulse" title="Có thay đổi chưa lưu" />
-          )}
-        </button>
+        {!isManager && (
+          <button
+            onClick={() => setActiveTab('matrix')}
+            className={`px-5 py-2.5 rounded-xl text-xs font-black flex items-center gap-2 transition-all cursor-pointer ${
+              activeTab === 'matrix'
+                ? 'bg-slate-900 text-white shadow-md shadow-slate-900/20'
+                : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            <Layers className="w-4 h-4 text-indigo-400" />
+            Ma Trận Quyền (RBAC Matrix)
+            {hasUnsavedChanges && (
+              <span className="w-2 h-2 rounded-full bg-[#57f287] animate-pulse" title="Có thay đổi chưa lưu" />
+            )}
+          </button>
+        )}
       </div>
 
       {/* 3. Main Content Area */}
@@ -397,7 +437,7 @@ export default function AdminRolesRBACPage() {
         ) : (
           /* TAB 2: ROLES DIRECTORY GRID */
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {roles.map(role => {
+            {roles.filter(role => !(isManager && role.roleName === 'ROLE_ADMIN')).map(role => {
               const isSystemRole = ['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_CASHIER'].includes(role.roleName);
               const isAdmin = role.roleName === 'ROLE_ADMIN';
 
@@ -444,30 +484,32 @@ export default function AdminRolesRBACPage() {
                     </div>
                   </div>
 
-                  <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
-                    <button
-                      onClick={() => {
-                        setEditingRole(role);
-                        setEditDescText(role.description || '');
-                      }}
-                      className="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-slate-700 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <Edit className="w-3.5 h-3.5 text-slate-500" />
-                      Sửa Mô Tả
-                    </button>
-
-                    {!isSystemRole && (
+                  {!isManager && (
+                    <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
                       <button
-                        onClick={() => handleDeleteRole(role)}
-                        disabled={role.staffCount > 0}
-                        title={role.staffCount > 0 ? 'Không thể xóa vai trò đang có nhân viên' : 'Xóa vai trò tự chọn'}
-                        className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                        onClick={() => {
+                          setEditingRole(role);
+                          setEditDescText(role.description || '');
+                        }}
+                        className="px-3 py-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-xl text-slate-700 text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
-                        Xóa
+                        <Edit className="w-3.5 h-3.5 text-slate-500" />
+                        Sửa Mô Tả
                       </button>
-                    )}
-                  </div>
+
+                      {!isSystemRole && (
+                        <button
+                          onClick={() => handleDeleteRole(role)}
+                          disabled={role.staffCount > 0}
+                          title={role.staffCount > 0 ? 'Không thể xóa vai trò đang có nhân viên' : 'Xóa vai trò tự chọn'}
+                          className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          Xóa
+                        </button>
+                      )}
+                    </div>
+                  )}
                 </div>
               );
             })}

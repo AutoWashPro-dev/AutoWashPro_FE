@@ -19,6 +19,25 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const status = error.response ? error.response.status : null;
+    if (status === 401 || status === 403) {
+      localStorage.removeItem('autowash_token');
+      localStorage.removeItem('autowash_user');
+      localStorage.removeItem('token');
+      localStorage.removeItem('role');
+      localStorage.removeItem('user_roles');
+      localStorage.removeItem('accessToken');
+      sessionStorage.clear();
+      window.dispatchEvent(new Event('auth_logout'));
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
 export const bookingAdminApi = {
   /**
    * Lấy danh sách bookings cho Admin/POS theo ngày hoặc trạng thái
@@ -50,6 +69,26 @@ export const bookingAdminApi = {
         return Object.values(bookingsMap).flat();
       }
       return [];
+    }
+  },
+
+  /**
+   * Lấy chi tiết đơn đặt lịch theo ID
+   */
+  getBookingById: async (id) => {
+    try {
+      const res = await api.get(`/admin/bookings/${id}`);
+      return res.data;
+    } catch (err) {
+      console.warn('API getBookingById offline or error, using localStorage fallback:', err.message);
+      const saved = localStorage.getItem('autowash_bookings');
+      if (saved) {
+        const bookingsMap = JSON.parse(saved);
+        const all = Object.values(bookingsMap).flat();
+        const found = all.find(b => String(b.id || b.bookingId || b.bookingCode || '') === String(id));
+        if (found) return found;
+      }
+      throw err;
     }
   },
 

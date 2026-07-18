@@ -27,6 +27,35 @@ const formatDayOfWeek = (dow) => {
 };
 
 export default function AdminServicesSlotsPage() {
+  const getRoles = () => {
+    try {
+      const userRolesRaw = localStorage.getItem('user_roles');
+      if (userRolesRaw) {
+        const parsed = JSON.parse(userRolesRaw);
+        if (Array.isArray(parsed)) return parsed;
+        if (typeof parsed === 'string') return [parsed];
+      }
+    } catch (e) {}
+
+    try {
+      const autowashUserRaw = localStorage.getItem('autowash_user');
+      if (autowashUserRaw) {
+        const user = JSON.parse(autowashUserRaw);
+        const roles = user.roles || user.user?.roles || user.user_roles;
+        if (Array.isArray(roles)) return roles;
+        if (typeof roles === 'string') return [roles];
+      }
+    } catch (e) {}
+
+    return [];
+  };
+
+  const roles = getRoles();
+  const isManager = roles.includes('ROLE_MANAGER');
+  const currentUser = {
+    roleName: isManager ? 'ROLE_MANAGER' : (roles.includes('ROLE_ADMIN') ? 'ROLE_ADMIN' : 'ROLE_CASHIER')
+  };
+
   // 1. Navigation Active Tab
   const [activeTab, setActiveTab] = useState('catalog'); // 'catalog' or 'slots'
   const [catalogSubTab, setCatalogSubTab] = useState('core'); // 'core' or 'addons'
@@ -550,13 +579,15 @@ const handleDeleteClosure = async (id) => {
               </button>
             </div>
 
-            <button
-              onClick={handleOpenAddService}
-              className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black py-2.5 px-4.5 rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-sm hover:shadow cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              Thêm dịch vụ mới
-            </button>
+            {currentUser?.roleName !== 'ROLE_MANAGER' && (
+              <button
+                onClick={handleOpenAddService}
+                className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black py-2.5 px-4.5 rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-sm hover:shadow cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                Thêm dịch vụ mới
+              </button>
+            )}
           </div>
 
           {/* List catalog table */}
@@ -592,7 +623,11 @@ const handleDeleteClosure = async (id) => {
                             🔒 Cố định
                           </span>
                         ) : (
-                          <button onClick={() => handleToggleService(s.id)} className="focus:outline-none transition-transform hover:scale-[1.05] inline-block">
+                          <button 
+                            disabled={currentUser?.roleName === 'ROLE_MANAGER'}
+                            onClick={() => handleToggleService(s.id)} 
+                            className={`focus:outline-none transition-transform ${currentUser?.roleName !== 'ROLE_MANAGER' ? 'hover:scale-[1.05]' : 'cursor-not-allowed'} inline-block`}
+                          >
                             {s.isActive ? (
                               <span className="flex items-center gap-1 text-emerald-600 font-extrabold bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-100">
                                 <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
@@ -608,10 +643,12 @@ const handleDeleteClosure = async (id) => {
                         )}
                       </td>
                       <td className="py-3.5 px-5 text-center">
-                        <button onClick={() => handleOpenEditService(s)} className="p-1.5 bg-slate-50 border border-slate-200 hover:bg-slate-100 hover:text-slate-900 rounded-lg text-slate-660 transition-all flex items-center gap-1 font-bold cursor-pointer">
-                          <Edit className="w-3.5 h-3.5" />
-                          Sửa
-                        </button>
+                        {currentUser?.roleName !== 'ROLE_MANAGER' && (
+                          <button onClick={() => handleOpenEditService(s)} className="p-1.5 bg-slate-55 border border-slate-200 hover:bg-slate-100 hover:text-slate-900 rounded-lg text-slate-660 transition-all flex items-center gap-1 font-bold cursor-pointer">
+                            <Edit className="w-3.5 h-3.5" />
+                            Sửa
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -651,20 +688,21 @@ const handleDeleteClosure = async (id) => {
             </div>
           </div>
 
-          {/* Add Slot Button */}
-          <div className="flex items-center justify-end shrink-0">
-            <button
-              onClick={() => {
-                setNewSlotTime('');
-                setNewSlotMaxCapacity(8);
-                setIsAddSlotModalOpen(true);
-              }}
-              className="bg-[#0047AB] hover:bg-[#003a8c] text-white text-xs font-black py-2.5 px-4.5 rounded-xl flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              Thêm khung giờ mới
-            </button>
-          </div>
+          {currentUser?.roleName !== 'ROLE_MANAGER' && (
+            <div className="flex items-center justify-end shrink-0">
+              <button
+                onClick={() => {
+                  setNewSlotTime('');
+                  setNewSlotMaxCapacity(8);
+                  setIsAddSlotModalOpen(true);
+                }}
+                className="bg-[#0047AB] hover:bg-[#003a8c] text-white text-xs font-black py-2.5 px-4.5 rounded-xl flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                Thêm khung giờ mới
+              </button>
+            </div>
+          )}
 
           {/* Slots Table */}
           <div className="flex-1 bg-white border border-slate-200/60 rounded-2xl shadow-sm overflow-hidden flex flex-col min-h-0">
@@ -697,9 +735,13 @@ const handleDeleteClosure = async (id) => {
                         </span>
                       </td>
                       <td className="py-3.5 px-4 text-center">
-                        <button onClick={() => handleToggleSlot(sl.id)} className="focus:outline-none transition-transform hover:scale-[1.05] inline-block">
+                        <button 
+                          disabled={currentUser?.roleName === 'ROLE_MANAGER'}
+                          onClick={() => handleToggleSlot(sl.id)} 
+                          className={`focus:outline-none transition-transform ${currentUser?.roleName !== 'ROLE_MANAGER' ? 'hover:scale-[1.05]' : 'cursor-not-allowed'} inline-block`}
+                        >
                           {sl.isActive ? (
-                            <span className="flex items-center gap-1 text-emerald-600 font-extrabold bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-100">
+                            <span className="flex items-center gap-1 text-emerald-600 font-extrabold bg-emerald-55 px-2.5 py-1 rounded-full border border-emerald-100">
                               <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
                               Kích hoạt
                             </span>
@@ -712,20 +754,22 @@ const handleDeleteClosure = async (id) => {
                         </button>
                       </td>
                       <td className="py-3.5 px-5 text-center">
-                        <div className="flex items-center justify-center gap-1.5">
-                          <button onClick={() => handleOpenEditSlot(sl)} className="p-1.5 bg-slate-50 border border-slate-200 hover:bg-slate-100 hover:text-slate-900 rounded-lg text-slate-650 font-bold cursor-pointer inline-flex items-center gap-1">
-                            <Edit className="w-3.5 h-3.5" />
-                            Sửa
-                          </button>
-                          <button
-                            onClick={() => handleDeleteSlot(sl)}
-                            className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition-all cursor-pointer border border-transparent hover:border-rose-200 inline-flex items-center gap-1 font-bold"
-                            title={`Xóa khung giờ ${sl.time}`}
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                            Xóa
-                          </button>
-                        </div>
+                        {currentUser?.roleName !== 'ROLE_MANAGER' && (
+                          <div className="flex items-center justify-center gap-1.5">
+                            <button onClick={() => handleOpenEditSlot(sl)} className="p-1.5 bg-slate-50 border border-slate-200 hover:bg-slate-100 hover:text-slate-900 rounded-lg text-slate-650 font-bold cursor-pointer inline-flex items-center gap-1">
+                              <Edit className="w-3.5 h-3.5" />
+                              Sửa
+                            </button>
+                            <button
+                              onClick={() => handleDeleteSlot(sl)}
+                              className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition-all cursor-pointer border border-transparent hover:border-rose-200 inline-flex items-center gap-1 font-bold"
+                              title={`Xóa khung giờ ${sl.time}`}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              Xóa
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -857,19 +901,21 @@ const handleDeleteClosure = async (id) => {
               </div>
             </div>
 
-            <button
-              onClick={() => {
-                setClosureForm({ closureDate: '', reason: '', isFullDay: true });
-                setIsSpecificSlotBlockEnabled(false);
-                setSelectedSlotId('');
-                setAvailableSlots([]);
-                setClosureModalOpen(true);
-              }}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm hover:shadow whitespace-nowrap self-start md:self-auto"
-            >
-              <Plus className="w-4 h-4" />
-              Thêm ngày nghỉ trạm
-            </button>
+            {currentUser?.roleName !== 'ROLE_MANAGER' && (
+              <button
+                onClick={() => {
+                  setClosureForm({ closureDate: '', reason: '', isFullDay: true });
+                  setIsSpecificSlotBlockEnabled(false);
+                  setSelectedSlotId('');
+                  setAvailableSlots([]);
+                  setClosureModalOpen(true);
+                }}
+                className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm hover:shadow whitespace-nowrap self-start md:self-auto"
+              >
+                <Plus className="w-4 h-4" />
+                Thêm ngày nghỉ trạm
+              </button>
+            )}
           </div>
 
           {closures.length === 0 ? (
@@ -920,14 +966,16 @@ const handleDeleteClosure = async (id) => {
                         </div>
                         <div className="flex justify-between items-center pt-2 border-t border-slate-100">
                           <span className="text-[9px] text-slate-400 font-medium">Mã: #{closureId?.toString().slice(-4)}</span>
-                          <button
-                            onClick={() => handleDeleteClosure(closureId)}
-                            className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition-all hover:scale-105 flex items-center gap-1 cursor-pointer font-bold text-[10px]"
-                            title="Xóa cấu hình này"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                            Mở cửa lại
-                          </button>
+                          {currentUser?.roleName !== 'ROLE_MANAGER' && (
+                            <button
+                              onClick={() => handleDeleteClosure(closureId)}
+                              className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition-all hover:scale-105 flex items-center gap-1 cursor-pointer font-bold text-[10px]"
+                              title="Xóa cấu hình này"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              Mở cửa lại
+                            </button>
+                          )}
                         </div>
                       </div>
                     );

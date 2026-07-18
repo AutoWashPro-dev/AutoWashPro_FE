@@ -20,6 +20,25 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const status = error.response ? error.response.status : null;
+    if (status === 401 || status === 403) {
+      localStorage.removeItem('autowash_token');
+      localStorage.removeItem('autowash_user');
+      localStorage.removeItem('token');
+      localStorage.removeItem('role');
+      localStorage.removeItem('user_roles');
+      localStorage.removeItem('accessToken');
+      sessionStorage.clear();
+      window.dispatchEvent(new Event('auth_logout'));
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
 // Fallback dữ liệu chuẩn cho Frontend UX (khớp 100% PermissionCatalog mới trên Backend)
 const MOCK_PERMISSIONS = [
   // Phase 1: Identity & RBAC

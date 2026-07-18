@@ -40,6 +40,38 @@ export default function AdminCustomersLoyaltyPage() {
   // 1. Navigation Active Tab
   const [activeTab, setActiveTab] = useState('crm'); // 'crm', 'campaigns', 'feedback'
 
+  const getRoles = () => {
+    try {
+      const userRolesRaw = localStorage.getItem('user_roles');
+      if (userRolesRaw) {
+        const parsed = JSON.parse(userRolesRaw);
+        if (Array.isArray(parsed)) return parsed;
+        if (typeof parsed === 'string') return [parsed];
+      }
+    } catch (e) {}
+
+    try {
+      const autowashUserRaw = localStorage.getItem('autowash_user');
+      if (autowashUserRaw) {
+        const user = JSON.parse(autowashUserRaw);
+        const roles = user.roles || user.user?.roles || user.user_roles;
+        if (Array.isArray(roles)) return roles;
+        if (typeof roles === 'string') return [roles];
+      }
+    } catch (e) {}
+
+    return [];
+  };
+
+  const userRoles = getRoles();
+  const isManager = userRoles.includes('ROLE_MANAGER');
+
+  useEffect(() => {
+    if (isManager && activeTab === 'campaigns') {
+      setActiveTab('crm');
+    }
+  }, [activeTab, isManager]);
+
   // Tier Levels weights for cumulative filters (Platinum > Gold > Silver > Member)
   const tierLevels = {
     'Member': 0,
@@ -597,17 +629,19 @@ export default function AdminCustomersLoyaltyPage() {
             <Users className="w-4 h-4" />
             Khách hàng & Ví Voucher
           </button>
-          <button
-            onClick={() => setActiveTab('campaigns')}
-            className={`px-4.5 py-2 rounded-lg font-black transition-all flex items-center gap-1.5 cursor-pointer ${
-              activeTab === 'campaigns'
-                ? 'bg-slate-900 text-white shadow-sm'
-                : 'hover:text-slate-800 hover:bg-slate-55'
-            }`}
-          >
-            <Gift className="w-4 h-4" />
-            Chiến dịch Khuyến mãi
-          </button>
+          {!isManager && (
+            <button
+              onClick={() => setActiveTab('campaigns')}
+              className={`px-4.5 py-2 rounded-lg font-black transition-all flex items-center gap-1.5 cursor-pointer ${
+                activeTab === 'campaigns'
+                  ? 'bg-slate-900 text-white shadow-sm'
+                  : 'hover:text-slate-800 hover:bg-slate-55'
+              }`}
+            >
+              <Gift className="w-4 h-4" />
+              Chiến dịch Khuyến mãi
+            </button>
+          )}
           <button
             onClick={() => setActiveTab('feedback')}
             className={`px-4.5 py-2 rounded-lg font-black transition-all flex items-center gap-1.5 cursor-pointer ${
@@ -1170,48 +1204,50 @@ export default function AdminCustomersLoyaltyPage() {
                     <div className="space-y-5">
                       
                       {/* Direct Gifting Shop */}
-                      <div className="bg-indigo-50/30 border border-indigo-200/50 p-4 rounded-xl space-y-3">
-                        <div className="flex items-center justify-between">
-                          <span className="font-black text-indigo-900 flex items-center gap-1.5 text-[11px] uppercase tracking-wide">
-                            <Gift className="w-4 h-4 text-indigo-500 animate-bounce" />
-                            Phát hành quà tặng & Voucher trực tiếp (Không tốn điểm ví)
-                          </span>
-                          <span className="text-[10px] text-indigo-600 font-bold bg-white px-2 py-0.5 rounded-lg border border-indigo-250/50 shadow-sm">
-                            Hạng hiện tại: {activeCustomer.tier}
-                          </span>
-                        </div>
-
-                        {giftableVouchersForCustomer.length === 0 ? (
-                          <p className="text-[10px] text-slate-400 font-bold text-center py-2">Hiện tại không có voucher nào phù hợp với hạng của khách hàng.</p>
-                        ) : (
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                            {giftableVouchersForCustomer.map(camp => {
-                              const discountValueStr = camp.discountType === 'free_wash' || camp.discountType === 'FREE_SERVICE' ? 'Rửa xe miễn phí' :
-                                                       camp.discountType === 'percent' || camp.discountType === 'PERCENTAGE' ? `${camp.value}%` : `${Number(camp.value).toLocaleString('vi-VN')} đ`;
-
-                              return (
-                                <div 
-                                  key={camp.code}
-                                  className="p-3 rounded-xl border border-indigo-150/60 bg-white shadow-sm flex flex-col justify-between space-y-2"
-                                >
-                                  <div>
-                                    <div className="font-mono font-black text-slate-800 text-[10px] tracking-wider">{camp.code}</div>
-                                    <p className="text-[9px] text-slate-400 font-bold leading-tight mt-0.5">{camp.name}</p>
-                                    <div className="text-xs font-black text-indigo-755 mt-1">{discountValueStr}</div>
-                                  </div>
-                                  
-                                  <button
-                                    onClick={() => handleGiftVoucher(camp)}
-                                    className="w-full py-1.5 rounded-lg text-[9px] font-black bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm shadow-indigo-600/10 active:scale-[0.98] transition-all text-center cursor-pointer"
-                                  >
-                                    Gửi tặng trực tiếp
-                                  </button>
-                                </div>
-                              );
-                            })}
+                      {!isManager && (
+                        <div className="bg-indigo-50/30 border border-indigo-200/50 p-4 rounded-xl space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="font-black text-indigo-900 flex items-center gap-1.5 text-[11px] uppercase tracking-wide">
+                              <Gift className="w-4 h-4 text-indigo-500 animate-bounce" />
+                              Phát hành quà tặng & Voucher trực tiếp (Không tốn điểm ví)
+                            </span>
+                            <span className="text-[10px] text-indigo-600 font-bold bg-white px-2 py-0.5 rounded-lg border border-indigo-250/50 shadow-sm">
+                              Hạng hiện tại: {activeCustomer.tier}
+                            </span>
                           </div>
-                        )}
-                      </div>
+
+                          {giftableVouchersForCustomer.length === 0 ? (
+                            <p className="text-[10px] text-slate-400 font-bold text-center py-2">Hiện tại không có voucher nào phù hợp với hạng của khách hàng.</p>
+                          ) : (
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                              {giftableVouchersForCustomer.map(camp => {
+                                const discountValueStr = camp.discountType === 'free_wash' || camp.discountType === 'FREE_SERVICE' ? 'Rửa xe miễn phí' :
+                                                         camp.discountType === 'percent' || camp.discountType === 'PERCENTAGE' ? `${camp.value}%` : `${Number(camp.value).toLocaleString('vi-VN')} đ`;
+
+                                return (
+                                  <div 
+                                    key={camp.code}
+                                    className="p-3 rounded-xl border border-indigo-150/60 bg-white shadow-sm flex flex-col justify-between space-y-2"
+                                  >
+                                    <div>
+                                      <div className="font-mono font-black text-slate-800 text-[10px] tracking-wider">{camp.code}</div>
+                                      <p className="text-[9px] text-slate-400 font-bold leading-tight mt-0.5">{camp.name}</p>
+                                      <div className="text-xs font-black text-indigo-755 mt-1">{discountValueStr}</div>
+                                    </div>
+                                    
+                                    <button
+                                      onClick={() => handleGiftVoucher(camp)}
+                                      className="w-full py-1.5 rounded-lg text-[9px] font-black bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm shadow-indigo-600/10 active:scale-[0.98] transition-all text-center cursor-pointer"
+                                    >
+                                      Gửi tặng trực tiếp
+                                    </button>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                       {/* Owned Vouchers list */}
                       <div className="space-y-2.5">
@@ -1295,7 +1331,7 @@ export default function AdminCustomersLoyaltyPage() {
                       <span className="text-slate-755">Người đánh giá: {fb.customer.name}</span>
                       <div className="flex items-center gap-0.5">
                         {Array.from({ length: 5 }).map((_, i) => (
-                          <Star key={i} className={`w-3.5 h-3.5 ${i < fb.rating ? 'fill-amber-450 text-amber-450' : 'text-slate-200'}`} />
+                          <Star key={i} className={`w-3.5 h-3.5 ${i < fb.rating ? 'fill-amber-400 text-amber-400' : 'text-slate-200'}`} />
                         ))}
                       </div>
                     </div>
@@ -1330,7 +1366,7 @@ export default function AdminCustomersLoyaltyPage() {
                         />
                       </div>
 
-                      {fb.sentiment === 'Negative' && (
+                      {fb.sentiment === 'Negative' && !isManager && (
                         <div className="bg-rose-50/30 border border-rose-100/60 p-3.5 rounded-xl flex items-start gap-2.5">
                           <input
                             type="checkbox"

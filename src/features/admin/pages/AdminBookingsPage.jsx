@@ -26,6 +26,7 @@ import {
   History,
   ClipboardList
 } from 'lucide-react';
+import { useParams } from 'react-router-dom';
 import { bookingAdminApi } from '../services/bookingAdminApi';
 
 export default function AdminBookingsPage() {
@@ -149,6 +150,86 @@ export default function AdminBookingsPage() {
   const [activeMainTab, setActiveMainTab] = useState('queue'); // 'queue' vs 'history'
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [selectedBookingId, setSelectedBookingId] = useState(null);
+  const [bookingDetail, setBookingDetail] = useState(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [customerDetail, setCustomerDetail] = useState(null);
+  const { bookingId: urlBookingId, id: urlId } = useParams();
+
+  useEffect(() => {
+    const activeId = urlBookingId || urlId;
+    if (activeId) {
+      setSelectedBookingId(Number(activeId) || activeId);
+      setViewMode('detail');
+    }
+  }, [urlBookingId, urlId]);
+
+  useEffect(() => {
+    const activeId = urlBookingId || urlId || selectedBookingId;
+    if (!activeId) {
+      setBookingDetail(null);
+      setCustomerDetail(null);
+      return;
+    }
+    const fetchDetail = async () => {
+      setLoadingDetail(true);
+      let detail = null;
+      try {
+        detail = await bookingAdminApi.getBookingById(activeId);
+      } catch (error) {
+        console.error("API Fetching Error inside AdminBookingsPage:", error.response?.data || error.message);
+        const saved = localStorage.getItem('autowash_bookings');
+        if (saved) {
+          const bookingsMap = JSON.parse(saved);
+          const all = Object.values(bookingsMap).flat();
+          const found = all.find(b => String(b.id || b.bookingId || b.bookingCode || '') === String(activeId));
+          if (found) {
+            detail = found;
+          }
+        }
+      }
+
+      if (detail) {
+        const cust = detail.customer || {};
+        const normalized = {
+          ...detail,
+          id: detail.bookingId || detail.id || detail.bookingCode,
+          customer: {
+            avatar: cust.avatarUrl || cust.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + (cust.phoneNumber || detail.customerPhone || 'guest'),
+            avatarUrl: cust.avatarUrl || cust.avatar,
+            fullName: cust.fullName || detail.customerName || 'Khách hàng',
+            name: cust.fullName || detail.customerName || 'Khách hàng',
+            membershipTier: cust.membershipTier || detail.customerTier || 'Member',
+            tier: cust.membershipTier || detail.customerTier || 'Member',
+            phoneNumber: cust.phoneNumber || detail.customerPhone || '090***000',
+            phone: cust.phoneNumber || detail.customerPhone || '090***000',
+            loyaltyPoints: cust.loyaltyPoints !== undefined ? cust.loyaltyPoints : (detail.customerPoints || 0),
+            points: cust.loyaltyPoints !== undefined ? cust.loyaltyPoints : (detail.customerPoints || 0),
+            pointsValue: (cust.loyaltyPoints !== undefined ? cust.loyaltyPoints : (detail.customerPoints || 0)) * 1000
+          }
+        };
+        setBookingDetail(normalized);
+
+        const custId = detail.customerId || cust.customerId || cust.id;
+        if (custId) {
+          try {
+            const custDetail = await loyaltyApi.getCustomerById(custId);
+            if (custDetail) {
+              setCustomerDetail(custDetail);
+            }
+          } catch (error) {
+            console.error("API Fetching Error inside AdminBookingsPage:", error.response?.data || error.message);
+            setCustomerDetail(null);
+          }
+        }
+      } else {
+        setBookingDetail(null);
+        setCustomerDetail(null);
+      }
+      setLoadingDetail(false);
+    };
+    fetchDetail();
+  }, [selectedBookingId, urlBookingId, urlId]);
+
   const [searchQuery, setSearchQuery] = useState('');
   const [queueSubFilter, setQueueSubFilter] = useState('ALL_QUEUE'); // 'ALL_QUEUE', 'Pending', 'Paid'
   const [historySubFilter, setHistorySubFilter] = useState('ALL_HISTORY'); // 'ALL_HISTORY', 'Completed', 'Canceled'
@@ -1433,23 +1514,63 @@ const allBookingsMapped = getAllBookings().map(b => {
                     <User className="w-4.5 h-4.5 text-indigo-500" />
                     Thông tin Khách hàng
                   </h3>
-                  <div className="flex items-start gap-4">
-                    <img src={selectedBooking.customer.avatar} alt="Customer" className="w-14 h-14 rounded-full object-cover ring-2 ring-indigo-50" />
-                    <div className="flex-1 space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-extrabold text-base text-slate-800">{selectedBooking.customer.name}</span>
-                        <span className="px-2.5 py-0.5 bg-[#57f287] text-slate-800 text-[10px] font-black rounded-lg">Hạng {selectedBooking.customer.tier}</span>
-                      </div>
-                      <p className="text-xs text-slate-500 font-semibold">Số điện thoại: {selectedBooking.customer.phone}</p>
-                      
-                      <div className="flex items-center gap-4 text-xs font-bold text-slate-600 mt-2.5">
-                        <span className="text-amber-605 flex items-center gap-0.5 bg-amber-50 border border-amber-100/65 px-2.5 py-1 rounded-lg">
-                          <Coins className="w-4 h-4 text-amber-500" /> Ví hiện tại: {selectedBooking.customer.points} Pts
-                        </span>
-                        <span className="text-indigo-650">Trị giá quy đổi: {(selectedBooking.customer.points * pointsToCashMultiplier).toLocaleString('vi-VN')} đ</span>
+                  {loadingDetail ? (
+                    <div className="animate-pulse flex items-start gap-4 w-full">
+                      <div className="w-14 h-14 bg-slate-200 rounded-full shrink-0"></div>
+                      <div className="flex-1 space-y-2 py-1">
+                        <div className="h-4 bg-slate-200 rounded w-1/3"></div>
+                        <div className="h-3 bg-slate-200 rounded w-1/4"></div>
+                        <div className="h-3 bg-slate-200 rounded w-1/2"></div>
                       </div>
                     </div>
-                  </div>
+                  ) : (() => {
+                    const displayCustomer = bookingDetail?.customer || selectedBooking?.customer;
+                    // Fallbacks for 500 error protection
+                    const fullName = customerDetail?.fullName || bookingDetail?.customerName || displayCustomer?.fullName || displayCustomer?.name || 'Khách lẻ';
+                    const phoneNumber = customerDetail?.phoneNumber || bookingDetail?.customerPhone || displayCustomer?.phoneNumber || displayCustomer?.phone || '';
+                    const tierName = customerDetail?.tierName || bookingDetail?.customerTier || displayCustomer?.tier || 'N/A';
+                    const isSilverOrMember = ['member', 'hang member', 'silver', 'silver member', 'regular', 'n/a'].includes(String(tierName).toLowerCase());
+                    const points = customerDetail?.loyaltyPoints !== undefined ? customerDetail.loyaltyPoints : (displayCustomer?.points ?? 0);
+                    const pointsVal = customerDetail?.loyaltyPoints !== undefined ? customerDetail.loyaltyPoints * 1000 : 0;
+
+                    return (
+                      <div className="flex items-start gap-4">
+                        <img 
+                          src={displayCustomer?.avatarUrl || displayCustomer?.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=guest'} 
+                          alt="Customer" 
+                          className="w-14 h-14 rounded-full object-cover ring-2 ring-indigo-50" 
+                        />
+                        <div className="flex-1 space-y-1 text-left">
+                          <div className="flex items-center gap-2">
+                            <span className="font-extrabold text-base text-slate-800">
+                              {fullName}
+                            </span>
+                            <span 
+                              className={`px-2.5 py-0.5 text-[10px] font-black rounded-lg ${
+                                isSilverOrMember
+                                  ? 'bg-emerald-100 text-emerald-800'
+                                  : 'bg-[#57f287] text-slate-800'
+                              }`}
+                            >
+                              {customerDetail?.tierName || tierName}
+                            </span>
+                          </div>
+                          <p className="text-xs text-slate-500 font-semibold">
+                            Số điện thoại: {phoneNumber}
+                          </p>
+                          
+                          <div className="flex items-center gap-4 text-xs font-bold text-slate-600 mt-2.5">
+                            <span className="text-amber-605 flex items-center gap-0.5 bg-amber-50 border border-amber-100/65 px-2.5 py-1 rounded-lg">
+                              <Coins className="w-4 h-4 text-amber-500" /> Ví hiện tại: {(customerDetail?.loyaltyPoints !== undefined ? customerDetail.loyaltyPoints : points)} Pts
+                            </span>
+                            <span className="text-indigo-650">
+                              Trị giá quy đổi: {(customerDetail?.loyaltyPoints !== undefined ? customerDetail.loyaltyPoints * 1000 : pointsVal).toLocaleString('vi-VN')} d
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Vehicle card */}
@@ -1656,13 +1777,19 @@ const allBookingsMapped = getAllBookings().map(b => {
                     </div>
 
                     {selectedBooking.status === 'Completed' && (
-                      <div className="relative">
+                      <div className="relative animate-fade-in">
                         <span className="absolute -left-7.5 top-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 ring-4 ring-emerald-50 flex items-center justify-center">
                           <Check className="w-2.5 h-2.5 text-white" />
                         </span>
                         <div>
                           <h5 className="font-extrabold text-slate-800">Thanh toán thành công & Hoàn tất</h5>
-                          <p className="text-[9px] text-slate-450 mt-0.5">Xong lúc {selectedBooking.completedTime} (Khung giờ: {selectedBooking.slotTime})</p>
+                          {customerDetail?.lastCompletedBookingAt ? (
+                            <p className="text-sm text-gray-600 mt-1">
+                              Hoàn thành lúc: {new Date(customerDetail.lastCompletedBookingAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} {new Date(customerDetail.lastCompletedBookingAt).toLocaleDateString('vi-VN')}
+                            </p>
+                          ) : (
+                            <p className="text-[9px] text-slate-450 mt-0.5">Xong lúc {selectedBooking.completedTime} (Khung giờ: {selectedBooking.slotTime})</p>
+                          )}
                         </div>
                       </div>
                     )}

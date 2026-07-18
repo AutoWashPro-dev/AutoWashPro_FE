@@ -19,6 +19,25 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const status = error.response ? error.response.status : null;
+    if (status === 401 || status === 403) {
+      localStorage.removeItem('autowash_token');
+      localStorage.removeItem('autowash_user');
+      localStorage.removeItem('token');
+      localStorage.removeItem('role');
+      localStorage.removeItem('user_roles');
+      localStorage.removeItem('accessToken');
+      sessionStorage.clear();
+      window.dispatchEvent(new Event('auth_logout'));
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
 export const loyaltyApi = {
   /**
    * Lấy danh sách các Hạng thành viên VIP & Cấu hình Booking Window
@@ -136,6 +155,32 @@ export const loyaltyApi = {
         ];
       }
       return [];
+    }
+  },
+
+  /**
+   * Lấy chi tiết khách hàng theo ID
+   */
+  getCustomerById: async (customerId) => {
+    try {
+      const res = await api.get(`/admin/customers/${customerId}`);
+      return res.data;
+    } catch (err) {
+      console.warn(`API getCustomerById for customer ${customerId} offline, using fallback:`, err.message);
+      const saved = localStorage.getItem('autowash_customers');
+      if (saved) {
+        const list = JSON.parse(saved);
+        const found = list.find(c => String(c.customerId || c.id) === String(customerId));
+        if (found) {
+          return {
+            ...found,
+            tierName: found.tierName || found.tier,
+            loyaltyPoints: found.loyaltyPoints !== undefined ? found.loyaltyPoints : (found.points || 0),
+            lastCompletedBookingAt: found.lastCompletedBookingAt || new Date().toISOString()
+          };
+        }
+      }
+      return null;
     }
   }
 };

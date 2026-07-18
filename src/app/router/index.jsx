@@ -28,9 +28,73 @@ import ResetPasswordPage from '../../features/auth/pages/ResetPasswordPage';
 const PublicLayout = () => <div className="p-4">Public UI</div>;
 const StaffLayout = () => <div className="p-4">Staff Board</div>;
 
-const CustomerRoute = ({ children }) => children;
-const StaffRoute = ({ children }) => children;
-const AdminRoute = ({ children }) => children;
+const ProtectedRoute = ({ children }) => {
+  const [checking, setChecking] = React.useState(true);
+  const [authenticated, setAuthenticated] = React.useState(false);
+
+  React.useEffect(() => {
+    const token = localStorage.getItem('autowash_token') || localStorage.getItem('token');
+    const user = localStorage.getItem('autowash_user');
+    if (token && user) {
+      setAuthenticated(true);
+    }
+    const timer = setTimeout(() => {
+      setChecking(false);
+    }, 200); // Small delay to simulate async boot validation
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (checking) {
+    return (
+      <div className="min-h-screen bg-[#f7fafd] flex flex-col items-center justify-center gap-3">
+        <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+        <p className="text-xs text-slate-500 font-bold tracking-wide">Đang xác thực phiên làm việc...</p>
+      </div>
+    );
+  }
+
+  if (!authenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return children;
+};
+
+const CustomerRoute = ({ children }) => {
+  const userStr = localStorage.getItem('autowash_user');
+  try {
+    const user = JSON.parse(userStr || '{}');
+    const roles = user.roles || user.user?.roles || user.user_roles || [];
+    if (roles.includes('ROLE_CUSTOMER')) {
+      return children;
+    }
+  } catch (e) {}
+  return <Navigate to="/login" replace />;
+};
+
+const StaffRoute = ({ children }) => {
+  const userStr = localStorage.getItem('autowash_user');
+  try {
+    const user = JSON.parse(userStr || '{}');
+    const roles = user.roles || user.user?.roles || user.user_roles || [];
+    if (roles.includes('ROLE_STAFF')) {
+      return children;
+    }
+  } catch (e) {}
+  return <Navigate to="/login" replace />;
+};
+
+const AdminRoute = ({ children }) => {
+  const userStr = localStorage.getItem('autowash_user');
+  try {
+    const user = JSON.parse(userStr || '{}');
+    const roles = user.roles || user.user?.roles || user.user_roles || [];
+    if (roles.includes('ROLE_ADMIN') || roles.includes('ROLE_MANAGER') || roles.includes('ROLE_CASHIER')) {
+      return children;
+    }
+  } catch (e) {}
+  return <Navigate to="/login" replace />;
+};
 
 const router = createBrowserRouter([
   {
@@ -64,9 +128,11 @@ const router = createBrowserRouter([
   {
     path: '/customer',
     element: (
-      <CustomerRoute>
-        <CustomerLayout />
-      </CustomerRoute>
+      <ProtectedRoute>
+        <CustomerRoute>
+          <CustomerLayout />
+        </CustomerRoute>
+      </ProtectedRoute>
     ),
     children: [
       {
@@ -102,9 +168,11 @@ const router = createBrowserRouter([
   {
     path: '/staff',
     element: (
-      <StaffRoute>
-        <StaffLayout />
-      </StaffRoute>
+      <ProtectedRoute>
+        <StaffRoute>
+          <StaffLayout />
+        </StaffRoute>
+      </ProtectedRoute>
     ),
     children: [
       {
@@ -120,9 +188,11 @@ const router = createBrowserRouter([
   {
     path: '/admin',
     element: (
-      <AdminRoute>
-        <AdminLayout />
-      </AdminRoute>
+      <ProtectedRoute>
+        <AdminRoute>
+          <AdminLayout />
+        </AdminRoute>
+      </ProtectedRoute>
     ),
     children: [
       {

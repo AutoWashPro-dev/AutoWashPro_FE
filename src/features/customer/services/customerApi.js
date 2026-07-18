@@ -19,11 +19,30 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const status = error.response ? error.response.status : null;
+    if (status === 401 || status === 403) {
+      localStorage.removeItem('autowash_token');
+      localStorage.removeItem('autowash_user');
+      localStorage.removeItem('token');
+      localStorage.removeItem('role');
+      localStorage.removeItem('user_roles');
+      localStorage.removeItem('accessToken');
+      sessionStorage.clear();
+      window.dispatchEvent(new Event('auth_logout'));
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
 export const customerApi = {
   // Get customer profile (points, tier, name)
   getProfile: async () => {
     try {
-      const res = await api.get('/customer/auth/me');
+      const res = await api.get('/customer/profile');
       return res.data;
     } catch (err) {
       console.warn('API getProfile error:', err.message);
@@ -38,6 +57,21 @@ export const customerApi = {
         ]
       };
     }
+  },
+
+  updateProfile: async (profileData) => {
+    const res = await api.put('/customer/profile', profileData);
+    return res.data;
+  },
+
+  requestEmailVerification: async () => {
+    const res = await api.post('/customer/email/request-verification');
+    return res.data;
+  },
+
+  changePassword: async (passwordData) => {
+    const res = await api.post('/customer/profile/change-password', passwordData);
+    return res.data;
   },
 
   // Get notifications
@@ -105,9 +139,10 @@ export const customerApi = {
   },
 
   // Get customer's history
-  getMyBookings: async () => {
+  getMyBookings: async (status = null) => {
     try {
-      const res = await api.get('/customer/bookings');
+      const url = status ? `/customer/bookings?status=${status}` : '/customer/bookings';
+      const res = await api.get(url);
       return res.data || [];
     } catch (err) {
       console.warn('API getMyBookings error, using fallback:', err.message);
@@ -146,9 +181,9 @@ export const customerApi = {
   },
 
   // Get customer's feedback history
-  getMyFeedbacks: async (customerId = 1) => {
+  getMyFeedbacks: async () => {
     try {
-      const res = await api.get(`/customer/feedbacks/my-feedbacks?customerId=${customerId}`);
+      const res = await api.get('/customer/feedbacks');
       return res.data || [];
     } catch (err) {
       console.warn('API getMyFeedbacks error:', err.message);
@@ -157,8 +192,8 @@ export const customerApi = {
   },
 
   // Submit feedback
-  createFeedback: async (feedbackData, customerId = 1) => {
-    const res = await api.post(`/customer/feedbacks?customerId=${customerId}`, feedbackData);
+  createFeedback: async (feedbackData) => {
+    const res = await api.post('/customer/feedbacks', feedbackData);
     return res.data;
   },
 
