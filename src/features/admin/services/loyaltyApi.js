@@ -81,20 +81,24 @@ export const loyaltyApi = {
       if (keyword) url += `&keyword=${encodeURIComponent(keyword)}`;
       const res = await api.get(url);
       const items = res.data?.content || res.data || [];
-      return items.map((item, idx) => ({
-        ...item,
-        id: item.customerCode || `C-0${idx + 1}`,
-        customerId: item.customerId || item.id,
-        name: item.fullName || item.name || 'Khách hàng',
-        phone: item.phoneNumber || item.phone || '090***000',
-        tier: item.tierName || item.tier || 'Member',
-        points: item.loyaltyPoints || item.points || 0,
-        totalSpend: item.totalSpending || item.totalSpend || 0,
-        visits: item.totalVisits || item.visits || 1,
-        avatar: item.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=100',
-        lastVisitDays: item.lastVisitDays || 5,
-        status: item.status || 'Active'
-      }));
+      return items.map((item, idx) => {
+        const custId = item.customerId || item.id;
+        const codeNum = custId ? String(custId).padStart(2, '0') : String(idx + 1).padStart(2, '0');
+        return {
+          ...item,
+          id: item.customerCode || `C-${codeNum}`,
+          customerId: custId,
+          name: item.fullName || item.name || 'Khách hàng',
+          phone: item.phoneNumber || item.phone || '090***000',
+          tier: item.tierName || item.tier || 'Member',
+          points: item.loyaltyPoints || item.points || 0,
+          totalSpend: item.totalSpending || item.totalSpend || 0,
+          visits: item.totalVisits || item.visits || 1,
+          avatar: item.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=100',
+          lastVisitDays: item.lastVisitDays || 5,
+          status: item.status || 'Active'
+        };
+      });
     } catch (err) {
       console.warn('API /admin/customers offline or error, using localStorage fallback:', err.message);
       const saved = localStorage.getItem('autowash_customers');
@@ -103,6 +107,35 @@ export const loyaltyApi = {
         { id: 'C-01', customerId: 1, name: 'Nguyễn Minh Anh', phone: '0912***456', tier: 'Platinum', points: 1240, totalSpend: 15400000, visits: 24, avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=100', lastVisitDays: 5, status: 'Active' },
         { id: 'C-02', customerId: 2, name: 'Lê Hoàng Long', phone: '0903***888', tier: 'Silver', points: 320, totalSpend: 3800000, visits: 8, avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=100', lastVisitDays: 14, status: 'Active' }
       ];
+    }
+  },
+
+  /**
+   * Lấy lịch sử biến động điểm thưởng của một khách hàng từ CRM
+   */
+  getCustomerPointHistory: async (customerId) => {
+    try {
+      const res = await api.get(`/admin/customers/${customerId}/points/history`);
+      return res.data || [];
+    } catch (err) {
+      console.warn(`API getCustomerPointHistory for customer ${customerId} offline, using fallback:`, err.message);
+      // Fallback matching mock localStorage points log
+      if (Number(customerId) === 1) {
+        return [
+          { pointTransactionId: 101, points: 125, activityType: 'EARNED', bookingCode: 'AW-9812', createdAt: '2026-06-30T09:15:00' },
+          { pointTransactionId: 102, points: -200, activityType: 'REDEEMED', bookingCode: 'AW-9720', createdAt: '2026-06-15T14:02:00' },
+          { pointTransactionId: 103, points: 225, activityType: 'EARNED', bookingCode: 'AW-9643', createdAt: '2026-06-01T11:30:00' }
+        ];
+      } else if (Number(customerId) === 2) {
+        return [
+          { pointTransactionId: 201, points: 35, activityType: 'EARNED', bookingCode: 'AW-9650', createdAt: '2026-06-10T15:00:00' }
+        ];
+      } else if (Number(customerId) === 3) {
+        return [
+          { pointTransactionId: 301, points: 100, activityType: 'EARNED', bookingCode: 'AW-9805', createdAt: '2026-06-29T17:30:00' }
+        ];
+      }
+      return [];
     }
   }
 };
