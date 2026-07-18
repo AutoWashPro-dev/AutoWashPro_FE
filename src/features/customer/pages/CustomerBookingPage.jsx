@@ -61,7 +61,7 @@ export default function CustomerBookingPage() {
   const [selectedTime, setSelectedTime] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [userHistory, setUserHistory] = useState([]);
-  const [myVouchers, setMyVouchers] = useState([]);
+  const [availableVouchers, setAvailableVouchers] = useState([]);
   const [selectedVoucher, setSelectedVoucher] = useState(null);
   const [selectedTimeSlotId, setSelectedTimeSlotId] = useState(null);
 
@@ -95,14 +95,25 @@ export default function CustomerBookingPage() {
 
   const loadUserProfile = async () => {
     try {
-      const data = await customerApi.getProfile();
-      setCustomerProfile(data);
-      if (data && data.bookingWindowDays) {
-        setBookingWindowDays(data.bookingWindowDays);
+      const [profileData, vehiclesData] = await Promise.all([
+        customerApi.getProfile(),
+        customerApi.getMyVehicles()
+      ]);
+      setCustomerProfile(profileData);
+      if (profileData && profileData.bookingWindowDays) {
+        setBookingWindowDays(profileData.bookingWindowDays);
       }
-      if (data && data.vehicles && data.vehicles.length > 0) {
-        setVehicles(data.vehicles);
-        const defaultVeh = data.vehicles.find(v => v.isDefault) || data.vehicles[0];
+      if (Array.isArray(vehiclesData) && vehiclesData.length > 0) {
+        const mappedVehicles = vehiclesData.map(v => ({
+          ...v,
+          vehicleId: v.vehicleId || v.id,
+          model: v.model || 'Xe máy',
+          licensePlate: v.licensePlate || v.plate || 'Chưa có biển số',
+          vehicleType: v.vehicleType || v.type || 'N/A',
+          isDefault: v.isDefault ?? false
+        }));
+        setVehicles(mappedVehicles);
+        const defaultVeh = mappedVehicles.find(v => v.isDefault) || mappedVehicles[0];
         setSelectedVehicle(defaultVeh);
       }
     } catch (err) {
@@ -112,8 +123,8 @@ export default function CustomerBookingPage() {
 
   const loadCustomerVouchers = async () => {
     try {
-      const data = await customerApi.getMyVouchers('ISSUED');
-      setMyVouchers(data || []);
+      const data = await customerApi.getMyVouchers(null, 'ISSUED');
+      setAvailableVouchers(data || []);
     } catch (err) {
       console.error('Failed to load user vouchers:', err);
     }
@@ -124,18 +135,20 @@ export default function CustomerBookingPage() {
       const data = await customerApi.getActiveServices();
       if (data && data.length > 0) {
         const pkgs = data.filter(s => s.serviceType === 'PACKAGE').map(s => ({
-          id: s.serviceId,
-          name: s.serviceName,
-          basePrice: Number(s.price),
-          duration: `${s.durationMinutes} minutes`,
+          id: s.serviceId || s.id,
+          name: s.serviceName || s.name,
+          basePrice: Number(s.price || 0),
+          duration: `${s.durationMinutes || 60} minutes`,
           description: s.description
-        }));
+        })).sort((a, b) => a.basePrice - b.basePrice);
+
         const addons = data.filter(s => s.serviceType === 'ADDON').map(s => ({
-          id: s.serviceId,
-          name: s.serviceName,
-          price: Number(s.price),
+          id: s.serviceId || s.id,
+          name: s.serviceName || s.name,
+          price: Number(s.price || 0),
           description: s.description
-        }));
+        })).sort((a, b) => a.price - b.price);
+
         if (pkgs.length > 0) setCorePackages(pkgs);
         if (addons.length > 0) setAddonServices(addons);
       }
@@ -334,19 +347,19 @@ export default function CustomerBookingPage() {
     setVehicleLicensePlate(e.target.value.toUpperCase());
   };
 
-  const saveVehicleToBackend = async (payload) => {
-    console.log('[CustomerBookingPage] save vehicle payload:', payload);
-
-    if (payload.id && payload.id !== 'temp') {
-      return payload;
-    }
-
+  const handleSetDefaultVehicle = async (veh) => {
     try {
-      const created = await customerApi.addVehicle(payload);
-      return created;
-    } catch (error) {
-      console.warn('customerApi.addVehicle failed, using local fallback:', error);
-      return payload;
+      const vehicleId = veh.vehicleId || veh.id;
+      await customerApi.setDefaultVehicle(vehicleId);
+      
+      // Optimistic UI Update
+      setVehicles(prev => prev.map(v => ({
+        ...v,
+        isDefault: (v.vehicleId || v.id) === vehicleId
+      })));
+    } catch (err) {
+      console.error('Failed to set default vehicle:', err);
+      alert('Có lỗi xảy ra khi đặt xe làm mặc định. Vui lòng thử lại.');
     }
   };
 
@@ -366,16 +379,24 @@ export default function CustomerBookingPage() {
       return;
     }
 
+    // Strictly mapped API Payload
     const payload = {
-      id: editingVehicle?.id || `temp-${Date.now()}`,
       model: trimmedModel,
       licensePlate: trimmedPlate,
-      isDefault: vehicleIsDefault,
-      vehicleType: editingVehicle?.vehicleType || 'MOTORCYCLE'
+      isDefault: vehicleIsDefault
     };
 
     try {
-      const savedVehicle = await saveVehicleToBackend(payload);
+      let savedVehicle;
+      
+      if (editingVehicle) {
+        // (Mock) Handle Edit / Update flow
+        savedVehicle = { ...payload, id: editingVehicle.id || editingVehicle.vehicleId, vehicleType: editingVehicle.vehicleType || 'MOTORCYCLE' };
+      } else {
+        // Direct API Creation flow
+        savedVehicle = await customerApi.addVehicle(payload);
+      }
+      
       const normalizedVehicle = {
         ...savedVehicle,
         model: trimmedModel,
@@ -503,6 +524,10 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val);
   };
 
+  const subtotalAmount = calculateTotalAmount();
+  const discountAmount = calculateDiscount();
+  const finalTotalAmount = Math.max(0, subtotalAmount - discountAmount);
+
   return (
     <div className="space-y-6 pb-12 text-left">
       
@@ -560,11 +585,13 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
                     <VehicleCard 
                       key={veh.vehicleId || veh.id}
                       vehicle={veh}
-                      isDefault={selectedVehicle?.vehicleId === veh.vehicleId}
+                      isSelected={selectedVehicle?.vehicleId === veh.vehicleId}
+                      isDefault={veh.isDefault}
                       isSelectable={true}
                       onSelect={(v) => setSelectedVehicle(v)}
                       onEdit={() => openEditVehicleModal(veh)}
                       onDelete={() => {}}
+                      onSetDefault={handleSetDefaultVehicle}
                     />
                   ))}
                 </div>
@@ -592,7 +619,11 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
               </h3>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {corePackages.map(pkg => {
+                {corePackages.length === 0 ? (
+                  <div className="col-span-1 md:col-span-3 text-center py-6 text-slate-500 text-sm border rounded-2xl bg-slate-50">
+                    Không có dịch vụ chính nào khả dụng. Vui lòng thử lại sau.
+                  </div>
+                ) : corePackages.map(pkg => {
                   const currentPrice = calculatePackagePrice(pkg.basePrice);
                   const isSelected = selectedPackage?.id === pkg.id;
 
@@ -639,7 +670,11 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
               </h3>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {addonServices.map(addon => {
+                {addonServices.length === 0 ? (
+                  <div className="col-span-1 md:col-span-2 text-center py-4 text-slate-500 text-xs border rounded-xl bg-slate-50">
+                    Không có dịch vụ thêm nào khả dụng.
+                  </div>
+                ) : addonServices.map(addon => {
                   const isChecked = selectedAddons.includes(addon.id);
 
                   return (
@@ -768,20 +803,18 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
                 {/* Chọn Voucher từ Ví cá nhân */}
                 <div className="border-t my-4 pt-4 space-y-2">
                   <span className="text-slate-400 font-bold block uppercase text-[10px]">Ưu đãi của bạn:</span>
-                  {myVouchers.length === 0 ? (
-                    <p className="text-[10px] text-slate-400 italic">Ví của bạn hiện chưa có voucher khả dụng.</p>
-                  ) : (
+                  {availableVouchers && availableVouchers.length > 0 ? (
                     <select
                       value={selectedVoucher ? selectedVoucher.voucherCode : ''}
                       onChange={(e) => {
                         const code = e.target.value;
-                        const v = myVouchers.find(x => x.voucherCode === code);
+                        const v = availableVouchers.find(x => x.voucherCode === code);
                         setSelectedVoucher(v || null);
                       }}
                       className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs focus:border-blue-500 outline-none font-medium text-slate-700 bg-white"
                     >
                       <option value="">-- Áp dụng Voucher giảm giá --</option>
-                      {myVouchers.map(v => {
+                      {availableVouchers.map(v => {
                         const discountDesc = v.discountType === 'FREE_SERVICE' 
                           ? 'Miễn phí rửa xe' 
                           : v.discountType === 'PERCENTAGE' 
@@ -794,6 +827,8 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
                         );
                       })}
                     </select>
+                  ) : (
+                    <p className="text-[10px] text-slate-400 italic">Ví của bạn hiện chưa có voucher khả dụng.</p>
                   )}
                 </div>
 
@@ -803,15 +838,15 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
                   <div className="flex justify-between items-center text-xs">
                     <span className="text-slate-400 font-medium">Cộng tạm tính:</span>
                     <span className="font-mono text-slate-800 font-bold">
-                      {formatVnd(calculateTotalAmount())}
+                      {`${subtotalAmount.toLocaleString('vi-VN')} đ`}
                     </span>
                   </div>
 
                   {selectedVoucher && (
                     <div className="flex justify-between items-center text-xs text-emerald-600 font-bold">
-                      <span>Voucher giảm giá ({selectedVoucher.voucherCode}):</span>
+                      <span>Giảm giá ưu đãi ({selectedVoucher.voucherCode}):</span>
                       <span className="font-mono">
-                        -{formatVnd(calculateDiscount())}
+                        {`-${discountAmount.toLocaleString('vi-VN')} đ`}
                       </span>
                     </div>
                   )}
@@ -819,7 +854,7 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
                   <div className="flex justify-between items-center pt-2 border-t border-dashed">
                     <span className="text-slate-800 font-black text-sm">Tổng hóa đơn tạm tính:</span>
                     <span className="font-mono text-lg font-black text-blue-600">
-                      {formatVnd(Math.max(0, calculateTotalAmount() - calculateDiscount()))}
+                      {`${finalTotalAmount.toLocaleString('vi-VN')} đ`}
                     </span>
                   </div>
                 </div>

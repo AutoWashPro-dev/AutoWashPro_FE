@@ -769,8 +769,8 @@ const allBookingsMapped = getAllBookings().map(b => {
   };
 
   const selectedVoucher = customerVouchers.find(v => v.code === selectedVoucherCode) || null;
-  const discountAmount = selectedVoucher ? parseVoucherDiscount(selectedVoucher.value, selectedBooking?.service?.price || 0) : 0;
-  const finalAmount = Math.max(0, (selectedBooking?.service?.price || 0) - discountAmount);
+  const discountAmount = selectedVoucher ? parseVoucherDiscount(selectedVoucher.value, selectedBooking?.finalAmount || selectedBooking?.service?.price || 0) : 0;
+  const finalAmount = Math.max(0, (selectedBooking?.finalAmount || selectedBooking?.service?.price || 0) - discountAmount);
 
   // View transition helpers
   const handleOpenDetail = (booking) => {
@@ -1556,12 +1556,18 @@ const allBookingsMapped = getAllBookings().map(b => {
                       {/* Bill Summary */}
                       <div className="bg-slate-50 border border-slate-100 p-4 rounded-xl space-y-2">
                         <div className="flex justify-between font-bold text-slate-600">
-                          <span>Đơn giá gói chính:</span>
-                          <span>{selectedBooking.service.price.toLocaleString('vi-VN')} đ</span>
+                          <span>Đơn giá dịch vụ gốc:</span>
+                          <span>{((selectedBooking.finalAmount || selectedBooking.service?.price || 0) + (selectedBooking.discount || 0)).toLocaleString('vi-VN')} đ</span>
                         </div>
+                        {selectedBooking.discount > 0 && (
+                          <div className="flex justify-between font-bold text-indigo-600">
+                            <span>Đã giảm giá (App - {selectedBooking.voucherApplied || 'Voucher'}):</span>
+                            <span>-{selectedBooking.discount.toLocaleString('vi-VN')} đ</span>
+                          </div>
+                        )}
                         {discountAmount > 0 && (
                           <div className="flex justify-between font-bold text-emerald-600">
-                            <span>Voucher giảm giá ({selectedVoucherCode}):</span>
+                            <span>Voucher tại quầy ({selectedVoucherCode}):</span>
                             <span>-{discountAmount.toLocaleString('vi-VN')} đ</span>
                           </div>
                         )}

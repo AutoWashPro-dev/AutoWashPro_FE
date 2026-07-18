@@ -30,12 +30,11 @@ export const customerApi = {
       // Fallback profile for mock - ensure customerId is present to load real API data
       return {
         customerId: 1, // Default customerId = 1 (Nguyễn Minh Anh)
-        fullName: 'Nguyễn Minh Anh',
-        loyaltyPoints: 1240,
-        tierName: 'PLATINUM MEMBER',
-        bookingWindowDays: 14,
+        fullName: 'N/A',
+        loyaltyPoints: 0,
+        tierName: 'N/A',
+        bookingWindowDays: 0,
         vehicles: [
-          { vehicleId: 1, licensePlate: "51A-12345", model: "Honda SH 150i", isDefault: true }
         ]
       };
     }
@@ -49,6 +48,17 @@ export const customerApi = {
     } catch (err) {
       console.warn('API getNotifications error:', err.message);
       return [];
+    }
+  },
+
+  // Mark all notifications as read
+  markAllNotificationsRead: async () => {
+    try {
+      const res = await api.put('/customer/notifications/mark-all-read');
+      return res.data;
+    } catch (err) {
+      console.warn('API markAllNotificationsRead error:', err.message);
+      throw err;
     }
   },
 
@@ -75,9 +85,12 @@ export const customerApi = {
   },
 
   // Get customer's voucher wallet
-  getMyVouchers: async (customerId = 1, status = 'ISSUED') => {
+  getMyVouchers: async (customerId = null, status = 'ISSUED') => {
     try {
-      const res = await api.get(`/customer/rewards/my-vouchers?status=${status}&customerId=${customerId}`);
+      const url = customerId 
+        ? `/customer/rewards/my-vouchers?status=${status}&customerId=${customerId}` 
+        : `/customer/rewards/my-vouchers?status=${status}`;
+      const res = await api.get(url);
       return res.data || [];
     } catch (err) {
       console.warn('API getMyVouchers error:', err.message);
@@ -99,28 +112,6 @@ export const customerApi = {
     } catch (err) {
       console.warn('API getMyBookings error, using fallback:', err.message);
       return [
-        {
-          bookingId: 101,
-          bookingCode: 'AW-9812',
-          bookingDate: '2026-06-30',
-          startTime: '09:00:00',
-          licensePlate: '51A-12345',
-          model: 'Honda SH 150i',
-          finalAmount: 80000,
-          status: 'COMPLETED',
-          items: [{ serviceNameSnapshot: 'Rửa xe máy siêu cấp & bảo dưỡng' }]
-        },
-        {
-          bookingId: 102,
-          bookingCode: 'AW-9720',
-          bookingDate: '2026-06-15',
-          startTime: '14:00:00',
-          licensePlate: '51A-12345',
-          model: 'Honda SH 150i',
-          finalAmount: 50000,
-          status: 'COMPLETED',
-          items: [{ serviceNameSnapshot: 'Rửa xe máy cao cấp' }]
-        }
       ];
     }
   },
@@ -185,6 +176,12 @@ export const customerApi = {
   // Register vehicle
   addVehicle: async (vehicleData) => {
     const res = await api.post('/customer/vehicles', vehicleData);
+    return res.data;
+  },
+
+  // Set default vehicle
+  setDefaultVehicle: async (vehicleId) => {
+    const res = await api.put(`/customer/vehicles/${vehicleId}/set-default`);
     return res.data;
   },
 

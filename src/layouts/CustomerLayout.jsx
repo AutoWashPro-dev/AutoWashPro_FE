@@ -56,10 +56,15 @@ export default function CustomerLayout() {
     };
   }, [location.pathname]);
 
-  const handleMarkAllRead = () => {
-    const updated = notifications.map(n => ({...n, read: true}));
-    setNotifications(updated);
-    localStorage.setItem('autowash_cust_notifications', JSON.stringify(updated));
+  const handleMarkAllRead = async () => {
+    try {
+      await customerApi.markAllNotificationsRead();
+      const updated = notifications.map(n => ({...n, read: true, isRead: true}));
+      setNotifications(updated);
+      localStorage.setItem('autowash_cust_notifications', JSON.stringify(updated));
+    } catch (err) {
+      console.error("Failed to mark all as read:", err);
+    }
   };
 
   const handleLogout = () => {
@@ -92,7 +97,7 @@ export default function CustomerLayout() {
     return activeItem ? activeItem.label : '';
   };
 
-  const unreadCount = notifications.filter(n => !n.read).length;
+  const unreadCount = notifications.filter(n => n.isRead === false || n.read === false).length;
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden font-sans">
@@ -210,17 +215,22 @@ export default function CustomerLayout() {
                   {notifications.length === 0 ? (
                     <div className="text-slate-400 text-xs text-center py-4">Không có thông báo gì mới.</div>
                   ) : (
-                    notifications.map(notif => (
+                    notifications.map(notif => {
+                      const isUnread = notif.isRead === false || notif.read === false;
+                      return (
                       <div 
                         key={notif.id}
                         className={`p-2.5 rounded-xl border text-[11px] leading-relaxed transition-all ${
-                          notif.read ? 'bg-white border-slate-100 text-slate-500' : 'bg-blue-50/20 border-blue-100 text-slate-800 font-medium'
+                          !isUnread ? 'bg-white border-slate-100 text-slate-500' : 'bg-blue-50/20 border-blue-100 text-slate-800 font-medium'
                         }`}
                       >
-                        <p>{notif.text}</p>
-                        <span className="text-[9px] text-slate-400 mt-1 block font-semibold">{notif.time}</span>
+                        {notif.title && <p className="font-bold mb-0.5">{notif.title}</p>}
+                        <p>{notif.content || notif.text}</p>
+                        <span className="text-[9px] text-slate-400 mt-1 block font-semibold">
+                          {notif.createdAt ? new Date(notif.createdAt).toLocaleString('vi-VN') : notif.time}
+                        </span>
                       </div>
-                    ))
+                    )})
                   )}
                 </div>
               </div>

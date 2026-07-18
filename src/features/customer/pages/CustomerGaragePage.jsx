@@ -72,7 +72,7 @@ export default function CustomerGaragePage() {
       return;
     }
 
-    const payload = { model, licensePlate, vehicleType, isDefault };
+    const payload = { model, licensePlate, isDefault };
 
     try {
       if (editingVehicle) {
@@ -131,11 +131,20 @@ export default function CustomerGaragePage() {
   };
 
   // Click nhanh để đổi xe mặc định
-  const handleSetDefault = (veh) => {
-    setVehicles(vehicles.map(v => ({
-      ...v,
-      isDefault: v.vehicleId === veh.vehicleId
-    })));
+  const handleSetDefault = async (veh) => {
+    try {
+      const vehicleId = veh.vehicleId || veh.id;
+      await customerApi.setDefaultVehicle(vehicleId);
+      
+      // Optimistic UI Update
+      setVehicles(vehicles.map(v => ({
+        ...v,
+        isDefault: (v.vehicleId || v.id) === vehicleId
+      })));
+    } catch (err) {
+      console.error('Failed to set default vehicle:', err);
+      alert('Có lỗi xảy ra khi đặt xe làm mặc định. Vui lòng thử lại.');
+    }
   };
 
   return (
@@ -149,14 +158,6 @@ export default function CustomerGaragePage() {
           </h1>
           <p className="text-xs text-slate-500 mt-1">Đăng ký sẵn các phương tiện cá nhân giúp quy trình đặt lịch rửa xe diễn ra nhanh gọn hơn.</p>
         </div>
-        {vehicles.length > 0 && (
-          <button 
-            onClick={handleOpenAddModal}
-            className="flex items-center gap-1.5 px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow transition-all"
-          >
-            <Plus size={14} /> Thêm xe mới
-          </button>
-        )}
       </div>
 
       {/* LƯỚI THỂ HIỂN THỊ DANH SÁCH XE */}
@@ -188,17 +189,8 @@ export default function CustomerGaragePage() {
                 isSelectable={false}
                 onEdit={() => handleOpenEditModal(veh)}
                 onDelete={() => handleDeleteVehicle(veh)}
+                onSetDefault={() => handleSetDefault(veh)}
               />
-              
-              {/* Nút bấm nhanh để đặt mặc định khi di chuột qua card */}
-              {!veh.isDefault && (
-                <button 
-                  onClick={() => handleSetDefault(veh)}
-                  className="absolute top-3 right-3 text-[10px] bg-slate-100 text-slate-500 border hover:bg-blue-50 hover:text-blue-600 hover:border-blue-300 font-bold px-2 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-all shadow-sm"
-                >
-                  Đặt mặc định
-                </button>
-              )}
             </div>
           ))}
 

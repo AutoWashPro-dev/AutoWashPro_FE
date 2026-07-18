@@ -32,16 +32,18 @@ export default function CustomerDashboardPage() {
   const [upcomingBooking, setUpcomingBooking] = useState(null);
   const [visitCount, setVisitCount] = useState(0);
   const [vouchersCount, setVouchersCount] = useState(0);
+  const [recommendedServices, setRecommendedServices] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Fetch real data from backend API
   React.useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const [profile, bookings, vouchers] = await Promise.all([
+        const [profile, bookings, vouchers, servicesData] = await Promise.all([
           customerApi.getProfile(),
           customerApi.getMyBookings(),
-          customerApi.getMyVouchers('ISSUED')
+          customerApi.getMyVouchers(null, 'ISSUED'),
+          customerApi.getActiveServices()
         ]);
         
         // Add minimal defaults if profile is missing some fields
@@ -105,6 +107,24 @@ export default function CustomerDashboardPage() {
           setVouchersCount(vouchers.length);
         }
 
+        if (Array.isArray(servicesData) && servicesData.length > 0) {
+          const mainPackages = servicesData.filter(s => s.serviceType === 'PACKAGE');
+          const sortedServices = [...mainPackages].sort((a, b) => Number(a.price || 0) - Number(b.price || 0));
+          setRecommendedServices(sortedServices.slice(0, 3).map(s => ({
+            id: s.serviceId || s.id,
+            title: s.serviceName || s.name,
+            price: s.price || 0,
+            description: s.description || 'Dịch vụ chăm sóc xe chuyên nghiệp.',
+            tag: s.tagLabel || s.tag || 'PHỔ BIẾN'
+          })));
+        } else {
+          setRecommendedServices([
+            { id: 1, title: "Rửa xe bọt tuyết Siêu Sạch (Basic)", price: 50000, description: "Rửa sườn, xịt gầm, làm sạch bánh xe và thổi khô gas-đầy đủ.", tag: "PHỔ BIẾN" },
+            { id: 2, title: "Phủ bóng Wax bóng bảo vệ sơn (Premium)", price: 90000, description: "Rửa xe cao cấp kết hợp phủ sáp siêu bóng bảo vệ dàn nhựa xe ga.", tag: "ƯU ĐÃI VIP" },
+            { id: 3, title: "Dọn rửa Chi tiết Côn tay / PKL (Deluxe)", price: 150000, description: "Tẩy ố lazang, vệ sinh sên đĩa xích, dưỡng bóng dàn áo xe phân khối lớn.", tag: "CHUYÊN SÂU" }
+          ]);
+        }
+
       } catch (err) {
         console.error("Lỗi đọc dữ liệu dashboard:", err);
       } finally {
@@ -114,31 +134,6 @@ export default function CustomerDashboardPage() {
     
     fetchDashboardData();
   }, []);
-
-  // Gợi ý dịch vụ dọn xe máy thực tế tại Việt Nam
-  const recommendedServices = [
-    {
-      id: 1,
-      title: "Rửa xe bọt tuyết Siêu Sạch (Basic)",
-      price: 50000,
-      description: "Rửa sườn, xịt gầm, làm sạch bánh xe và thổi khô gas-đầy đủ.",
-      tag: "PHỔ BIẾN"
-    },
-    {
-      id: 2,
-      title: "Phủ bóng Wax bóng bảo vệ sơn (Premium)",
-      price: 90000,
-      description: "Rửa xe cao cấp kết hợp phủ sáp siêu bóng bảo vệ dàn nhựa xe ga.",
-      tag: "ƯU ĐÃI VIP"
-    },
-    {
-      id: 3,
-      title: "Dọn rửa Chi tiết Côn tay / PKL (Deluxe)",
-      price: 150000,
-      description: "Tẩy ố lazang, vệ sinh sên đĩa xích, dưỡng bóng dàn áo xe phân khối lớn.",
-      tag: "CHUYÊN SÂU"
-    }
-  ];
 
   return (
     <div className="space-y-8 pb-10">
@@ -289,7 +284,7 @@ export default function CustomerDashboardPage() {
                     {service.tag}
                   </span>
                   <span className="font-mono font-extrabold text-blue-600 text-base">
-                    {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(service.price)}
+                    {Number(service.price || 0).toLocaleString('vi-VN')} đ
                   </span>
                 </div>
                 <h4 className="font-bold text-slate-800 text-sm leading-tight group-hover:text-blue-600 transition-colors">{service.title}</h4>
