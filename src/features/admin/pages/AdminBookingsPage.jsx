@@ -622,8 +622,10 @@ const getAllBookings = () => {
       status: (() => {
         const s = String(b.status || '').toUpperCase();
         if (s === 'PENDING') return 'Pending';
+        if (s === 'CONFIRMED') return 'Confirmed';
+        if (s === 'IN_PROGRESS') return 'In_progress';
         if (s === 'COMPLETED') return 'Completed';
-        if (s === 'CANCELED' || s === 'CANCELLED') return 'Canceled';
+        if (s === 'CANCELED' || s === 'CANCELLED' || s.startsWith('CANCEL')) return 'Canceled';
         return b.status || 'Pending';
       })(),
       custId: b.customerId || ''
@@ -988,7 +990,7 @@ const allBookingsMapped = getAllBookings().map(b => {
   // Giữ nguyên phần logic lọc theo tab phía dưới của bạn
   const statusUpper = String(b.status || '').toUpperCase();
   if (activeMainTab === 'queue') {
-    if (statusUpper !== 'PENDING') return false;
+    if (statusUpper !== 'PENDING' && statusUpper !== 'CONFIRMED' && statusUpper !== 'IN_PROGRESS') return false;
   } else {
     if (statusUpper !== 'COMPLETED' && statusUpper !== 'CANCELED' && statusUpper !== 'CANCELLED_NO_SHOW') return false;
     if (historySubFilter === 'Completed' && statusUpper !== 'COMPLETED') return false;
@@ -1078,7 +1080,7 @@ const allBookingsMapped = getAllBookings().map(b => {
                   }`}
                 >
                   <ClipboardList className="w-4.5 h-4.5" />
-                  Hàng chờ Vận hành ({bookingsForDate.filter(b => b.status === 'Pending').length})
+                  Hàng chờ Vận hành ({bookingsForDate.filter(b => b.status === 'Pending' || b.status === 'Confirmed' || b.status === 'In_progress').length})
                 </button>
                 <button
                   onClick={() => { setActiveMainTab('history'); setSelectedTimeFilter(''); }}
@@ -1161,12 +1163,14 @@ const allBookingsMapped = getAllBookings().map(b => {
                       let statusBadge = '';
                       if (b.status === 'Completed') {
                         statusBadge = 'bg-emerald-50 text-emerald-600 border-emerald-100';
-                      } else if (b.status === 'Paid') {
+                      } else if (b.status === 'In_progress') {
                         statusBadge = 'bg-blue-50 text-blue-600 border-blue-100';
+                      } else if (b.status === 'Confirmed') {
+                        statusBadge = 'bg-indigo-50 text-indigo-650 border-indigo-100';
                       } else if (b.status === 'Pending') {
                         statusBadge = 'bg-amber-50 text-amber-600 border-amber-100';
                       } else {
-                        statusBadge = 'bg-slate-100 text-slate-500 border-slate-200';
+                        statusBadge = 'bg-rose-50 text-rose-600 border-rose-100';
                       }
 
                       return (
@@ -1236,7 +1240,8 @@ const allBookingsMapped = getAllBookings().map(b => {
                             <div className="flex items-center justify-center gap-2">
                               <span className={`inline-block px-2.5 py-1 rounded-full border text-[9px] font-bold ${statusBadge}`}>
                                 {b.status === 'Pending' ? 'Chờ Check-in' :
-                                 b.status === 'Paid' ? 'Đang rửa' :
+                                 b.status === 'Confirmed' ? 'Đã xác nhận' :
+                                 b.status === 'In_progress' ? 'Đang rửa' :
                                  b.status === 'Completed' ? 'Đã xong' : 'Đã hủy'}
                               </span>
                               <button 
@@ -1468,8 +1473,8 @@ const allBookingsMapped = getAllBookings().map(b => {
                     Thanh toán & Trạng thái dịch vụ
                   </h3>
 
-                  {/* Flow 1: Pending (Checkout) */}
-                  {selectedBooking.status === 'Pending' && (
+                  {/* Flow 1: Pending, Confirmed, In_progress (Checkout) */}
+                  {(selectedBooking.status === 'Pending' || selectedBooking.status === 'Confirmed' || selectedBooking.status === 'In_progress') && (
                     <div className="space-y-4 text-xs">
                       
                       {/* Áp dụng Voucher giảm giá tại quầy */}
@@ -1639,7 +1644,7 @@ const allBookingsMapped = getAllBookings().map(b => {
                 </div>
 
                 {/* Cancel trigger */}
-                {selectedBooking.status === 'Pending' && (
+                {(selectedBooking.status === 'Pending' || selectedBooking.status === 'Confirmed') && (
                   <div className="border border-rose-150 p-4 rounded-2xl bg-rose-50/10 space-y-3">
                     <div className="text-xs text-rose-700 font-bold flex items-center gap-1">
                       <AlertTriangle className="w-4.5 h-4.5 text-rose-600" />

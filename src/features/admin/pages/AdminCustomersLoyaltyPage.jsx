@@ -165,17 +165,45 @@ export default function AdminCustomersLoyaltyPage() {
         }));
         setSelectedCustBookings(filtered);
 
-        // 3. Fallback points log
-        const mockLog = filtered.map(b => {
-          const isCompleted = b.status === 'COMPLETED';
-          return {
-            date: b.date || 'Gần đây',
-            type: isCompleted ? 'EARN' : 'PENDING',
-            amount: Math.round(b.amount / 10000),
-            reason: isCompleted ? `Tích điểm tự động đơn ${b.id}` : `Điểm chờ tích đơn ${b.id}`
-          };
-        });
-        setSelectedCustPointsLog(mockLog);
+        // 3. Fetch customer points log from real DB API
+        try {
+          const realPoints = await loyaltyApi.getCustomerPointHistory(selectedCustomerId);
+          const formattedPoints = realPoints.map(tx => {
+            const isPlus = tx.points > 0;
+            const typeVal = tx.activityType === 'EARNED' ? 'EARN' : 
+                            tx.activityType === 'REDEEMED' ? 'REDEEM' : 'EXPIRY';
+            
+            const defaultDesc = tx.bookingCode
+              ? (isPlus ? `Tích điểm tự động đơn #${tx.bookingCode}` : `Trừ điểm thanh toán đơn #${tx.bookingCode}`)
+              : (tx.activityType === 'REDEEMED' ? 'Đổi quà tặng / Voucher' : tx.activityType === 'EXPIRY' ? 'Thu hồi điểm quá hạn' : 'Điều chỉnh điểm');
+
+            return {
+              date: new Date(tx.createdAt).toLocaleDateString('vi-VN', {
+                hour: '2-digit',
+                minute: '2-digit',
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric'
+              }),
+              type: typeVal,
+              amount: Math.abs(tx.points),
+              reason: defaultDesc
+            };
+          });
+          setSelectedCustPointsLog(formattedPoints);
+        } catch (err) {
+          console.warn('Failed to load real customer points log, fallback to mock:', err.message);
+          const mockLog = filtered.map(b => {
+            const isCompleted = b.status === 'COMPLETED';
+            return {
+              date: b.date || 'Gần đây',
+              type: isCompleted ? 'EARN' : 'PENDING',
+              amount: Math.round(b.amount / 10000),
+              reason: isCompleted ? `Tích điểm tự động đơn ${b.id}` : `Điểm chờ tích đơn ${b.id}`
+            };
+          });
+          setSelectedCustPointsLog(mockLog);
+        }
       } catch (err) {
         console.error('Failed to load customer profile details:', err);
       } finally {

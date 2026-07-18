@@ -22,6 +22,9 @@ export default function CustomerRewardsPage() {
   // 2. Danh sách Ví Voucher cá nhân (My Voucher Wallet)
   const [myVouchers, setMyVouchers] = useState([]);
 
+  // 3. Danh sách Lịch sử biến động điểm
+  const [pointHistory, setPointHistory] = useState([]);
+
   const loadProfileData = async () => {
     try {
       const data = await customerApi.getProfile();
@@ -34,11 +37,22 @@ export default function CustomerRewardsPage() {
       });
       loadShopData(cId);
       loadWalletData(cId);
+      loadPointHistory();
     } catch (err) {
       console.error('Failed to load profile data:', err);
       // Fallback
       loadShopData(1);
       loadWalletData(1);
+      loadPointHistory();
+    }
+  };
+
+  const loadPointHistory = async () => {
+    try {
+      const data = await customerApi.getMyPointHistory();
+      setPointHistory(data);
+    } catch (err) {
+      console.error('Failed to load point history:', err);
     }
   };
 
@@ -197,11 +211,11 @@ export default function CustomerRewardsPage() {
         </div>
       </div>
 
-      {/* CHUYỂN ĐỔI TAB: REWARDS SHOP VS MY VOUCHER WALLET */}
-      <div className="flex bg-slate-100 p-1.5 rounded-2xl max-w-md">
+      {/* CHUYỂN ĐỔI TAB: REWARDS SHOP VS MY VOUCHER WALLET VS POINTS HISTORY */}
+      <div className="flex bg-slate-100 p-1.5 rounded-2xl max-w-lg overflow-x-auto no-scrollbar">
         <button
           onClick={() => setActiveTab('shop')}
-          className={`flex-1 flex items-center justify-center gap-2.5 py-3.5 px-4 font-black text-xs rounded-xl transition-all uppercase cursor-pointer ${
+          className={`flex-1 flex items-center justify-center gap-2.5 py-3.5 px-4 font-black text-xs rounded-xl transition-all uppercase cursor-pointer whitespace-nowrap ${
             activeTab === 'shop'
               ? 'bg-white text-indigo-700 shadow-md shadow-indigo-500/5'
               : 'text-slate-500 hover:text-slate-800'
@@ -211,7 +225,7 @@ export default function CustomerRewardsPage() {
         </button>
         <button
           onClick={() => setActiveTab('wallet')}
-          className={`flex-1 flex items-center justify-center gap-2.5 py-3.5 px-4 font-black text-xs rounded-xl transition-all uppercase cursor-pointer ${
+          className={`flex-1 flex items-center justify-center gap-2.5 py-3.5 px-4 font-black text-xs rounded-xl transition-all uppercase cursor-pointer whitespace-nowrap ${
             activeTab === 'wallet'
               ? 'bg-white text-indigo-700 shadow-md shadow-indigo-500/5'
               : 'text-slate-500 hover:text-slate-800'
@@ -219,12 +233,22 @@ export default function CustomerRewardsPage() {
         >
           <Wallet size={15} /> Ví của tôi ({myVouchers.filter(v => !v.isExpired).length})
         </button>
+        <button
+          onClick={() => setActiveTab('history')}
+          className={`flex-1 flex items-center justify-center gap-2.5 py-3.5 px-4 font-black text-xs rounded-xl transition-all uppercase cursor-pointer whitespace-nowrap ${
+            activeTab === 'history'
+              ? 'bg-white text-indigo-700 shadow-md shadow-indigo-500/5'
+              : 'text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <Clock size={15} /> Lịch sử điểm ({pointHistory.length})
+        </button>
       </div>
 
       {/* NỘI DUNG CHÍNH */}
       <div className="space-y-8">
         
-        {activeTab === 'shop' ? (
+        {activeTab === 'shop' && (
           /* ========================================================================================= */
           /* TAB 1: SHOP PTS (CỬA HÀNG ĐỔI ĐIỂM THƯỞNG) */
           /* ========================================================================================= */
@@ -270,7 +294,9 @@ export default function CustomerRewardsPage() {
             </div>
 
           </div>
-        ) : (
+        )}
+
+        {activeTab === 'wallet' && (
           /* ========================================================================================= */
           /* TAB 2: VÍ VOUCHER CỦA TÔI */
           /* ========================================================================================= */
@@ -303,6 +329,98 @@ export default function CustomerRewardsPage() {
                 >
                   Đến cửa hàng đổi điểm
                 </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'history' && (
+          /* ========================================================================================= */
+          /* TAB 3: LỊCH SỬ BIẾN ĐỘNG ĐIỂM (SAO KÊ) */
+          /* ========================================================================================= */
+          <div className="space-y-6">
+            <div className="flex justify-between items-center pb-2 border-b border-slate-100">
+              <h3 className="font-extrabold text-slate-800 text-base flex items-center gap-2">
+                <Clock className="w-4 h-4 text-indigo-600" /> Sao kê lịch sử giao dịch điểm
+              </h3>
+              <p className="text-xs text-slate-400 font-semibold">Tra cứu mọi biến động cộng/trừ điểm tích lũy của tài khoản.</p>
+            </div>
+
+            {pointHistory.length > 0 ? (
+              <div className="bg-white border border-slate-200/80 rounded-2xl overflow-hidden shadow-sm">
+                <div className="divide-y divide-slate-100">
+                  {pointHistory.map((tx, idx) => {
+                    const isPlus = tx.points > 0;
+                    
+                    // Format type name and colors
+                    let typeText = 'Cộng điểm';
+                    let typeColor = 'text-emerald-600 bg-emerald-50 border-emerald-100';
+                    let descText = 'Tích lũy từ đơn dọn rửa xe';
+
+                    if (tx.activityType === 'REDEEMED') {
+                      typeText = 'Tiêu điểm';
+                      typeColor = 'text-blue-600 bg-blue-50 border-blue-100';
+                      descText = 'Đổi mã giảm giá / Voucher ưu đãi';
+                    } else if (tx.activityType === 'EXPIRY') {
+                      typeText = 'Thu hồi';
+                      typeColor = 'text-rose-600 bg-rose-50 border-rose-100';
+                      descText = 'Điểm tích lũy hết hạn sử dụng (12 tháng)';
+                    } else if (tx.activityType === 'PENALTY') {
+                      typeText = 'Phạt điểm';
+                      typeColor = 'text-amber-700 bg-amber-50 border-amber-100';
+                      descText = 'Trừ điểm vi phạm (Huỷ hẹn muộn / No-show)';
+                    }
+
+                    return (
+                      <div key={tx.pointTransactionId || idx} className="p-4 flex items-center justify-between hover:bg-slate-50/50 transition-colors">
+                        <div className="flex items-center gap-4 text-left">
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${
+                            isPlus ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-slate-50 text-slate-500 border-slate-200'
+                          }`}>
+                            {isPlus ? <Coins className="w-5 h-5" /> : <Tag className="w-5 h-5" />}
+                          </div>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-extrabold text-slate-800 text-xs sm:text-sm">
+                                {tx.bookingCode ? `Đơn hàng #${tx.bookingCode}` : typeText}
+                              </span>
+                              <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider border ${typeColor}`}>
+                                {tx.activityType}
+                              </span>
+                            </div>
+                            <p className="text-xs text-slate-400 font-semibold mt-0.5">
+                              {tx.bookingCode ? `${descText} #${tx.bookingCode}` : descText}
+                            </p>
+                            <span className="text-[10px] text-slate-400 font-medium block mt-1">
+                              {new Date(tx.createdAt).toLocaleDateString('vi-VN', {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: 'numeric'
+                              })}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="text-right shrink-0">
+                          <span className={`text-sm sm:text-base font-black font-mono ${isPlus ? 'text-emerald-600' : 'text-slate-600'}`}>
+                            {isPlus ? `+${tx.points}` : tx.points}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-bold block">Pts</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-16 text-slate-400 text-sm bg-white border border-slate-200 rounded-[24px] flex flex-col items-center justify-center gap-3">
+                <Clock className="w-10 h-10 text-slate-300" />
+                <div className="space-y-1">
+                  <p className="font-bold text-slate-600">Chưa phát sinh giao dịch điểm</p>
+                  <p className="text-xs text-slate-400">Lịch sử tích lũy và tiêu điểm của bạn sẽ xuất hiện tại đây.</p>
+                </div>
               </div>
             )}
           </div>

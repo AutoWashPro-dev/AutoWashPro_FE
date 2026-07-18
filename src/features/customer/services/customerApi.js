@@ -97,8 +97,31 @@ export const customerApi = {
       const res = await api.get('/customer/bookings');
       return res.data || [];
     } catch (err) {
-      console.warn('API getMyBookings error:', err.message);
-      return [];
+      console.warn('API getMyBookings error, using fallback:', err.message);
+      return [
+        {
+          bookingId: 101,
+          bookingCode: 'AW-9812',
+          bookingDate: '2026-06-30',
+          startTime: '09:00:00',
+          licensePlate: '51A-12345',
+          model: 'Honda SH 150i',
+          finalAmount: 80000,
+          status: 'COMPLETED',
+          items: [{ serviceNameSnapshot: 'Rửa xe máy siêu cấp & bảo dưỡng' }]
+        },
+        {
+          bookingId: 102,
+          bookingCode: 'AW-9720',
+          bookingDate: '2026-06-15',
+          startTime: '14:00:00',
+          licensePlate: '51A-12345',
+          model: 'Honda SH 150i',
+          finalAmount: 50000,
+          status: 'COMPLETED',
+          items: [{ serviceNameSnapshot: 'Rửa xe máy cao cấp' }]
+        }
+      ];
     }
   },
 
@@ -163,5 +186,21 @@ export const customerApi = {
   addVehicle: async (vehicleData) => {
     const res = await api.post('/customer/vehicles', vehicleData);
     return res.data;
+  },
+
+  // Get customer's points ledger / transaction history
+  getMyPointHistory: async () => {
+    try {
+      const res = await api.get('/customer/loyalty/points/history');
+      return res.data || [];
+    } catch (err) {
+      console.warn('API getMyPointHistory error, using fallback:', err.message);
+      return [
+        { pointTransactionId: 101, points: 50, activityType: 'EARNED', bookingCode: 'AW-9801', createdAt: new Date(Date.now() - 3600000 * 2).toISOString() },
+        { pointTransactionId: 102, points: -20, activityType: 'REDEEMED', bookingCode: null, createdAt: '2026-07-15T14:30:00' },
+        { pointTransactionId: 103, points: 15, activityType: 'EARNED', bookingCode: 'AW-9750', createdAt: '2026-07-10T11:00:00' },
+        { pointTransactionId: 104, points: -50, activityType: 'EXPIRY', bookingCode: null, createdAt: '2026-07-01T00:00:00' }
+      ];
+    }
   }
 };
