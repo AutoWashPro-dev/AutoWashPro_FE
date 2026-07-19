@@ -27,7 +27,9 @@ import {
   ToggleRight,
   RefreshCw,
   Edit,
-  Trash2
+  Trash2,
+  Lock,
+  Unlock
 } from 'lucide-react';
 import { loyaltyApi } from '../services/loyaltyApi';
 import { promotionApi } from '../services/promotionApi';
@@ -71,6 +73,13 @@ export default function AdminCustomersLoyaltyPage() {
       setActiveTab('crm');
     }
   }, [activeTab, isManager]);
+
+  // Check permission for status change
+  const userStr = localStorage.getItem('autowash_user');
+  const userObj = userStr ? JSON.parse(userStr) : null;
+  const userPermissions = userObj?.permissions || [];
+  const hasManageStatusPermission = userPermissions.includes('MANAGE_CUSTOMER_STATUS') || 
+                                    userObj?.roles?.includes('ROLE_ADMIN');
 
   // Tier Levels weights for cumulative filters (Platinum > Gold > Silver > Member)
   const tierLevels = {
@@ -135,10 +144,40 @@ export default function AdminCustomersLoyaltyPage() {
     try {
       const data = await loyaltyApi.getCustomers();
       if (data) {
-        setCustomers(data);
+        // Sắp xếp tăng dần theo customerId (C-01, C-02...)
+        const sortedData = [...data].sort((a, b) => {
+          const idA = Number(a.customerId) || 0;
+          const idB = Number(b.customerId) || 0;
+          return idA - idB;
+        });
+        setCustomers(sortedData);
       }
     } catch (err) {
       console.error('Failed to load customers from API:', err);
+    }
+  };
+
+  const handleToggleCustomerStatus = async (customer) => {
+    if (!hasManageStatusPermission) {
+      alert('Bạn không có quyền MANAGE_CUSTOMER_STATUS để thực hiện hành động này!');
+      return;
+    }
+
+    const isSuspended = customer.status === 'INACTIVE' || customer.status === 'Suspended';
+    const nextStatus = isSuspended ? 'ACTIVE' : 'INACTIVE';
+    const confirmMsg = isSuspended
+      ? `Bạn có chắc muốn khôi phục và mở khóa tài khoản cho khách hàng ${customer.name}?`
+      : `Bạn có chắc muốn khóa tạm thời tài khoản của khách hàng ${customer.name}?`;
+    
+    if (!window.confirm(confirmMsg)) return;
+
+    try {
+      await loyaltyApi.updateCustomerStatus(customer.customerId, nextStatus);
+      alert(`Đã cập nhật trạng thái khách hàng thành công!`);
+      await loadCustomersFromApi();
+    } catch (err) {
+      console.error('Failed to toggle customer status:', err);
+      alert('Cập nhật trạng thái thất bại: ' + (err.response?.data?.message || err.message));
     }
   };
 
@@ -162,9 +201,9 @@ export default function AdminCustomersLoyaltyPage() {
     loadFromApi();
   }, []);
 
-  // 3. INTERACTIVE STATES
   // Search CRM
   const [crmSearch, setCrmSearch] = useState('');
+  const [crmStatusFilter, setCrmStatusFilter] = useState('ACTIVE'); // Default: 'ACTIVE' (Tách biệt hoàn toàn các acc inactive)
   const [selectedCustomerId, setSelectedCustomerId] = useState(null);
   const [profileModalOpen, setProfileModalOpen] = useState(false);
   const [profileActiveTab, setProfileActiveTab] = useState('bookings');
@@ -584,11 +623,33 @@ export default function AdminCustomersLoyaltyPage() {
     }
   };
 
-  // Filter CRM Customers
-  const filteredCustomers = customers.filter(c => 
-    c.name.toLowerCase().includes(crmSearch.toLowerCase()) ||
-    c.phone.includes(crmSearch)
-  );
+  // Filter & Sort CRM Customers (Active first, Inactive pushed to bottom)
+  const filteredCustomers = customers
+    .filter(c => {
+      const matchesSearch = c.name.toLowerCase().includes(crmSearch.toLowerCase()) || c.phone.includes(crmSearch);
+      if (!matchesSearch) return false;
+
+      if (crmStatusFilter === 'ACTIVE') {
+        return c.status !== 'INACTIVE' && c.status !== 'Suspended';
+      }
+      if (crmStatusFilter === 'INACTIVE') {
+        return c.status === 'INACTIVE' || c.status === 'Suspended';
+      }
+      return true;
+    })
+    .sort((a, b) => {
+      const isInactiveA = a.status === 'INACTIVE' || a.status === 'Suspended';
+      const isInactiveB = b.status === 'INACTIVE' || b.status === 'Suspended';
+
+      // Ưu tiên đẩy các tài khoản bị Khóa/Hết hạn xuống cuối danh sách
+      if (isInactiveA && !isInactiveB) return 1;
+      if (!isInactiveA && isInactiveB) return -1;
+
+      // Sắp xếp thứ tự ID tăng dần (C-01, C-02, C-03...)
+      const idA = Number(a.customerId) || 0;
+      const idB = Number(b.customerId) || 0;
+      return idA - idB;
+    });
 
   // Get current active profile customer
   const activeCustomer = customers.find(c => c.customerId === selectedCustomerId) || null;
@@ -662,17 +723,46 @@ export default function AdminCustomersLoyaltyPage() {
       {activeTab === 'crm' && (
         <div className="flex-1 flex flex-col min-h-0 space-y-4">
           {/* Search Header */}
-          <div className="flex justify-between items-center shrink-0">
-            <div className="relative w-full sm:w-80">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Tìm khách hàng, số điện thoại..."
-                value={crmSearch}
-                onChange={e => setCrmSearch(e.target.value)}
-                className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200/80 rounded-xl text-xs text-slate-700 placeholder:text-slate-455 focus:outline-none focus:ring-2 focus:ring-indigo-650/10 focus:border-indigo-650 shadow-sm"
-              />
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 shrink-0">
+            <div className="flex items-center gap-3 w-full sm:w-auto flex-wrap">
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Tìm khách hàng, số điện thoại..."
+                  value={crmSearch}
+                  onChange={e => setCrmSearch(e.target.value)}
+                  className="w-full pl-9 pr-3 py-2 bg-white border border-slate-200/80 rounded-xl text-xs text-slate-700 placeholder:text-slate-455 focus:outline-none focus:ring-2 focus:ring-indigo-650/10 focus:border-indigo-650 shadow-sm"
+                />
+              </div>
+
+              {/* Status Filters */}
+              <div className="flex border border-slate-200/60 bg-slate-50 p-0.5 rounded-xl text-[10px] font-bold shadow-inner">
+                {[
+                  { key: 'ACTIVE', label: 'Đang hoạt động' },
+                  { key: 'INACTIVE', label: 'Tạm khóa' },
+                  { key: 'ALL', label: 'Tất cả' }
+                ].map(f => (
+                  <button
+                    key={f.key}
+                    type="button"
+                    onClick={() => setCrmStatusFilter(f.key)}
+                    className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                      crmStatusFilter === f.key
+                        ? 'bg-white text-slate-900 shadow-sm border border-slate-200/20'
+                        : 'text-slate-400 hover:text-slate-655'
+                    }`}
+                  >
+                    {f.label} ({
+                      f.key === 'ALL' ? customers.length :
+                      f.key === 'ACTIVE' ? customers.filter(c => c.status !== 'INACTIVE' && c.status !== 'Suspended').length :
+                      customers.filter(c => c.status === 'INACTIVE' || c.status === 'Suspended').length
+                    })
+                  </button>
+                ))}
+              </div>
             </div>
+
             <div className="text-[10px] text-slate-400 font-bold bg-white px-3 py-1.5 border border-slate-200/50 rounded-xl">
               Tổng số thành viên: {customers.length} khách hàng
             </div>
@@ -697,7 +787,9 @@ export default function AdminCustomersLoyaltyPage() {
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-xs">
                   {filteredCustomers.map(c => (
-                    <tr key={c.id} className="hover:bg-slate-50/50 transition-colors">
+                    <tr key={c.id} className={`hover:bg-slate-50/50 transition-colors ${
+                      c.status === 'INACTIVE' || c.status === 'Suspended' ? 'bg-slate-50/40 opacity-75' : ''
+                    }`}>
                       <td className="py-3.5 px-5 font-black text-slate-800">{c.id}</td>
                       <td className="py-3.5 px-4 font-bold text-slate-850">
                         <div className="flex items-center gap-2">
@@ -728,9 +820,9 @@ export default function AdminCustomersLoyaltyPage() {
                       </td>
                       <td className="py-3.5 px-4 text-center">
                         <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${
-                          c.status === 'Suspended' ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'
+                          c.status === 'INACTIVE' || c.status === 'Suspended' ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'
                         }`}>
-                          {c.status === 'Suspended' ? 'Tạm khóa (Hết hạn)' : 'Đang hoạt động'}
+                          {c.status === 'INACTIVE' || c.status === 'Suspended' ? 'Tạm khóa (Hết hạn)' : 'Đang hoạt động'}
                         </span>
                       </td>
                       <td className="py-3.5 px-5 text-center">
@@ -1070,21 +1162,53 @@ export default function AdminCustomersLoyaltyPage() {
               <div className="flex items-center gap-3.5">
                 <img src={activeCustomer.avatar} alt="Customer" className="w-14 h-14 rounded-full object-cover ring-2 ring-indigo-50" />
                 <div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="font-extrabold text-base text-slate-800">{activeCustomer.name}</h3>
                     <span className="px-2.5 py-0.5 bg-[#57f287] text-slate-800 text-[10px] font-black rounded-lg">
                       Hạng {activeCustomer.tier}
+                    </span>
+                    <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${
+                      activeCustomer.status === 'INACTIVE' || activeCustomer.status === 'Suspended' ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'
+                    }`}>
+                      {activeCustomer.status === 'INACTIVE' || activeCustomer.status === 'Suspended' ? 'Tạm khóa (Hết hạn)' : 'Đang hoạt động'}
                     </span>
                   </div>
                   <p className="text-xs text-slate-400 font-bold mt-0.5">SĐT: {activeCustomer.phone} • ID: {activeCustomer.id}</p>
                 </div>
               </div>
-              <button 
-                onClick={() => setProfileModalOpen(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-55 rounded-lg"
-              >
-                <X className="w-5 h-5" />
-              </button>
+
+              {/* Controls on the right: Toggle switch + Close button */}
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2.5 bg-slate-50 border border-slate-200/60 px-3.5 py-1.5 rounded-xl shadow-sm">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Tài khoản:</span>
+                  <button
+                    disabled={!hasManageStatusPermission}
+                    onClick={() => handleToggleCustomerStatus(activeCustomer)}
+                    className={`relative inline-flex h-5.5 w-10 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-250 ease-in-out focus:outline-none shadow-inner ${
+                      activeCustomer.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-slate-300'
+                    } ${!hasManageStatusPermission ? 'opacity-50 cursor-not-allowed' : ''}`}
+                    title={!hasManageStatusPermission ? 'Bạn không có quyền quản lý trạng thái khách hàng' : ''}
+                  >
+                    <span
+                      className={`pointer-events-none inline-block h-4.5 w-4.5 transform rounded-full bg-white shadow ring-0 transition duration-250 ease-in-out ${
+                        activeCustomer.status === 'ACTIVE' ? 'translate-x-4.5' : 'translate-x-0'
+                      }`}
+                    />
+                  </button>
+                  <span className={`text-[10px] font-black uppercase tracking-wide transition-colors ${
+                    activeCustomer.status === 'ACTIVE' ? 'text-emerald-600' : 'text-slate-500'
+                  }`}>
+                    {activeCustomer.status === 'ACTIVE' ? 'Hoạt động' : 'Đang khóa'}
+                  </span>
+                </div>
+
+                <button 
+                  onClick={() => setProfileModalOpen(false)}
+                  className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-50 rounded-xl transition-all cursor-pointer border border-transparent hover:border-slate-200"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             {/* Profile Navigation tabs */}
