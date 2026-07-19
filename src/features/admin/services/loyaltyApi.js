@@ -84,6 +84,22 @@ export const loyaltyApi = {
       return items.map((item, idx) => {
         const custId = item.customerId || item.id;
         const codeNum = custId ? String(custId).padStart(2, '0') : String(idx + 1).padStart(2, '0');
+        
+        // Calculate days since last wash or signup
+        let days = 0;
+        const lastWash = item.lastCompletedBookingAt;
+        if (lastWash) {
+          const washDate = new Date(lastWash);
+          const now = new Date();
+          const diffMs = now - washDate;
+          days = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
+        } else if (item.createdAt) {
+          const regDate = new Date(item.createdAt);
+          const now = new Date();
+          const diffMs = now - regDate;
+          days = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
+        }
+
         return {
           ...item,
           id: item.customerCode || `C-${codeNum}`,
@@ -93,9 +109,9 @@ export const loyaltyApi = {
           tier: item.tierName || item.tier || 'Member',
           points: item.loyaltyPoints || item.points || 0,
           totalSpend: item.totalSpending || item.totalSpend || 0,
-          visits: item.totalVisits || item.visits || 1,
+          visits: item.visitCount !== undefined ? item.visitCount : (item.totalVisits || item.visits || 0),
           avatar: item.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=100',
-          lastVisitDays: item.lastVisitDays || 5,
+          lastVisitDays: days,
           status: item.status || 'Active'
         };
       });
@@ -107,6 +123,19 @@ export const loyaltyApi = {
         { id: 'C-01', customerId: 1, name: 'Nguyễn Minh Anh', phone: '0912***456', tier: 'Platinum', points: 1240, totalSpend: 15400000, visits: 24, avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=100', lastVisitDays: 5, status: 'Active' },
         { id: 'C-02', customerId: 2, name: 'Lê Hoàng Long', phone: '0903***888', tier: 'Silver', points: 320, totalSpend: 3800000, visits: 8, avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=100', lastVisitDays: 14, status: 'Active' }
       ];
+    }
+  },
+
+  /**
+   * Cập nhật trạng thái khách hàng (ACTIVE / INACTIVE)
+   */
+  updateCustomerStatus: async (customerId, status) => {
+    try {
+      const res = await api.patch(`/admin/customers/${customerId}/status`, { status });
+      return res.data;
+    } catch (err) {
+      console.error('API updateCustomerStatus failed:', err.message);
+      throw err;
     }
   },
 
@@ -136,6 +165,107 @@ export const loyaltyApi = {
         ];
       }
       return [];
+    }
+  },
+
+  /**
+   * Lấy cấu hình gộp (Loyalty Config & Tiers)
+   */
+  getLoyaltySettings: async () => {
+    try {
+      const res = await api.get('/admin/loyalty/settings');
+      const data = res.data || {};
+      const mappedTiers = (data.tiers || []).map(item => ({
+        ...item,
+        key: item.tierName || item.name || item.key,
+        name: item.tierName || item.name || item.key,
+        minSpend: item.minSpendVnd || item.minSpend || 0,
+        pointMultiplier: item.pointsMultiplier || item.pointMultiplier || 1.0,
+        bookingWindow: item.bookingWindowDays || item.bookingWindow || 7,
+        isActive: item.isActive !== undefined ? item.isActive : true
+      }));
+      return {
+        config: data.config || {},
+        tiers: mappedTiers
+      };
+    } catch (err) {
+      console.warn('API /admin/loyalty/settings offline, using fallback:', err.message);
+      return {
+        config: {
+          basePointRate: 10000,
+          basePoints: 1,
+          roundDown: true,
+          pointValidityMonths: 12,
+          inactivityDowngradeMonths: 6,
+          inactivityLockoutMonths: 12
+        },
+        tiers: [
+          { key: 'Member', name: 'Member', minSpend: 0, pointMultiplier: 1.0, bookingWindow: 7, isActive: true },
+          { key: 'Silver', name: 'Silver', minSpend: 1000000, pointMultiplier: 1.2, bookingWindow: 7, isActive: true },
+          { key: 'Gold', name: 'Gold', minSpend: 5000000, pointMultiplier: 1.5, bookingWindow: 14, isActive: true },
+          { key: 'Platinum', name: 'Platinum', minSpend: 10000000, pointMultiplier: 2.0, bookingWindow: 14, isActive: true }
+        ]
+      };
+    }
+  },
+
+  /**
+   * Cập nhật cấu hình chung Loyalty
+   */
+  updateLoyaltyConfig: async (configData) => {
+    try {
+      const payload = {
+        basePointRate: Number(configData.basePointRate),
+        basePoints: Number(configData.basePoints || 1),
+        roundDown: Boolean(configData.roundDown),
+        pointValidityMonths: Number(configData.pointValidityMonths),
+        inactivityDowngradeMonths: Number(configData.inactivityDowngradeMonths),
+        inactivityLockoutMonths: Number(configData.inactivityLockoutMonths)
+      };
+      const res = await api.put('/admin/loyalty/config', payload);
+      return res.data;
+    } catch (err) {
+      console.warn('API /admin/loyalty/config offline, using fallback:', err.message);
+      return configData;
+    }
+  },
+
+  /**
+   * Kích hoạt chạy các job rà soát tự động từ backend
+   */
+  runSimulationJobs: async () => {
+    try {
+      const res = await api.post('/admin/loyalty/simulate/run-jobs');
+      return res.data;
+    } catch (err) {
+      console.warn('API /admin/loyalty/simulate/run-jobs error:', err.message);
+      throw err;
+    }
+  },
+
+  /**
+   * Giả lập khách hàng vắng mặt
+   */
+  simulateSetInactivity: async (customerId, months) => {
+    try {
+      const res = await api.post(`/admin/loyalty/simulate/set-inactivity?customerId=${customerId}&months=${months}`);
+      return res.data;
+    } catch (err) {
+      console.warn('API simulateSetInactivity error:', err.message);
+      throw err;
+    }
+  },
+
+  /**
+   * Giả lập tích lũy điểm quá hạn
+   */
+  simulateSetPointsExpired: async (customerId, months) => {
+    try {
+      const res = await api.post(`/admin/loyalty/simulate/set-points-expired?customerId=${customerId}&months=${months}`);
+      return res.data;
+    } catch (err) {
+      console.warn('API simulateSetPointsExpired error:', err.message);
+      throw err;
     }
   }
 };
