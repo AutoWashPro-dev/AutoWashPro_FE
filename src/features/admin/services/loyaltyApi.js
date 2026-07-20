@@ -55,15 +55,8 @@ export const loyaltyApi = {
         isActive: item.isActive !== undefined ? item.isActive : true
       }));
     } catch (err) {
-      console.warn('API /admin/loyalty/tiers offline or error, using localStorage fallback:', err.message);
-      const saved = localStorage.getItem('autowash_tiers');
-      if (saved) return JSON.parse(saved);
-      return [
-        { key: 'Member', name: 'Member', minSpend: 0, pointMultiplier: 1.0, bookingWindow: 7, isActive: true },
-        { key: 'Silver', name: 'Silver', minSpend: 1000000, pointMultiplier: 1.2, bookingWindow: 7, isActive: true },
-        { key: 'Gold', name: 'Gold', minSpend: 5000000, pointMultiplier: 1.5, bookingWindow: 14, isActive: true },
-        { key: 'Platinum', name: 'Platinum', minSpend: 10000000, pointMultiplier: 2.0, bookingWindow: 14, isActive: true }
-      ];
+      console.warn('API /admin/loyalty/tiers offline or error:', err.message);
+      return [];
     }
   },
 
@@ -135,13 +128,8 @@ export const loyaltyApi = {
         };
       });
     } catch (err) {
-      console.warn('API /admin/customers offline or error, using localStorage fallback:', err.message);
-      const saved = localStorage.getItem('autowash_customers');
-      if (saved) return JSON.parse(saved);
-      return [
-        { id: 'C-01', customerId: 1, name: 'Nguyễn Minh Anh', phone: '0912***456', tier: 'Platinum', points: 1240, totalSpend: 15400000, visits: 24, avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=100', lastVisitDays: 5, status: 'Active' },
-        { id: 'C-02', customerId: 2, name: 'Lê Hoàng Long', phone: '0903***888', tier: 'Silver', points: 320, totalSpend: 3800000, visits: 8, avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=100', lastVisitDays: 14, status: 'Active' }
-      ];
+      console.warn('API /admin/customers offline or error:', err.message);
+      return [];
     }
   },
 
@@ -166,23 +154,7 @@ export const loyaltyApi = {
       const res = await api.get(`/admin/customers/${customerId}/points/history`);
       return res.data || [];
     } catch (err) {
-      console.warn(`API getCustomerPointHistory for customer ${customerId} offline, using fallback:`, err.message);
-      // Fallback matching mock localStorage points log
-      if (Number(customerId) === 1) {
-        return [
-          { pointTransactionId: 101, points: 125, activityType: 'EARNED', bookingCode: 'AW-9812', createdAt: '2026-06-30T09:15:00' },
-          { pointTransactionId: 102, points: -200, activityType: 'REDEEMED', bookingCode: 'AW-9720', createdAt: '2026-06-15T14:02:00' },
-          { pointTransactionId: 103, points: 225, activityType: 'EARNED', bookingCode: 'AW-9643', createdAt: '2026-06-01T11:30:00' }
-        ];
-      } else if (Number(customerId) === 2) {
-        return [
-          { pointTransactionId: 201, points: 35, activityType: 'EARNED', bookingCode: 'AW-9650', createdAt: '2026-06-10T15:00:00' }
-        ];
-      } else if (Number(customerId) === 3) {
-        return [
-          { pointTransactionId: 301, points: 100, activityType: 'EARNED', bookingCode: 'AW-9805', createdAt: '2026-06-29T17:30:00' }
-        ];
-      }
+      console.warn(`API getCustomerPointHistory for customer ${customerId} offline:`, err.message);
       return [];
     }
   },
@@ -234,23 +206,8 @@ export const loyaltyApi = {
         tiers: mappedTiers
       };
     } catch (err) {
-      console.warn('API /admin/loyalty/settings offline, using fallback:', err.message);
-      return {
-        config: {
-          basePointRate: 10000,
-          basePoints: 1,
-          roundDown: true,
-          pointValidityMonths: 12,
-          inactivityDowngradeMonths: 6,
-          inactivityLockoutMonths: 12
-        },
-        tiers: [
-          { key: 'Member', name: 'Member', minSpend: 0, pointMultiplier: 1.0, bookingWindow: 7, isActive: true },
-          { key: 'Silver', name: 'Silver', minSpend: 1000000, pointMultiplier: 1.2, bookingWindow: 7, isActive: true },
-          { key: 'Gold', name: 'Gold', minSpend: 5000000, pointMultiplier: 1.5, bookingWindow: 14, isActive: true },
-          { key: 'Platinum', name: 'Platinum', minSpend: 10000000, pointMultiplier: 2.0, bookingWindow: 14, isActive: true }
-        ]
-      };
+      console.warn('API /admin/loyalty/settings offline:', err.message);
+      return { config: {}, tiers: [] };
     }
   },
 

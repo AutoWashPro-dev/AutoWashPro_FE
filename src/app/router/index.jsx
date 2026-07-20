@@ -96,6 +96,19 @@ const AdminRoute = ({ children }) => {
   return <Navigate to="/login" replace />;
 };
 
+const AdminIndexRedirect = () => {
+  const userStr = localStorage.getItem('autowash_user');
+  try {
+    const user = JSON.parse(userStr || '{}');
+    const roles = user.roles || user.user?.roles || user.user_roles || [];
+    const roleList = Array.isArray(roles) ? roles : [roles];
+    if (roleList.includes('ROLE_CASHIER') && !roleList.includes('ROLE_ADMIN') && !roleList.includes('ROLE_MANAGER')) {
+      return <Navigate to="/admin/bookings" replace />;
+    }
+  } catch (e) {}
+  return <Navigate to="/admin/dashboard" replace />;
+};
+
 const router = createBrowserRouter([
   {
     path: '/',
@@ -197,7 +210,7 @@ const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <Navigate to="/admin/dashboard" replace />,
+        element: <AdminIndexRedirect />,
       },
       {
         path: 'dashboard',

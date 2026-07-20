@@ -1268,9 +1268,23 @@ export default function AdminCustomersLoyaltyPage() {
                                   <td className="py-2.5 px-3 text-right font-bold text-slate-855">{b.amount.toLocaleString('vi-VN')} đ</td>
                                   <td className="py-2.5 px-4 text-center">
                                     <span className={`inline-block px-2 py-0.5 rounded text-[9px] font-bold ${
-                                      b.status === 'COMPLETED' || b.status === 'Completed' ? 'bg-emerald-55 text-emerald-600' : 'bg-blue-50 text-blue-600'
+                                      (() => {
+                                        const s = String(b.status || '').toUpperCase();
+                                        if (s === 'COMPLETED') return 'bg-emerald-55 text-emerald-600';
+                                        if (s === 'IN_PROGRESS') return 'bg-blue-50 text-blue-600';
+                                        if (s === 'PENDING') return 'bg-amber-50 text-amber-600';
+                                        if (s === 'CONFIRMED') return 'bg-indigo-50 text-indigo-600';
+                                        return 'bg-rose-50 text-rose-600';
+                                      })()
                                     }`}>
-                                      {b.status}
+                                      {(() => {
+                                        const s = String(b.status || '').toUpperCase();
+                                        if (s === 'PENDING') return 'Chờ Check-in';
+                                        if (s === 'CONFIRMED') return 'Đã xác nhận';
+                                        if (s === 'IN_PROGRESS') return 'Đang rửa';
+                                        if (s === 'COMPLETED') return 'Đã xong';
+                                        return 'Đã hủy';
+                                      })()}
                                     </span>
                                   </td>
                                 </tr>

@@ -41,13 +41,24 @@ export default function LoginPage() {
       localStorage.setItem('autowash_token', res.accessToken);
       localStorage.setItem('autowash_user', JSON.stringify(res.user || res));
       
-      if (res.redirectUrl) {
-        navigate(res.redirectUrl, { replace: true });
+      const userType = res.userType || res.user?.userType || 'CUSTOMER';
+      const rawRoles = res.roles || res.user?.roles || [];
+      const roles = Array.isArray(rawRoles) ? rawRoles : [rawRoles];
+      
+      let redirectTarget = res.redirectUrl;
+      if (roles.includes('ROLE_CASHIER') && !roles.includes('ROLE_ADMIN') && !roles.includes('ROLE_MANAGER')) {
+        redirectTarget = '/admin/bookings';
+      }
+
+      if (redirectTarget) {
+        navigate(redirectTarget, { replace: true });
       } else {
-        const userType = res.userType || res.user?.userType || 'CUSTOMER';
-        const roles = res.roles || res.user?.roles || [];
-        if (userType === 'STAFF' || roles.some(r => r.includes('ADMIN') || r.includes('MANAGER') || r.includes('STAFF'))) {
-          navigate('/admin/dashboard', { replace: true });
+        if (userType === 'STAFF' || roles.some(r => r.includes('ADMIN') || r.includes('MANAGER') || r.includes('CASHIER') || r.includes('STAFF'))) {
+          if (roles.includes('ROLE_CASHIER') && !roles.includes('ROLE_ADMIN') && !roles.includes('ROLE_MANAGER')) {
+            navigate('/admin/bookings', { replace: true });
+          } else {
+            navigate('/admin/dashboard', { replace: true });
+          }
         } else {
           navigate('/customer/dashboard', { replace: true });
         }

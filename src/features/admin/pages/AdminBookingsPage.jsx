@@ -28,108 +28,17 @@ import {
 } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 import { bookingAdminApi } from '../services/bookingAdminApi';
+import { loyaltyApi } from '../services/loyaltyApi';
 
 export default function AdminBookingsPage() {
-  // 1. Initialize localStorage databases if not exists to enable E2E integration
+  // 1. Force clear all legacy sample/mock data from localStorage
   useEffect(() => {
-    // Loyalty Settings
-    if (!localStorage.getItem('autowash_loyalty_settings')) {
-      localStorage.setItem('autowash_loyalty_settings', JSON.stringify({
-        basePoints: 1,
-        baseSpend: 10000, // 10k VND = 1 Point
-        roundDown: true,
-        pointCashValuePts: 100,
-        pointCashValueVnd: 100000, // 100 Pts = 100,000 VND (1 Pt = 1,000 VND)
-        maxRedemptionPercent: 80, // max 80% per order
-        pointValidityMonths: 12,
-        downgradeInactivityMonths: 6
-      }));
-    }
-
-    // Membership Tier Matrix
-    if (!localStorage.getItem('autowash_tiers')) {
-      localStorage.setItem('autowash_tiers', JSON.stringify([
-        { key: 'Member', name: 'Member', minSpend: 0, pointMultiplier: 1.0, bookingWindow: 7, isActive: true },
-        { key: 'Silver', name: 'Silver', minSpend: 1000000, pointMultiplier: 1.2, bookingWindow: 7, isActive: true },
-        { key: 'Gold', name: 'Gold', minSpend: 5000000, pointMultiplier: 1.5, bookingWindow: 14, isActive: true },
-        { key: 'Platinum', name: 'Platinum', minSpend: 10000000, pointMultiplier: 2.0, bookingWindow: 14, isActive: true }
-      ]));
-    }
-
-    // Customers CRM Database
-    if (!localStorage.getItem('autowash_customers')) {
-      localStorage.setItem('autowash_customers', JSON.stringify([
-        { id: 'C-01', name: 'Nguyễn Minh Anh', phone: '0912***456', tier: 'VIP', points: 1240, totalSpend: 15400000, visits: 24, avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=100', lastVisitDays: 5, status: 'Active' },
-        { id: 'C-02', name: 'Lê Hoàng Long', phone: '0903***888', tier: 'Silver', points: 320, totalSpend: 3800000, visits: 8, avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=100', lastVisitDays: 14, status: 'Active' },
-        { id: 'C-03', name: 'Hoàng Linh', phone: '0977***444', tier: 'Gold', points: 750, totalSpend: 8200000, visits: 14, avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=100', lastVisitDays: 8, status: 'Active' },
-        { id: 'C-04', name: 'Trần Đức Bo', phone: '0988***123', tier: 'Member', points: 80, totalSpend: 950000, visits: 2, avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=100', lastVisitDays: 45, status: 'Active' },
-        { id: 'C-05', name: 'Phạm Văn Nam', phone: '0944***555', tier: 'Member', points: 10, totalSpend: 320000, visits: 1, avatar: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&q=80&w=100', lastVisitDays: 75, status: 'Active' }
-      ]));
-    }
-
-    // Points Log Database
-    if (!localStorage.getItem('autowash_points_log')) {
-      localStorage.setItem('autowash_points_log', JSON.stringify({
-        'C-01': [
-          { date: '30/06, 09:15', type: 'EARN', amount: 125, reason: 'Tích điểm đơn AW-9812' },
-          { date: '15/06, 14:02', type: 'REDEEM', amount: 200, reason: 'Quy đổi giảm trừ đơn AW-9720' },
-          { date: '01/06, 11:30', type: 'EARN', amount: 225, reason: 'Tích điểm đơn AW-9643' }
-        ],
-        'C-02': [
-          { date: '10/06, 15:00', type: 'EARN', amount: 35, reason: 'Tích điểm đơn AW-9650' }
-        ],
-        'C-03': [
-          { date: '29/06, 17:30', type: 'EARN', amount: 100, reason: 'Tích điểm đơn AW-9805' }
-        ],
-        'C-04': [],
-        'C-05': []
-      }));
-    }
-
-    // Vouchers Database
-    if (!localStorage.getItem('autowash_vouchers')) {
-      localStorage.setItem('autowash_vouchers', JSON.stringify({
-        'C-01': [
-          { code: 'SUMMER24', name: 'Voucher Mùa Hè Rực Rỡ', value: '50.000 đ', status: 'ISSUED' },
-          { code: 'VIPPRO', name: 'Tri ân khách hàng Kim Cương', value: '100.000 đ', status: 'USED' }
-        ],
-        'C-02': [
-          { code: 'WELCOME50', name: 'Chào mừng thành viên', value: '10%', status: 'ISSUED' }
-        ],
-        'C-03': [
-          { code: 'SUMMER24', name: 'Voucher Mùa Hè Rực Rỡ', value: '50.000 đ', status: 'ISSUED' }
-        ],
-        'C-04': [
-          { code: 'WELCOME50', name: 'Chào mừng thành viên', value: '10%', status: 'ISSUED' }
-        ],
-        'C-05': [
-          { code: 'WELCOME50', name: 'Chào mừng thành viên', value: '10%', status: 'EXPIRED' }
-        ]
-      }));
-    }
-
-    // Bookings Database
-    if (!localStorage.getItem('autowash_bookings')) {
-      const initialBookings = {
-        '2026-06-30': [
-          { id: 'AW-9801', slotTime: '08:30', custId: 'C-04', vehicle: { type: 'Xe máy', model: 'Yamaha Grande', plate: '29-D1 555.55' }, service: { name: 'Basic Wash', price: 70000 }, status: 'Completed', createdTime: '30/06, 07:15 AM via Mobile App', paymentMethod: 'VNPay', pointsRedeemed: 0, discount: 0, finalAmount: 70000, completedTime: '08:52 AM', estimatedDuration: 20, source: 'APP', paymentStatus: 'PAID' },
-          { id: 'AW-9802', slotTime: '10:00', custId: 'C-01', vehicle: { type: 'Xe máy', model: 'Honda Lead', plate: '30-H2 333.33' }, service: { name: 'Premium Wash + Wax', price: 150000 }, status: 'Completed', createdTime: '30/06, 08:30 AM via Mobile App', paymentMethod: 'Cash', pointsRedeemed: 50, discount: 50000, finalAmount: 100000, completedTime: '10:32 AM', estimatedDuration: 30, source: 'APP', paymentStatus: 'PAID' }
-        ],
-        '2026-07-01': [
-          { id: 'AW-9821', slotTime: '14:30', custId: 'C-01', vehicle: { type: 'Xe máy', model: 'Honda SH 150i', plate: '29-G1 888.88' }, service: { name: 'Premium Wash + Wax', price: 150000 }, status: 'Pending', createdTime: 'Hôm nay, 09:15 AM via Mobile App', paymentMethod: null, pointsRedeemed: 0, discount: 0, finalAmount: 150000, estimatedDuration: 25, source: 'APP', paymentStatus: 'UNPAID' },
-          { id: 'AW-9819', slotTime: '14:00', custId: 'C-04', vehicle: { type: 'Xe máy', model: 'Honda Vision', plate: '59-S2 123.45' }, service: { name: 'Basic Wash', price: 70000 }, status: 'Pending', createdTime: 'Hôm nay, 11:30 AM via Mobile App', paymentMethod: null, pointsRedeemed: 0, discount: 0, finalAmount: 70000, note: 'Khách đến muộn 15 phút', estimatedDuration: 15, source: 'APP', paymentStatus: 'UNPAID' },
-          { id: 'AW-9815', slotTime: '13:45', custId: 'C-02', vehicle: { type: 'Xe máy', model: 'Vespa GTS', plate: '30-K3 999.01' }, service: { name: 'Full Detail', price: 450000 }, status: 'Completed', createdTime: 'Hôm nay, 08:45 AM via Mobile App', paymentMethod: 'Cash', pointsRedeemed: 200, discount: 200000, finalAmount: 250000, completedTime: '14:30 PM', estimatedDuration: 40, source: 'APP', paymentStatus: 'PAID' },
-          { id: 'AW-9812', slotTime: '13:15', custId: 'C-03', vehicle: { type: 'Xe máy', model: 'Vespa Primavera', plate: '29-F1 112.23' }, service: { name: 'Engine Clean', price: 200000 }, status: 'Completed', createdTime: 'Hôm nay, 07:10 AM via Mobile App', paymentMethod: 'VNPay', pointsRedeemed: 0, discount: 0, finalAmount: 200000, completedTime: '14:02 PM', estimatedDuration: 30, source: 'APP', paymentStatus: 'PAID' }
-        ],
-        '2026-07-02': [
-          { id: 'AW-9830', slotTime: '09:00', custId: 'C-03', vehicle: { type: 'Xe máy', model: 'Honda Winner X', plate: '29-S1 222.11' }, service: { name: 'Premium Wash + Wax', price: 150000 }, status: 'Pending', createdTime: 'Hôm nay, 14:20 PM via Mobile App', paymentMethod: null, pointsRedeemed: 0, discount: 0, finalAmount: 150000, estimatedDuration: 25, source: 'APP', paymentStatus: 'UNPAID' }
-        ],
-        '2026-07-03': [
-          { id: 'AW-9840', slotTime: '15:30', custId: 'C-02', vehicle: { type: 'Xe máy', model: 'Suzuki Raider', plate: '59-S3 888.88' }, service: { name: 'Full Detail', price: 450000 }, status: 'Pending', createdTime: 'Hôm nay, 16:10 PM via Mobile App', paymentMethod: null, pointsRedeemed: 0, discount: 0, finalAmount: 450000, estimatedDuration: 40, source: 'APP', paymentStatus: 'UNPAID' }
-        ]
-      };
-      localStorage.setItem('autowash_bookings', JSON.stringify(initialBookings));
-    }
+    localStorage.removeItem('autowash_loyalty_settings');
+    localStorage.removeItem('autowash_tiers');
+    localStorage.removeItem('autowash_customers');
+    localStorage.removeItem('autowash_points_log');
+    localStorage.removeItem('autowash_vouchers');
+    localStorage.removeItem('autowash_bookings');
   }, []);
   // Hàm lấy ngày hôm nay theo giờ địa phương, tránh lỗi lệch múi giờ
   const getLocalDateString = (date = new Date()) => {
@@ -164,14 +73,28 @@ export default function AdminBookingsPage() {
   }, [urlBookingId, urlId]);
 
   useEffect(() => {
+    setCustomerDetail(null);
     const activeId = urlBookingId || urlId || selectedBookingId;
     if (!activeId) {
       setBookingDetail(null);
-      setCustomerDetail(null);
       return;
     }
+
+    // Pre-fetch customer profile if customer ID is available locally
+    const activeBookingLocal = bookingsDb[selectedDate]?.find(b => String(b.bookingCode || b.id || b.bookingId || '') === String(activeId));
+    const activeCustomerId = activeBookingLocal?.customerId || activeBookingLocal?.custId;
+
     const fetchDetail = async () => {
       setLoadingDetail(true);
+      
+      let custPromise = null;
+      if (activeCustomerId) {
+        custPromise = loyaltyApi.getCustomerById(activeCustomerId).catch(err => {
+          console.warn("Failed to pre-fetch customer detail:", err.message);
+          return null;
+        });
+      }
+
       let detail = null;
       try {
         detail = await bookingAdminApi.getBookingById(activeId);
@@ -209,10 +132,10 @@ export default function AdminBookingsPage() {
         };
         setBookingDetail(normalized);
 
-        const custId = detail.customerId || cust.customerId || cust.id;
+        const custId = detail.customerId || cust.customerId || cust.id || activeCustomerId;
         if (custId) {
           try {
-            const custDetail = await loyaltyApi.getCustomerById(custId);
+            const custDetail = custPromise ? await custPromise : await loyaltyApi.getCustomerById(custId);
             if (custDetail) {
               setCustomerDetail(custDetail);
             }
@@ -228,7 +151,7 @@ export default function AdminBookingsPage() {
       setLoadingDetail(false);
     };
     fetchDetail();
-  }, [selectedBookingId, urlBookingId, urlId]);
+  }, [selectedBookingId, urlBookingId, urlId, bookingsDb, selectedDate]);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [queueSubFilter, setQueueSubFilter] = useState('ALL_QUEUE'); // 'ALL_QUEUE', 'Pending', 'Paid'
@@ -329,37 +252,6 @@ export default function AdminBookingsPage() {
   };
 }, [selectedDate, searchQuery, refreshTrigger]);
 
-  // Dates available in day selector
-  const availableDates = [
-    { value: '2026-06-30', label: 'Thứ 3, 30/06', desc: 'Hôm qua' },
-    { value: '2026-07-01', label: 'Thứ 4, 01/07', desc: 'Hôm nay' },
-    { value: '2026-07-02', label: 'Thứ 5, 02/07', desc: 'Ngày mai' },
-    { value: '2026-07-03', label: 'Thứ 6, 03/07', desc: 'Sắp tới' }
-  ];
-
-  // Capacity Load Heatmap data for different dates
-  const heatmapDb = {
-    '2026-06-30': [
-      { time: '08:00', pct: 60 }, { time: '09:00', pct: 85 }, { time: '10:00', pct: 98 }, { time: '11:00', pct: 50 },
-      { time: '12:00', pct: 20 }, { time: '13:00', pct: 30 }, { time: '14:00', pct: 65 }, { time: '15:00', pct: 75 },
-      { time: '16:00', pct: 90 }, { time: '17:00', pct: 40 }, { time: '18:00', pct: 10 }, { time: '19:00', pct: 0 }
-    ],
-    '2026-07-01': [
-      { time: '08:00', pct: 20 }, { time: '09:00', pct: 35 }, { time: '10:00', pct: 60 }, { time: '11:00', pct: 75 },
-      { time: '12:00', pct: 90 }, { time: '13:00', pct: 65 }, { time: '14:00', pct: 85 }, { time: '15:00', pct: 98 },
-      { time: '16:00', pct: 92 }, { time: '17:00', pct: 78 }, { time: '18:00', pct: 30 }, { time: '19:00', pct: 10 }
-    ],
-    '2026-07-02': [
-      { time: '08:00', pct: 10 }, { time: '09:00', pct: 50 }, { time: '10:00', pct: 40 }, { time: '11:00', pct: 60 },
-      { time: '12:00', pct: 75 }, { time: '13:00', pct: 20 }, { time: '14:00', pct: 30 }, { time: '15:00', pct: 45 },
-      { time: '16:00', pct: 50 }, { time: '17:00', pct: 35 }, { time: '18:00', pct: 20 }, { time: '19:00', pct: 0 }
-    ],
-    '2026-07-03': [
-      { time: '08:00', pct: 0 }, { time: '09:00', pct: 10 }, { time: '10:00', pct: 20 }, { time: '11:00', pct: 30 },
-      { time: '12:00', pct: 40 }, { time: '13:00', pct: 15 }, { time: '14:00', pct: 20 }, { time: '15:00', pct: 60 },
-      { time: '16:00', pct: 40 }, { time: '17:00', pct: 20 }, { time: '18:00', pct: 10 }, { time: '19:00', pct: 0 }
-    ]
-  };
 
   // 3. UI Active States
 
@@ -624,7 +516,7 @@ export default function AdminBookingsPage() {
     return bookingsForDate.filter(b => {
       if (!b.slotTime) return false;
       const bHour = b.slotTime.split(':')[0].padStart(2, '0');
-      return bHour === startHour.padStart(2, '0') && b.status !== 'Canceled';
+      return bHour === startHour.padStart(2, '0') && !['CANCELED', 'CANCELLED'].includes(String(b.status || '').toUpperCase());
     }).length;
   };
 
@@ -701,15 +593,7 @@ const getAllBookings = () => {
       },
       finalAmount: Number(b.finalAmount || 0),
       source: b.source || 'APP',
-      status: (() => {
-        const s = String(b.status || '').toUpperCase();
-        if (s === 'PENDING') return 'Pending';
-        if (s === 'CONFIRMED') return 'Confirmed';
-        if (s === 'IN_PROGRESS') return 'In_progress';
-        if (s === 'COMPLETED') return 'Completed';
-        if (s === 'CANCELED' || s === 'CANCELLED' || s.startsWith('CANCEL')) return 'Canceled';
-        return b.status || 'Pending';
-      })(),
+      status: b.status || 'PENDING',
       custId: b.customerId || ''
     };
 
@@ -1193,7 +1077,7 @@ const allBookingsMapped = getAllBookings().map(b => {
                   }`}
                 >
                   <ClipboardList className="w-4.5 h-4.5" />
-                  Hàng chờ Vận hành ({bookingsForDate.filter(b => b.status === 'Pending' || b.status === 'Confirmed' || b.status === 'In_progress').length})
+                  Hàng chờ Vận hành ({bookingsForDate.filter(b => ['PENDING', 'CONFIRMED', 'IN_PROGRESS'].includes(String(b.status || '').toUpperCase())).length})
                 </button>
                 <button
                   onClick={() => { setActiveMainTab('history'); setSelectedTimeFilter(''); }}
@@ -1204,7 +1088,7 @@ const allBookingsMapped = getAllBookings().map(b => {
                   }`}
                 >
                   <History className="w-4.5 h-4.5" />
-                  Lịch sử Giao dịch ({bookingsForDate.filter(b => b.status === 'Completed' || b.status === 'Canceled').length})
+                  Lịch sử Giao dịch ({bookingsForDate.filter(b => ['COMPLETED', 'CANCELED', 'CANCELLED', 'CANCELLED_NO_SHOW'].includes(String(b.status || '').toUpperCase())).length})
                 </button>
               </div>
 
@@ -1274,13 +1158,14 @@ const allBookingsMapped = getAllBookings().map(b => {
                   <tbody className="divide-y divide-slate-100 text-xs">
                     {filteredBookings.map(b => {
                       let statusBadge = '';
-                      if (b.status === 'Completed') {
+                      const sUpper = String(b.status || '').toUpperCase();
+                      if (sUpper === 'COMPLETED') {
                         statusBadge = 'bg-emerald-50 text-emerald-600 border-emerald-100';
-                      } else if (b.status === 'In_progress') {
+                      } else if (sUpper === 'IN_PROGRESS') {
                         statusBadge = 'bg-blue-50 text-blue-600 border-blue-100';
-                      } else if (b.status === 'Confirmed') {
+                      } else if (sUpper === 'CONFIRMED') {
                         statusBadge = 'bg-indigo-50 text-indigo-650 border-indigo-100';
-                      } else if (b.status === 'Pending') {
+                      } else if (sUpper === 'PENDING') {
                         statusBadge = 'bg-amber-50 text-amber-600 border-amber-100';
                       } else {
                         statusBadge = 'bg-rose-50 text-rose-600 border-rose-100';
@@ -1352,10 +1237,14 @@ const allBookingsMapped = getAllBookings().map(b => {
                           <td className="py-3.5 px-5 text-center">
                             <div className="flex items-center justify-center gap-2">
                               <span className={`inline-block px-2.5 py-1 rounded-full border text-[9px] font-bold ${statusBadge}`}>
-                                {b.status === 'Pending' ? 'Chờ Check-in' :
-                                 b.status === 'Confirmed' ? 'Đã xác nhận' :
-                                 b.status === 'In_progress' ? 'Đang rửa' :
-                                 b.status === 'Completed' ? 'Đã xong' : 'Đã hủy'}
+                                {(() => {
+                                  const s = String(b.status || '').toUpperCase();
+                                  if (s === 'PENDING') return 'Chờ Check-in';
+                                  if (s === 'CONFIRMED') return 'Đã xác nhận';
+                                  if (s === 'IN_PROGRESS') return 'Đang rửa';
+                                  if (s === 'COMPLETED') return 'Đã xong';
+                                  return 'Đã hủy';
+                                })()}
                               </span>
                               <button 
                                 onClick={() => handleOpenDetail(b)}
@@ -1525,18 +1414,38 @@ const allBookingsMapped = getAllBookings().map(b => {
                     </div>
                   ) : (() => {
                     const displayCustomer = bookingDetail?.customer || selectedBooking?.customer;
-                    // Fallbacks for 500 error protection
-                    const fullName = customerDetail?.fullName || bookingDetail?.customerName || displayCustomer?.fullName || displayCustomer?.name || 'Khách lẻ';
-                    const phoneNumber = customerDetail?.phoneNumber || bookingDetail?.customerPhone || displayCustomer?.phoneNumber || displayCustomer?.phone || '';
-                    const tierName = customerDetail?.tierName || bookingDetail?.customerTier || displayCustomer?.tier || 'N/A';
-                    const isSilverOrMember = ['member', 'hang member', 'silver', 'silver member', 'regular', 'n/a'].includes(String(tierName).toLowerCase());
-                    const points = customerDetail?.loyaltyPoints !== undefined ? customerDetail.loyaltyPoints : (displayCustomer?.points ?? 0);
-                    const pointsVal = customerDetail?.loyaltyPoints !== undefined ? customerDetail.loyaltyPoints * 1000 : 0;
+                    const targetCustomerId = String(displayCustomer?.id || bookingDetail?.customerId || selectedBooking?.customerId || '');
+                    const isCorrectCustomerDetail = customerDetail && String(customerDetail.id || customerDetail.customerId || '') === targetCustomerId;
+                    const activeCustomer = isCorrectCustomerDetail ? customerDetail : null;
+
+                    const avatarUrl = activeCustomer?.avatarUrl || displayCustomer?.avatarUrl || displayCustomer?.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=guest';
+                    const fullName = activeCustomer?.fullName || bookingDetail?.customerName || displayCustomer?.fullName || displayCustomer?.name || 'Khách lẻ';
+                    const phoneNumber = activeCustomer?.phoneNumber || bookingDetail?.customerPhone || displayCustomer?.phoneNumber || displayCustomer?.phone || 'N/A';
+                    const tierName = activeCustomer?.tierName || bookingDetail?.customerTier || displayCustomer?.tier || 'REGULAR';
+                    
+                    // Conditional styling based on the tier value
+                    const getTierBadgeClass = (tier) => {
+                      const t = String(tier || '').toUpperCase();
+                      if (t === 'PLATINUM') {
+                        return 'bg-purple-100 text-purple-800 border border-purple-200';
+                      }
+                      if (t === 'GOLD') {
+                        return 'bg-amber-100 text-amber-800 border border-amber-200';
+                      }
+                      if (t === 'SILVER') {
+                        return 'bg-slate-100 text-slate-700 border border-slate-200';
+                      }
+                      return 'bg-emerald-100 text-emerald-800 border border-emerald-200';
+                    };
+
+                    const rawPoints = activeCustomer?.loyaltyPoints ?? displayCustomer?.points ?? 0;
+                    const loyaltyPoints = Number.isNaN(Number(rawPoints)) ? 0 : Number(rawPoints);
+                    const conversionAmount = loyaltyPoints * 1000;
 
                     return (
                       <div className="flex items-start gap-4">
                         <img 
-                          src={displayCustomer?.avatarUrl || displayCustomer?.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=guest'} 
+                          src={avatarUrl} 
                           alt="Customer" 
                           className="w-14 h-14 rounded-full object-cover ring-2 ring-indigo-50" 
                         />
@@ -1545,27 +1454,12 @@ const allBookingsMapped = getAllBookings().map(b => {
                             <span className="font-extrabold text-base text-slate-800">
                               {fullName}
                             </span>
-                            <span 
-                              className={`px-2.5 py-0.5 text-[10px] font-black rounded-lg ${
-                                isSilverOrMember
-                                  ? 'bg-emerald-100 text-emerald-800'
-                                  : 'bg-[#57f287] text-slate-800'
-                              }`}
-                            >
-                              {customerDetail?.tierName || tierName}
-                            </span>
                           </div>
                           <p className="text-xs text-slate-500 font-semibold">
                             Số điện thoại: {phoneNumber}
                           </p>
                           
                           <div className="flex items-center gap-4 text-xs font-bold text-slate-600 mt-2.5">
-                            <span className="text-amber-605 flex items-center gap-0.5 bg-amber-50 border border-amber-100/65 px-2.5 py-1 rounded-lg">
-                              <Coins className="w-4 h-4 text-amber-500" /> Ví hiện tại: {(customerDetail?.loyaltyPoints !== undefined ? customerDetail.loyaltyPoints : points)} Pts
-                            </span>
-                            <span className="text-indigo-650">
-                              Trị giá quy đổi: {(customerDetail?.loyaltyPoints !== undefined ? customerDetail.loyaltyPoints * 1000 : pointsVal).toLocaleString('vi-VN')} d
-                            </span>
                           </div>
                         </div>
                       </div>
@@ -1626,8 +1520,8 @@ const allBookingsMapped = getAllBookings().map(b => {
                     Thanh toán & Trạng thái dịch vụ
                   </h3>
 
-                  {/* Flow 1: Pending, Confirmed, In_progress (Checkout) */}
-                  {(selectedBooking.status === 'Pending' || selectedBooking.status === 'Confirmed' || selectedBooking.status === 'In_progress') && (
+                  {/* Flow 1: Pending, Confirmed (Checkout) */}
+                  {['PENDING', 'CONFIRMED'].includes(String(selectedBooking.status || '').toUpperCase()) && (
                     <div className="space-y-4 text-xs">
                       
                       {/* Áp dụng Voucher giảm giá tại quầy */}
@@ -1711,8 +1605,19 @@ const allBookingsMapped = getAllBookings().map(b => {
                     </div>
                   )}
 
+                  {/* Flow 1.5: In Progress (Washing) */}
+                  {String(selectedBooking.status || '').toUpperCase() === 'IN_PROGRESS' && (
+                    <div className="space-y-3.5 text-xs text-slate-655 bg-blue-50/50 border border-blue-100 p-4 rounded-xl text-center font-bold">
+                      <div className="flex items-center justify-center gap-1.5 font-extrabold text-sm text-blue-700">
+                        <span className="w-2.5 h-2.5 bg-blue-500 rounded-full animate-ping" />
+                        <span>Xế cưng đang được tiến hành dọn rửa...</span>
+                      </div>
+                      <p className="text-[9px] text-blue-600 font-medium">Theo dõi tiến độ rửa xe tại bảng hàng chờ bên ngoài</p>
+                    </div>
+                  )}
+
                   {/* Flow 3: Completed */}
-                  {selectedBooking.status === 'Completed' && (
+                  {String(selectedBooking.status || '').toUpperCase() === 'COMPLETED' && (
                     <div className="space-y-3.5 text-xs text-slate-655">
                       <div className="bg-emerald-50 text-emerald-700 border border-emerald-100 p-4 rounded-xl space-y-1 text-center font-bold">
                         <div className="flex items-center justify-center gap-1.5 font-extrabold text-sm">
@@ -1776,7 +1681,7 @@ const allBookingsMapped = getAllBookings().map(b => {
                       </div>
                     </div>
 
-                    {selectedBooking.status === 'Completed' && (
+                    {String(selectedBooking.status || '').toUpperCase() === 'COMPLETED' && (
                       <div className="relative animate-fade-in">
                         <span className="absolute -left-7.5 top-0.5 w-3.5 h-3.5 rounded-full bg-emerald-500 ring-4 ring-emerald-50 flex items-center justify-center">
                           <Check className="w-2.5 h-2.5 text-white" />
@@ -1794,7 +1699,7 @@ const allBookingsMapped = getAllBookings().map(b => {
                       </div>
                     )}
 
-                    {selectedBooking.status === 'Canceled' && (
+                    {['CANCELED', 'CANCELLED', 'CANCELLED_NO_SHOW'].includes(String(selectedBooking.status || '').toUpperCase()) && (
                       <div className="relative">
                         <span className="absolute -left-7.5 top-0.5 w-3.5 h-3.5 rounded-full bg-rose-500 ring-4 ring-rose-50 flex items-center justify-center">
                           <Ban className="w-2.5 h-2.5 text-white" />
@@ -1809,7 +1714,7 @@ const allBookingsMapped = getAllBookings().map(b => {
                 </div>
 
                 {/* Cancel trigger */}
-                {(selectedBooking.status === 'Pending' || selectedBooking.status === 'Confirmed') && (
+                {['PENDING', 'CONFIRMED'].includes(String(selectedBooking.status || '').toUpperCase()) && (
                   <div className="border border-rose-150 p-4 rounded-2xl bg-rose-50/10 space-y-3">
                     <div className="text-xs text-rose-700 font-bold flex items-center gap-1">
                       <AlertTriangle className="w-4.5 h-4.5 text-rose-600" />

@@ -54,20 +54,7 @@ export const bookingAdminApi = {
       const res = await api.get(url);
       return res.data;
     } catch (err) {
-      console.warn('API /admin/bookings offline or error, using localStorage fallback:', err.message);
-      const saved = localStorage.getItem('autowash_bookings');
-      if (saved) {
-        const bookingsMap = JSON.parse(saved);
-        if (date && bookingsMap[date]) {
-          let list = bookingsMap[date];
-          if (status && status !== 'All') {
-            list = list.filter(b => b.status.toLowerCase() === status.toLowerCase());
-          }
-          return list;
-        }
-        // Trả về toàn bộ nếu không chọn ngày cụ thể
-        return Object.values(bookingsMap).flat();
-      }
+      console.warn('API /admin/bookings offline or error:', err.message);
       return [];
     }
   },
@@ -80,14 +67,7 @@ export const bookingAdminApi = {
       const res = await api.get(`/admin/bookings/${id}`);
       return res.data;
     } catch (err) {
-      console.warn('API getBookingById offline or error, using localStorage fallback:', err.message);
-      const saved = localStorage.getItem('autowash_bookings');
-      if (saved) {
-        const bookingsMap = JSON.parse(saved);
-        const all = Object.values(bookingsMap).flat();
-        const found = all.find(b => String(b.id || b.bookingId || b.bookingCode || '') === String(id));
-        if (found) return found;
-      }
+      console.warn('API getBookingById offline or error:', err.message);
       throw err;
     }
   },
@@ -100,8 +80,8 @@ export const bookingAdminApi = {
       const res = await api.put(`/admin/bookings/${bookingId}/status`, { status: newStatus });
       return res.data;
     } catch (err) {
-      console.warn('API updateStatus fallback:', err.message);
-      return { success: true, bookingId, status: newStatus };
+      console.error('API updateStatus failed:', err.message);
+      throw err;
     }
   },
 
@@ -113,8 +93,8 @@ export const bookingAdminApi = {
       const res = await api.post('/admin/bookings/walk-in', data);
       return res.data;
     } catch (err) {
-      console.warn('API createWalkInBooking fallback:', err.message);
-      return { ...data, id: `AW-${Date.now().toString().slice(-4)}`, status: 'Confirmed', createdTime: 'Vừa xong tại POS' };
+      console.error('API createWalkInBooking failed:', err.message);
+      throw err;
     }
   },
 

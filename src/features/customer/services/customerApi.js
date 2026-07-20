@@ -42,7 +42,7 @@ export const customerApi = {
   // Get customer profile (points, tier, name)
   getProfile: async () => {
     try {
-      const res = await api.get('/customer/profile');
+      const res = await api.get('/customer/auth/me');
       return res.data;
     } catch (err) {
       console.warn('API getProfile error:', err.message);
@@ -226,13 +226,8 @@ export const customerApi = {
       const res = await api.get('/customer/loyalty/points/history');
       return res.data || [];
     } catch (err) {
-      console.warn('API getMyPointHistory error, using fallback:', err.message);
-      return [
-        { pointTransactionId: 101, points: 50, activityType: 'EARNED', bookingCode: 'AW-9801', createdAt: new Date(Date.now() - 3600000 * 2).toISOString() },
-        { pointTransactionId: 102, points: -20, activityType: 'REDEEMED', bookingCode: null, createdAt: '2026-07-15T14:30:00' },
-        { pointTransactionId: 103, points: 15, activityType: 'EARNED', bookingCode: 'AW-9750', createdAt: '2026-07-10T11:00:00' },
-        { pointTransactionId: 104, points: -50, activityType: 'EXPIRY', bookingCode: null, createdAt: '2026-07-01T00:00:00' }
-      ];
+      console.warn('API getMyPointHistory error:', err.message);
+      return [];
     }
   }
 };
