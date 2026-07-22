@@ -45,16 +45,28 @@ export const customerApi = {
       const res = await api.get('/customer/profile');
       return res.data;
     } catch (err) {
-      console.warn('API getProfile error:', err.message);
-      // Fallback profile for mock - ensure customerId is present to load real API data
+      console.warn('API getProfile error, using fallback:', err.message);
+      const userRaw = localStorage.getItem('autowash_user');
+      if (userRaw) {
+        try {
+          const user = JSON.parse(userRaw);
+          return {
+            customerId: user.customerId || user.id || 1,
+            fullName: user.fullName || user.name || 'Nguyen Van An',
+            loyaltyPoints: user.loyaltyPoints !== undefined ? user.loyaltyPoints : 850,
+            tierName: user.tierName || user.tier || 'MEMBER',
+            bookingWindowDays: 7,
+            vehicles: []
+          };
+        } catch (e) {}
+      }
       return {
-        customerId: 1, // Default customerId = 1 (Nguyễn Minh Anh)
-        fullName: 'N/A',
-        loyaltyPoints: 0,
-        tierName: 'N/A',
-        bookingWindowDays: 0,
-        vehicles: [
-        ]
+        customerId: 1,
+        fullName: 'Nguyen Van An',
+        loyaltyPoints: 850,
+        tierName: 'MEMBER',
+        bookingWindowDays: 7,
+        vehicles: []
       };
     }
   },
@@ -108,14 +120,24 @@ export const customerApi = {
   },
 
   // Get available slots for a given date
-  getAvailableSlots: async (dateStr) => {
+  getAvailableSlots: async (date) => {
     try {
-      const res = await api.get(`/customer/bookings/slots?date=${dateStr}`);
-      return res.data || [];
+      const res = await api.get(`/customer/bookings/slots?date=${date}`);
+      if (Array.isArray(res.data) && res.data.length > 0) {
+        return res.data;
+      }
     } catch (err) {
-      console.warn('API getAvailableSlots error:', err.message);
-      return [];
+      console.warn('API getAvailableSlots error, using demo fallback:', err.message);
     }
+    // Demo Fallback Slots
+    return [
+      { slotId: 1, startTime: "08:00:00", endTime: "09:00:00", maxCapacity: 3, bookedCount: 0, availableCapacity: 3, isAvailable: true },
+      { slotId: 2, startTime: "09:00:00", endTime: "10:00:00", maxCapacity: 3, bookedCount: 1, availableCapacity: 2, isAvailable: true },
+      { slotId: 3, startTime: "10:00:00", endTime: "11:00:00", maxCapacity: 3, bookedCount: 0, availableCapacity: 3, isAvailable: true },
+      { slotId: 4, startTime: "14:00:00", endTime: "15:00:00", maxCapacity: 3, bookedCount: 0, availableCapacity: 3, isAvailable: true },
+      { slotId: 5, startTime: "15:00:00", endTime: "16:00:00", maxCapacity: 3, bookedCount: 0, availableCapacity: 3, isAvailable: true },
+      { slotId: 6, startTime: "16:00:00", endTime: "17:00:00", maxCapacity: 3, bookedCount: 0, availableCapacity: 3, isAvailable: true }
+    ];
   },
 
   // Get customer's voucher wallet
@@ -146,8 +168,7 @@ export const customerApi = {
       return res.data || [];
     } catch (err) {
       console.warn('API getMyBookings error, using fallback:', err.message);
-      return [
-      ];
+      return [];
     }
   },
 
@@ -161,11 +182,67 @@ export const customerApi = {
   getRewardShop: async (customerId = 1) => {
     try {
       const res = await api.get(`/customer/rewards/shop?customerId=${customerId}`);
-      return res.data || [];
+      if (Array.isArray(res.data) && res.data.length > 0) {
+        return res.data;
+      }
     } catch (err) {
-      console.warn('API getRewardShop error:', err.message);
-      return [];
+      console.warn('API getRewardShop error, using demo fallback:', err.message);
     }
+    // Demo Fallback Rewards Shop Items
+    return [
+      {
+        id: 1,
+        code: "WELCOME50",
+        title: "Quà chào mừng thành viên mới",
+        description: "Giảm 10% cho đơn rửa xe đầu tiên",
+        discountType: "PERCENTAGE",
+        value: 10,
+        pointsCost: 0,
+        minTier: "Member",
+        isUnlocked: true,
+        isGrayscale: false,
+        unlockTooltip: null
+      },
+      {
+        id: 4,
+        code: "VOUCHER_50K",
+        title: "Voucher Giảm Giá 50k đổi điểm",
+        description: "Áp dụng giảm trực tiếp cho mọi hóa đơn đặt lịch rửa xe.",
+        discountType: "FIXED_AMOUNT",
+        value: 50000,
+        pointsCost: 450,
+        minTier: "Member",
+        isUnlocked: true,
+        isGrayscale: false,
+        unlockTooltip: null
+      },
+      {
+        id: 5,
+        code: "VOUCHER_FREE",
+        title: "Voucher Rửa Xe Miễn Phí (Đổi Điểm)",
+        description: "Đổi 1 lượt sử dụng gói rửa xe toàn diện hoàn toàn miễn phí.",
+        discountType: "FREE_SERVICE",
+        value: 100000,
+        pointsCost: 1000,
+        minTier: "Member",
+        isUnlocked: false,
+        isGrayscale: true,
+        unlockTooltip: "🔒 Cần thêm 150 điểm Loyalty để đổi mã này."
+      },
+      {
+        id: 2,
+        code: "SUMMER24",
+        title: "Voucher Mùa Hè Rực Rỡ",
+        description: "Giảm giá 50.000đ cho tất cả dịch vụ rửa xe",
+        discountType: "FIXED_AMOUNT",
+        value: 50000,
+        pointsCost: 0,
+        minTier: "Gold",
+        isUnlocked: false,
+        isGrayscale: true,
+        unlockTooltip: "🔒 Độc quyền cho thành viên hạng Gold trở lên."
+      }
+    ];
   },
 
   // Claim free voucher (costPoints = 0)

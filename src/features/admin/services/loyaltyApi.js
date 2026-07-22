@@ -50,7 +50,7 @@ export const loyaltyApi = {
         key: item.tierName || item.name || item.key,
         name: item.tierName || item.name || item.key,
         minSpend: item.minSpendVnd || item.minSpend || 0,
-        pointMultiplier: item.pointsMultiplier || item.pointMultiplier || 1.0,
+        pointMultiplier: item.tierMultiplier !== undefined ? item.tierMultiplier : (item.pointsMultiplier || item.pointMultiplier || 1.0),
         bookingWindow: item.bookingWindowDays || item.bookingWindow || 7,
         isActive: item.isActive !== undefined ? item.isActive : true
       }));
@@ -59,10 +59,10 @@ export const loyaltyApi = {
       const saved = localStorage.getItem('autowash_tiers');
       if (saved) return JSON.parse(saved);
       return [
-        { key: 'Member', name: 'Member', minSpend: 0, pointMultiplier: 1.0, bookingWindow: 7, isActive: true },
-        { key: 'Silver', name: 'Silver', minSpend: 1000000, pointMultiplier: 1.2, bookingWindow: 7, isActive: true },
-        { key: 'Gold', name: 'Gold', minSpend: 5000000, pointMultiplier: 1.5, bookingWindow: 14, isActive: true },
-        { key: 'Platinum', name: 'Platinum', minSpend: 10000000, pointMultiplier: 2.0, bookingWindow: 14, isActive: true }
+        { key: 'MEMBER', name: 'MEMBER', minSpend: 0, pointMultiplier: 1.0, bookingWindow: 7, isActive: true },
+        { key: 'SILVER', name: 'SILVER', minSpend: 1000000, pointMultiplier: 1.2, bookingWindow: 10, isActive: true },
+        { key: 'GOLD', name: 'GOLD', minSpend: 5000000, pointMultiplier: 1.5, bookingWindow: 12, isActive: true },
+        { key: 'PLATINUM', name: 'PLATINUM', minSpend: 10000000, pointMultiplier: 2.0, bookingWindow: 14, isActive: true }
       ];
     }
   },
@@ -77,6 +77,8 @@ export const loyaltyApi = {
       const payload = {
         tierName: data.name || data.key,
         minSpendVnd: Number(data.minSpend),
+        minSpend: Number(data.minSpend),
+        tierMultiplier: Number(data.pointMultiplier),
         pointsMultiplier: Number(data.pointMultiplier),
         bookingWindowDays: Number(data.bookingWindow),
         isActive: data.isActive !== undefined ? data.isActive : true
@@ -104,7 +106,6 @@ export const loyaltyApi = {
         const custId = item.customerId || item.id;
         const codeNum = custId ? String(custId).padStart(2, '0') : String(idx + 1).padStart(2, '0');
         
-        // Calculate days since last wash or signup
         let days = 0;
         const lastWash = item.lastCompletedBookingAt;
         if (lastWash) {
@@ -167,7 +168,6 @@ export const loyaltyApi = {
       return res.data || [];
     } catch (err) {
       console.warn(`API getCustomerPointHistory for customer ${customerId} offline, using fallback:`, err.message);
-      // Fallback matching mock localStorage points log
       if (Number(customerId) === 1) {
         return [
           { pointTransactionId: 101, points: 125, activityType: 'EARNED', bookingCode: 'AW-9812', createdAt: '2026-06-30T09:15:00' },
@@ -225,7 +225,7 @@ export const loyaltyApi = {
         key: item.tierName || item.name || item.key,
         name: item.tierName || item.name || item.key,
         minSpend: item.minSpendVnd || item.minSpend || 0,
-        pointMultiplier: item.pointsMultiplier || item.pointMultiplier || 1.0,
+        pointMultiplier: item.tierMultiplier !== undefined ? item.tierMultiplier : (item.pointsMultiplier || item.pointMultiplier || 1.0),
         bookingWindow: item.bookingWindowDays || item.bookingWindow || 7,
         isActive: item.isActive !== undefined ? item.isActive : true
       }));
@@ -245,10 +245,10 @@ export const loyaltyApi = {
           inactivityLockoutMonths: 12
         },
         tiers: [
-          { key: 'Member', name: 'Member', minSpend: 0, pointMultiplier: 1.0, bookingWindow: 7, isActive: true },
-          { key: 'Silver', name: 'Silver', minSpend: 1000000, pointMultiplier: 1.2, bookingWindow: 7, isActive: true },
-          { key: 'Gold', name: 'Gold', minSpend: 5000000, pointMultiplier: 1.5, bookingWindow: 14, isActive: true },
-          { key: 'Platinum', name: 'Platinum', minSpend: 10000000, pointMultiplier: 2.0, bookingWindow: 14, isActive: true }
+          { key: 'MEMBER', name: 'MEMBER', minSpend: 0, pointMultiplier: 1.0, bookingWindow: 7, isActive: true },
+          { key: 'SILVER', name: 'SILVER', minSpend: 1000000, pointMultiplier: 1.2, bookingWindow: 10, isActive: true },
+          { key: 'GOLD', name: 'GOLD', minSpend: 5000000, pointMultiplier: 1.5, bookingWindow: 12, isActive: true },
+          { key: 'PLATINUM', name: 'PLATINUM', minSpend: 10000000, pointMultiplier: 2.0, bookingWindow: 14, isActive: true }
         ]
       };
     }

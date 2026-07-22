@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 import { bookingAdminApi } from '../services/bookingAdminApi';
+import { loyaltyApi } from '../services/loyaltyApi';
 
 export default function AdminBookingsPage() {
   // 1. Initialize localStorage databases if not exists to enable E2E integration
@@ -437,7 +438,56 @@ export default function AdminBookingsPage() {
 
     const todayStr = getLocalDateString();
     if (booking.bookingDate !== todayStr) return false;
+
+    // Ràng buộc mốc thời gian cứu đơn (Cho phép cứu đơn linh hoạt cho các đơn trong ngày)
+    if (booking.slotTime) {
+      const startTimeStr = booking.slotTime.split(' - ')[0];
+      const [slotHour, slotMin] = startTimeStr.split(':').map(Number);
+      if (!isNaN(slotHour) && !isNaN(slotMin)) {
+        const slotStart = new Date();
+        slotStart.setHours(slotHour, slotMin, 0, 0);
+        const diffMinutes = (new Date() - slotStart) / 60000;
+        if (diffMinutes > 15) {
+          return false; // Quá 15p -> Hủy hoàn toàn
+        }
+      }
+    }
+
     return true;
+  };
+
+  // ── Helper to check if a booking is in the valid 10-min before to 5-min after checkin window ──
+  const getCheckinWindowInfo = (booking) => {
+    if (!booking || !booking.slotTime) return { isValid: true, isTooEarly: false, isPastGrace: false };
+
+    const todayStr = getLocalDateString();
+    if (booking.bookingDate !== todayStr) {
+      const isPast = booking.bookingDate < todayStr;
+      return { 
+        isValid: false, 
+        isTooEarly: !isPast, 
+        isPastGrace: isPast, 
+        message: isPast 
+          ? `⚠️ Đơn đặt lịch thuộc ngày quá khứ (${booking.bookingDate}). Không thể thanh toán!` 
+          : `⏳ Đơn đặt lịch được hẹn cho ngày ${booking.bookingDate}. Chưa đến ngày check-in & thanh toán!` 
+      };
+    }
+
+    const startTimeStr = booking.slotTime.split(' - ')[0];
+    const [slotHour, slotMin] = startTimeStr.split(':').map(Number);
+    if (isNaN(slotHour) || isNaN(slotMin)) return { isValid: true, isTooEarly: false, isPastGrace: false };
+
+    const slotStart = new Date();
+    slotStart.setHours(slotHour, slotMin, 0, 0);
+    const diffMinutes = (new Date() - slotStart) / 60000;
+
+    if (diffMinutes < -10) {
+      return { isValid: false, isTooEarly: true, isPastGrace: false, message: `⏳ Chưa đến giờ check-in (Chỉ cho phép check-in từ 10 phút trước giờ slot ${startTimeStr})` };
+    }
+    if (diffMinutes > 5) {
+      return { isValid: false, isTooEarly: false, isPastGrace: true, message: `⚠️ Quá 5 phút kể từ giờ slot (${startTimeStr}) — Không thể thanh toán thường. Hãy sử dụng luồng Cứu Đơn.` };
+    }
+    return { isValid: true, isTooEarly: false, isPastGrace: false };
   };
 
   // ── Downstream slot availability lookup ──
@@ -670,12 +720,25 @@ const getAllBookings = () => {
     const stringId = b.bookingCode || b.id || String(b.bookingId || '');
     if (!stringId) return;
 
-    // Xử lý chuyển đổi object startTime từ API {hour: 14, minute: 30} thành chuỗi "14:30"
+    // Xử lý chuyển đổi startTime từ API (có thể là String "09:30:00", Array [9,30], hoặc Object {hour: 9, minute: 30})
     let formattedSlotTime = b.slotTime || '';
-    if (b.startTime && typeof b.startTime === 'object') {
-      const hour = String(b.startTime.hour ?? '').padStart(2, '0');
-      const minute = String(b.startTime.minute ?? '').padStart(2, '0');
-      if (hour && minute) formattedSlotTime = `${hour}:${minute}`;
+    if (b.startTime) {
+      if (typeof b.startTime === 'string') {
+        const parts = b.startTime.split(':');
+        if (parts.length >= 2) {
+          formattedSlotTime = `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}`;
+        } else {
+          formattedSlotTime = b.startTime;
+        }
+      } else if (Array.isArray(b.startTime) && b.startTime.length >= 2) {
+        const hour = String(b.startTime[0]).padStart(2, '0');
+        const minute = String(b.startTime[1]).padStart(2, '0');
+        formattedSlotTime = `${hour}:${minute}`;
+      } else if (typeof b.startTime === 'object') {
+        const hour = String(b.startTime.hour ?? '').padStart(2, '0');
+        const minute = String(b.startTime.minute ?? '').padStart(2, '0');
+        if (hour && minute) formattedSlotTime = `${hour}:${minute}`;
+      }
     }
 
     const normalizedBooking = {
@@ -1352,9 +1415,7 @@ const allBookingsMapped = getAllBookings().map(b => {
                           <td className="py-3.5 px-5 text-center">
                             <div className="flex items-center justify-center gap-2">
                               <span className={`inline-block px-2.5 py-1 rounded-full border text-[9px] font-bold ${statusBadge}`}>
-                                {b.status === 'Pending' ? 'Chờ Check-in' :
-                                 b.status === 'Confirmed' ? 'Đã xác nhận' :
-                                 b.status === 'In_progress' ? 'Đang rửa' :
+                                {b.status === 'Pending' || b.status === 'Confirmed' || b.status === 'In_progress' ? 'Chờ Check-in' :
                                  b.status === 'Completed' ? 'Đã xong' : 'Đã hủy'}
                               </span>
                               <button 
@@ -1701,13 +1762,34 @@ const allBookingsMapped = getAllBookings().map(b => {
                         </div>
                       </div>
 
-                      <button
-                        onClick={handleConfirmPayment}
-                        className="w-full bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer"
-                      >
-                        <CheckCircle className="w-4.5 h-4.5" />
-                        Xác nhận Thanh toán & Hoàn tất
-                      </button>
+                      {/* Check-in window validation (10 mins before to 5 mins after) */}
+                      {(() => {
+                        const windowInfo = getCheckinWindowInfo(selectedBooking);
+                        return (
+                          <div className="space-y-3">
+                            {!windowInfo.isValid && (
+                              <div className={`p-3.5 rounded-xl text-center text-xs font-bold ${
+                                windowInfo.isTooEarly ? 'bg-amber-50 border border-amber-200 text-amber-800' : 'bg-rose-50 border border-rose-200 text-rose-700'
+                              }`}>
+                                {windowInfo.message}
+                              </div>
+                            )}
+
+                            <button
+                              disabled={!windowInfo.isValid}
+                              onClick={handleConfirmPayment}
+                              className={`w-full text-white text-xs font-black py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md ${
+                                windowInfo.isValid
+                                  ? 'bg-indigo-600 hover:bg-indigo-700 cursor-pointer font-outfit'
+                                  : 'bg-slate-300 border border-slate-350 text-slate-500 cursor-not-allowed opacity-60'
+                              }`}
+                            >
+                              <CheckCircle className="w-4.5 h-4.5" />
+                              Xác nhận Thanh toán & Hoàn tất
+                            </button>
+                          </div>
+                        );
+                      })()}
                     </div>
                   )}
 
@@ -1747,15 +1829,21 @@ const allBookingsMapped = getAllBookings().map(b => {
                       </div>
 
                       {/* Staff Override: "Cứu Đơn" – check-in late with downstream availability guard */}
-                      {isNoShowOverrideCandidate(selectedBooking) && (
+                      {isNoShowOverrideCandidate(selectedBooking) ? (
                           <button
                             onClick={() => handleCheckinLateOverride(selectedBooking.id || selectedBooking.bookingId)}
                             className="w-full bg-amber-600 hover:bg-amber-700 active:scale-[0.98] text-white text-xs font-black py-2.5
                         px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer font-outfit"
                           >
                             <Play className="w-4 h-4" />
-                            🛡️ Cứu Đơn – Kiểm tra & Check-in trễ
+                            🛡️ Cứu Đơn – Kiểm tra & Check-in trễ (Trong vòng 15p)
                           </button>
+                      ) : (
+                        ((selectedBooking.status || '').toUpperCase() === 'CANCELLED_NO_SHOW' || (selectedBooking.status || '').toUpperCase() === 'NO_SHOW') && (
+                          <div className="bg-slate-100 border border-slate-200 text-slate-500 p-3 rounded-xl text-center text-[11px] font-bold">
+                            🔒 Đã quá 15 phút kể từ giờ bắt đầu — Khóa Cứu Đơn (Bắt buộc khách đặt ca mới)
+                          </div>
+                        )
                       )}
                     </div>
                   )}
