@@ -129,7 +129,22 @@ const [availableSlots, setAvailableSlots] = useState([]);
 
   // Modals and Forms State
   const [serviceModalOpen, setServiceModalOpen] = useState(false);
+  const setIsAddModalOpen = setServiceModalOpen;
   const [currentService, setCurrentService] = useState(null); // null means adding new
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [createdServiceData, setCreatedServiceData] = useState(null);
+
+  useEffect(() => {
+    let timer;
+    if (showSuccessModal) {
+      timer = setTimeout(() => {
+        setShowSuccessModal(false);
+      }, 3000);
+    }
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [showSuccessModal]);
 
   const [slotModalOpen, setSlotModalOpen] = useState(false);
   const [currentSlot, setCurrentSlot] = useState(null);
@@ -150,8 +165,39 @@ const [availableSlots, setAvailableSlots] = useState([]);
 
   // Add Slot Modal State
   const [isAddSlotModalOpen, setIsAddSlotModalOpen] = useState(false);
+  const setIsSlotModalOpen = setIsAddSlotModalOpen;
+  const [showSlotSuccessModal, setShowSlotSuccessModal] = useState(false);
+  const [createdSlotTime, setCreatedSlotTime] = useState('');
+
+  useEffect(() => {
+    let timer;
+    if (showSlotSuccessModal) {
+      timer = setTimeout(() => {
+        setShowSlotSuccessModal(false);
+      }, 3000);
+    }
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [showSlotSuccessModal]);
+
   const [newSlotTime, setNewSlotTime] = useState('');
   const [newSlotMaxCapacity, setNewSlotMaxCapacity] = useState(8);
+
+  const [createdHolidayData, setCreatedHolidayData] = useState(null);
+  const [showHolidaySuccessModal, setShowHolidaySuccessModal] = useState(false);
+
+  useEffect(() => {
+    let timer;
+    if (showHolidaySuccessModal) {
+      timer = setTimeout(() => {
+        setShowHolidaySuccessModal(false);
+      }, 3000);
+    }
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [showHolidaySuccessModal]);
 
   useEffect(() => {
   if (isSpecificSlotBlockEnabled && closureForm.closureDate) {
@@ -167,7 +213,15 @@ const [availableSlots, setAvailableSlots] = useState([]);
   }
 }, [isSpecificSlotBlockEnabled, closureForm.closureDate, slots]);
 
-// Handlers for Closures
+const fetchHolidays = async () => {
+  try {
+    const closuresData = await serviceCatalogApi.getAllClosures();
+    setClosures(closuresData);
+  } catch (err) {
+    console.error('Failed to load closures from API:', err);
+  }
+};
+
 const handleLockSlot = async (e) => {
   if (e) e.preventDefault();
   if (!closureForm.closureDate) {
@@ -178,23 +232,34 @@ const handleLockSlot = async (e) => {
     alert('Vui lòng chọn khung giờ cần khóa!');
     return;
   }
+  
+  const slotObj = availableSlots.find(s => Number(s.id || s.slotId || s.timeSlotId) === Number(selectedSlotId)) || slots.find(s => Number(s.id || s.timeSlotId || s.slotId) === Number(selectedSlotId));
+  const slotTimeText = slotObj ? slotObj.time : 'Khung giờ đã chọn';
+  const closureDateVal = closureForm.closureDate;
+  const reasonVal = closureForm.reason;
+
   try {
     await serviceCatalogApi.lockSingleSlot({
-      date: closureForm.closureDate,
+      date: closureDateVal,
       slotId: Number(selectedSlotId),
       lock: true
     });
-    alert('Khóa thành công khung giờ được chọn cho ngày nghỉ trạm!');
     
-    // Nạp lại toàn bộ cấu hình closures từ API để có dữ liệu thực tế và chuẩn ID từ DB
-    const closuresData = await serviceCatalogApi.getAllClosures();
-    setClosures(closuresData);
+    setCreatedHolidayData({
+      isSlotOnly: true,
+      date: closureDateVal,
+      slotTime: slotTimeText,
+      reason: reasonVal || 'Bảo trì định kỳ'
+    });
 
     setClosureModalOpen(false);
     setClosureForm({ closureDate: '', reason: '', isFullDay: true });
     setIsSpecificSlotBlockEnabled(false);
     setSelectedSlotId('');
     setAvailableSlots([]);
+
+    await fetchHolidays();
+    setShowHolidaySuccessModal(true);
   } catch (err) {
     const errMsg = err.response?.data?.message || err.message || 'Lỗi khi khóa khung giờ!';
     alert(errMsg);
@@ -207,13 +272,26 @@ const handleSaveClosure = async (e) => {
     alert('Vui lòng chọn ngày đóng cửa!');
     return;
   }
+  
+  const closureDateVal = closureForm.closureDate;
+  const reasonVal = closureForm.reason;
+
   try {
     const created = await serviceCatalogApi.createClosure(closureForm);
     setClosures(prev => [...prev, created]);
-    alert('Đã thêm ngày nghỉ lễ thành công!');
+    
+    setCreatedHolidayData({
+      isSlotOnly: false,
+      date: closureDateVal,
+      reason: reasonVal || 'Bảo trì định kỳ'
+    });
+
     setClosureModalOpen(false);
     setClosureForm({ closureDate: '', reason: '', isFullDay: true });
     setIsSpecificSlotBlockEnabled(false);
+
+    await fetchHolidays();
+    setShowHolidaySuccessModal(true);
   } catch (err) {
     const errMsg = err.response?.data?.message || err.message || 'Lỗi khi thêm ngày nghỉ!';
     alert(errMsg);
@@ -301,6 +379,17 @@ const handleDeleteClosure = async (id) => {
     setServiceModalOpen(true);
   };
 
+  const fetchServices = async () => {
+    try {
+      const servicesData = await serviceCatalogApi.getAllServices();
+      const sortedPackages = [...servicesData].sort((a, b) => Number(a.price) - Number(b.price));
+      setServices(sortedPackages);
+      localStorage.setItem('autowash_admin_services_db', JSON.stringify(sortedPackages));
+    } catch (err) {
+      console.error('Failed to load services from API:', err);
+    }
+  };
+
   const handleSaveService = async (e) => {
     e.preventDefault();
     if (!serviceForm.name.trim() || !serviceForm.price || !serviceForm.duration) {
@@ -308,16 +397,37 @@ const handleDeleteClosure = async (id) => {
       return;
     }
 
-    if (currentService) {
-      const updated = await serviceCatalogApi.updateService(currentService.id, { ...serviceForm, id: currentService.id, serviceId: currentService.serviceId });
-      setServices(prev => prev.map(s => (s.id === currentService.id ? { ...s, ...updated } : s)));
-      alert(`Đã chỉnh sửa dịch vụ thành công!`);
-    } else {
-      const created = await serviceCatalogApi.createService(serviceForm);
-      setServices(prev => [...prev, created]);
-      alert(`Đã thêm mới dịch vụ thành công!`);
+    const serviceName = serviceForm.name;
+
+    try {
+      if (currentService) {
+        const updated = await serviceCatalogApi.updateService(currentService.id, { ...serviceForm, id: currentService.id, serviceId: currentService.serviceId });
+        setServices(prev => prev.map(s => (s.id === currentService.id ? { ...s, ...updated } : s)));
+      } else {
+        const created = await serviceCatalogApi.createService(serviceForm);
+        setServices(prev => [...prev, created]);
+      }
+      
+      setCreatedServiceData({
+        name: serviceName,
+        price: Number(serviceForm.price),
+        duration: serviceForm.duration,
+        category: serviceForm.type === 'core' ? 'Gói chính' : 'Add-on'
+      });
+      setIsAddModalOpen(false);
+      setServiceForm({
+        name: '',
+        price: '',
+        duration: '',
+        type: 'core',
+        desc: ''
+      });
+      await fetchServices();
+      setShowSuccessModal(true);
+    } catch (error) {
+      console.error('Error saving service:', error);
+      alert('Đã xảy ra lỗi khi lưu dịch vụ: ' + error.message);
     }
-    setServiceModalOpen(false);
   };
 
   // Handlers for Slots
@@ -380,6 +490,17 @@ const handleDeleteClosure = async (id) => {
     }
   };
 
+  const fetchSlots = async () => {
+    try {
+      const slotsData = await serviceCatalogApi.getAllSlots();
+      const sortedSlots = sortAndReIndexSlots(slotsData);
+      setSlots(sortedSlots);
+      localStorage.setItem('autowash_slots', JSON.stringify(sortedSlots));
+    } catch (err) {
+      console.error('Failed to load slots from API:', err);
+    }
+  };
+
   // Handler: Add New Slot with validation + API integration (HH:MM:SS format)
   const handleAddSlot = async (e) => {
     e.preventDefault();
@@ -402,7 +523,6 @@ const handleDeleteClosure = async (id) => {
     const normalizedTime = appendSeconds(newSlotTime.replace(/\s+/g, ' ').trim());
 
     // Frontend Duplicate Prevention Guard (strict unique constraint)
-    // Scan all existing slots with normalized HH:MM:SS comparison
     const isDuplicate = slots.some(sl => {
       const existingNormalized = appendSeconds(sl.time.replace(/\s+/g, ' ').trim());
       return existingNormalized === normalizedTime;
@@ -411,6 +531,8 @@ const handleDeleteClosure = async (id) => {
       alert('Khung giờ này đã tồn tại trên hệ thống! Vui lòng nhập một khung giờ khác.');
       return;
     }
+
+    const slotTimeLabel = newSlotTime;
 
     try {
       const created = await serviceCatalogApi.createSlot({
@@ -433,10 +555,12 @@ const handleDeleteClosure = async (id) => {
         return next;
       });
 
-      alert('Thêm khung giờ dọn rửa mới thành công!');
-      setIsAddSlotModalOpen(false);
+      setCreatedSlotTime(slotTimeLabel);
+      setIsSlotModalOpen(false);
       setNewSlotTime('');
       setNewSlotMaxCapacity(8);
+      await fetchSlots();
+      setShowSlotSuccessModal(true);
     } catch (err) {
       // Backend Conflict Error Handling: route 409 / duplicate constraint violations
       const httpStatus = err.response?.status;
@@ -1188,6 +1312,117 @@ const handleDeleteClosure = async (id) => {
                 <button type="submit" className="px-4.5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-xl cursor-pointer transition-colors">Thêm khung giờ</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* SUCCESS MODAL FOR SERVICE SAVING */}
+      {showSuccessModal && createdServiceData && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl max-w-sm w-full shadow-2xl p-6 flex flex-col items-center text-center space-y-4 border border-slate-100 animate-in fade-in zoom-in-95 duration-150">
+            <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center">
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path>
+              </svg>
+            </div>
+            
+            <div className="space-y-2 w-full">
+              <h3 className="text-lg font-black text-slate-800 font-outfit">Lưu dịch vụ thành công!</h3>
+              <p className="text-xs text-slate-500 font-medium">
+                Thông tin chi tiết dịch vụ đã được cập nhật hệ thống:
+              </p>
+              
+              <div className="bg-slate-50 border border-slate-150 rounded-2xl p-4 text-xs space-y-2 text-left w-full">
+                <div className="flex justify-between items-center">
+                  <span className="font-bold text-slate-500">Tên dịch vụ</span>
+                  <span className="font-black text-slate-800">{createdServiceData.name}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="font-bold text-slate-500">Phân loại</span>
+                  <span className="font-black text-slate-800">{createdServiceData.category}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="font-bold text-slate-500">Thời gian thực hiện</span>
+                  <span className="font-black text-slate-800">{createdServiceData.duration} phút</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="font-bold text-slate-500">Đơn giá gốc</span>
+                  <span className="font-black text-indigo-700 font-mono">{(createdServiceData.price || 0).toLocaleString('vi-VN')} đ</span>
+                </div>
+              </div>
+            </div>
+            
+            <button
+              onClick={() => setShowSuccessModal(false)}
+              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg px-6 py-2.5 font-bold text-xs transition-colors cursor-pointer"
+            >
+              Xác nhận
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* SUCCESS MODAL FOR TIME SLOT CREATION */}
+      {showSlotSuccessModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl max-w-sm w-full shadow-2xl p-6 flex flex-col items-center text-center space-y-4 border border-slate-100 animate-in fade-in zoom-in-95 duration-150">
+            <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center">
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path>
+              </svg>
+            </div>
+            
+            <div className="space-y-1">
+              <h3 className="text-lg font-black text-slate-800 font-outfit">Tạo khung giờ thành công!</h3>
+              <p className="text-xs text-slate-500 font-medium">
+                Khung giờ <strong className="text-slate-800 font-bold">{createdSlotTime}</strong> đã được thêm vào hệ thống vận hành.
+              </p>
+            </div>
+            
+            <button
+              onClick={() => setShowSlotSuccessModal(false)}
+              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg px-6 py-2.5 font-bold text-xs transition-colors cursor-pointer"
+            >
+              Xác nhận
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* SUCCESS MODAL FOR HOLIDAY/MAINTENANCE LOCK */}
+      {showHolidaySuccessModal && createdHolidayData && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl max-w-sm w-full shadow-2xl p-6 flex flex-col items-center text-center space-y-4 border border-slate-100 animate-in fade-in zoom-in-95 duration-150">
+            <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center">
+              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path>
+              </svg>
+            </div>
+            
+            <div className="space-y-2 w-full">
+              <h3 className="text-lg font-black text-slate-800 font-outfit">Khóa Lịch Thành Công!</h3>
+              <p className="text-xs text-slate-500 font-medium">
+                {createdHolidayData.isSlotOnly ? (
+                  <>
+                    Đã khóa slot <span className="bg-amber-50 text-amber-800 font-semibold px-2 py-0.5 rounded">{createdHolidayData.slotTime}</span> giờ ngày <span className="bg-amber-50 text-amber-800 font-semibold px-2 py-0.5 rounded">{createdHolidayData.date}</span> với lý do: <span className="font-bold text-slate-700">{createdHolidayData.reason}</span>
+                  </>
+                ) : (
+                  <>
+                    Đã khóa toàn bộ ngày <span className="bg-amber-50 text-amber-800 font-semibold px-2 py-0.5 rounded">{createdHolidayData.date}</span> với lý do: <span className="font-bold text-slate-700">{createdHolidayData.reason}</span>
+                  </>
+                )}
+              </p>
+            </div>
+            
+            <button
+              onClick={() => {
+                setShowHolidaySuccessModal(false);
+                setCreatedHolidayData(null);
+              }}
+              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg px-6 py-2.5 font-bold text-xs transition-colors cursor-pointer"
+            >
+              Xác nhận
+            </button>
           </div>
         </div>
       )}

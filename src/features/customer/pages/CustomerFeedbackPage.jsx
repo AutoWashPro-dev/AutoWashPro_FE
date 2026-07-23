@@ -10,6 +10,21 @@ export default function CustomerFeedbackPage() {
   const [feedbacks, setFeedbacks] = useState([]);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [feedbackAlert, setFeedbackAlert] = useState({
+    isOpen: false,
+    type: 'warning', // 'warning' | 'error' | 'success' | 'info'
+    title: '',
+    message: ''
+  });
+
+  const handleCloseAlert = async () => {
+    setFeedbackAlert(prev => ({ ...prev, isOpen: false }));
+    if (feedbackAlert.type === 'success') {
+      setComment('');
+      setRating(5);
+      await loadFeedbacks();
+    }
+  };
 
   const fetchCompletedBookings = async () => {
     try {
@@ -78,12 +93,34 @@ export default function CustomerFeedbackPage() {
     e.preventDefault();
     setSuccessMessage('');
     setErrorMessage('');
-    if (!comment.trim()) {
-      setErrorMessage("Vui lòng nhập nội dung nhận xét của bạn.");
+    
+    if (!selectedBookingId) {
+      setFeedbackAlert({
+        isOpen: true,
+        type: 'warning',
+        title: "Chưa chọn lịch hẹn dọn rửa",
+        message: "Vui lòng chọn 1 đơn đặt lịch đã hoàn thành từ danh sách trước khi gửi đánh giá."
+      });
       return;
     }
-    if (!selectedBookingId) {
-      setErrorMessage("Vui lòng chọn một đơn hàng đã hoàn thành để phản hồi.");
+
+    if (rating === 0) {
+      setFeedbackAlert({
+        isOpen: true,
+        type: 'warning',
+        title: "Chưa chọn mức độ hài lòng",
+        message: "Vui lòng chọn từ 1 đến 5 sao để đánh giá chất lượng dịch vụ dọn rửa xe."
+      });
+      return;
+    }
+
+    if (!comment.trim()) {
+      setFeedbackAlert({
+        isOpen: true,
+        type: 'warning',
+        title: "Thiếu nội dung nhận xét",
+        message: "Vui lòng nhập nội dung chia sẻ trải nghiệm của bạn tại trạm (ví dụ: thái độ nhân viên, độ sạch xích/gầm...)"
+      });
       return;
     }
 
@@ -95,13 +132,21 @@ export default function CustomerFeedbackPage() {
       };
 
       await customerApi.createFeedback(feedbackData);
-      setSuccessMessage("Gửi ý kiến phản hồi thành công! Cảm ơn bạn đã đóng góp ý kiến.");
-      setComment('');
-      setRating(5);
-      await loadFeedbacks();
+      
+      setFeedbackAlert({
+        isOpen: true,
+        type: 'success',
+        title: "Cảm ơn bạn đã gửi phản hồi!",
+        message: "Ý kiến đóng góp của bạn đã được ghi nhận. Đội ngũ quản lý sẽ phân tích và phản hồi trong thời gian sớm nhất."
+      });
     } catch (err) {
       console.error('Failed to submit feedback:', err);
-      setErrorMessage(err.response?.data?.message || 'Không thể gửi phản hồi. Vui lòng thử lại!');
+      setFeedbackAlert({
+        isOpen: true,
+        type: 'error',
+        title: "Gửi phản hồi thất bại",
+        message: err.response?.data?.message || 'Không thể gửi phản hồi. Vui lòng thử lại!'
+      });
     }
   };
 
@@ -243,6 +288,49 @@ export default function CustomerFeedbackPage() {
           </div>
         </div>
       </div>
+
+      {/* CUSTOM FEEDBACK ALERT MODAL */}
+      {feedbackAlert.isOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl max-w-sm w-full shadow-2xl p-6 flex flex-col items-center text-center space-y-4 border border-slate-100 animate-in fade-in zoom-in-95 duration-150 text-slate-800">
+            {feedbackAlert.type === 'warning' && (
+              <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center">
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                </svg>
+              </div>
+            )}
+            {feedbackAlert.type === 'error' && (
+              <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center">
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+              </div>
+            )}
+            {feedbackAlert.type === 'success' && (
+              <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center">
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"></path>
+                </svg>
+              </div>
+            )}
+
+            <div className="space-y-1">
+              <h3 className="text-base font-black tracking-tight font-outfit">{feedbackAlert.title}</h3>
+              <p className="text-xs text-slate-500 font-medium leading-relaxed">
+                {feedbackAlert.message}
+              </p>
+            </div>
+
+            <button
+              onClick={handleCloseAlert}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-6 py-2.5 font-bold text-xs transition-colors cursor-pointer"
+            >
+              Xác nhận
+            </button>
+          </div>
+        </div>
+      )}
 
     </div>
   );
