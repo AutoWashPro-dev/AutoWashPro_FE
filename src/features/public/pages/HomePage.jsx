@@ -125,7 +125,11 @@ export default function HomePage() {
   };
 
   return (
-    <div className="h-screen bg-[#f7fafd] overflow-y-auto font-sans text-slate-800">
+    <div className="min-h-screen bg-slate-50/60 selection:bg-blue-500 selection:text-white relative overflow-hidden font-sans text-slate-800">
+      
+      {/* Background radial glow circles */}
+      <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-blue-400/10 rounded-full blur-3xl pointer-events-none z-0" />
+      <div className="absolute top-1/3 right-10 w-[450px] h-[450px] bg-indigo-400/10 rounded-full blur-3xl pointer-events-none z-0" />
       
       {/* Navigation Bar */}
       <header className="sticky top-0 z-50 bg-[#f7fafd]/90 backdrop-blur-md border-b border-indigo-50/50 px-4 lg:px-8 py-4 transition-all duration-300">
@@ -279,7 +283,7 @@ export default function HomePage() {
       </section>
 
       {/* Brand Trust Ticker (Smooth Right-to-Left Marquee) */}
-      <section className="border-y border-indigo-50/50 py-8 bg-white/40 backdrop-blur-sm overflow-hidden">
+      <section className="w-full py-8 bg-white/60 backdrop-blur-md border-y border-slate-100 shadow-sm overflow-hidden relative z-10">
         <div className="max-w-7xl mx-auto px-4 text-center mb-6">
           <p className="text-xs font-black tracking-[0.2em] text-slate-400 uppercase">
             Trusted by owners of
@@ -288,8 +292,8 @@ export default function HomePage() {
 
         {/* Infinite Moving Marquee Container */}
         <div className="relative w-full overflow-hidden flex select-none">
-          <div className="absolute left-0 top-0 bottom-0 w-24 bg-gradient-to-r from-[#f7fafd] to-transparent z-10 pointer-events-none"></div>
-          <div className="absolute right-0 top-0 bottom-0 w-24 bg-gradient-to-l from-[#f7fafd] to-transparent z-10 pointer-events-none"></div>
+          <div className="absolute left-0 top-0 bottom-0 w-24 bg-gradient-to-r from-white to-transparent z-10 pointer-events-none"></div>
+          <div className="absolute right-0 top-0 bottom-0 w-24 bg-gradient-to-l from-white to-transparent z-10 pointer-events-none"></div>
 
           <div className="flex shrink-0 items-center justify-around gap-16 min-w-full animate-marquee opacity-30">
             {brands.concat(brands).concat(brands).map((brand, i) => (
@@ -315,8 +319,9 @@ export default function HomePage() {
       </section>
 
       {/* About WAVE Section ("Câu chuyện WAVE") */}
-      <section className="py-20 lg:py-32 px-4 lg:px-8 max-w-7xl mx-auto">
-        <div className="grid lg:grid-cols-12 gap-16 lg:gap-12 items-center">
+      <section className="w-full py-20 lg:py-32 px-4 lg:px-8 bg-slate-50/40 border-b border-slate-100/50 relative z-10">
+        <div className="max-w-7xl mx-auto">
+          <div className="grid lg:grid-cols-12 gap-16 lg:gap-12 items-center">
           
           {/* Images Grid (Left Column) */}
           <div className="lg:col-span-6 relative flex justify-center w-full">
@@ -434,7 +439,8 @@ export default function HomePage() {
             </div>
           </div>
         </div>
-      </section>
+      </div>
+    </section>
 
       {/* Special Membership Promo Banner */}
       <section className="px-4 lg:px-8 max-w-7xl mx-auto mb-24">
