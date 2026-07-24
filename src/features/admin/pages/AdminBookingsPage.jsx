@@ -458,6 +458,10 @@ export default function AdminBookingsPage() {
 
   // ── Helper to check if a booking is in the valid 10-min before to 5-min after checkin window ──
   const getCheckinWindowInfo = (booking) => {
+    // 💡 Bật chế độ Demo: Cho phép thanh toán & check-in mọi lúc mà không bị khóa nút
+    return { isValid: true, isTooEarly: false, isPastGrace: false };
+
+    /*
     if (!booking || !booking.slotTime) return { isValid: true, isTooEarly: false, isPastGrace: false };
 
     const todayStr = getLocalDateString();
@@ -484,10 +488,11 @@ export default function AdminBookingsPage() {
     if (diffMinutes < -10) {
       return { isValid: false, isTooEarly: true, isPastGrace: false, message: `⏳ Chưa đến giờ check-in (Chỉ cho phép check-in từ 10 phút trước giờ slot ${startTimeStr})` };
     }
-    if (diffMinutes > 5) {
+    if (diffMinutes > 30) {
       return { isValid: false, isTooEarly: false, isPastGrace: true, message: `⚠️ Quá 5 phút kể từ giờ slot (${startTimeStr}) — Không thể thanh toán thường. Hãy sử dụng luồng Cứu Đơn.` };
     }
     return { isValid: true, isTooEarly: false, isPastGrace: false };
+    */
   };
 
   // ── Downstream slot availability lookup ──

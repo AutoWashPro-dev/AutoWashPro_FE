@@ -153,7 +153,11 @@ export default function CustomerRewardsPage() {
   const renderDiscountValue = (type, val) => {
     if (type === 'FREE_SERVICE' || type === 'free_wash') return 'MIỄN PHÍ';
     if (type === 'PERCENTAGE' || type === 'percent') return `-${val}%`;
-    return `-${Number(val).toLocaleString('vi-VN')} đ`;
+    const num = Number(val);
+    if (!isNaN(num) && num >= 1000 && num % 1000 === 0) {
+      return `-${num / 1000}k`;
+    }
+    return `-${num.toLocaleString('vi-VN')} đ`;
   };
 
   // Lọc và sắp xếp: Đủ điều kiện (isGrayscale === false) lên trước, chưa đủ điều kiện (isGrayscale === true) xuống dưới
@@ -465,39 +469,45 @@ export default function CustomerRewardsPage() {
 
     return (
       <div 
-        className={`flex rounded-2xl overflow-hidden bg-white border border-slate-150 shadow-md hover:shadow-lg transition-all duration-300 relative ${
-          item.isGrayscale ? 'opacity-85 saturate-[95%] grayscale-[12%] shadow-none' : ''
+        className={`flex h-full min-h-[175px] rounded-2xl overflow-hidden bg-white border border-slate-200/80 shadow-sm hover:shadow-md transition-all duration-300 relative items-stretch ${
+          item.isGrayscale ? 'opacity-85 saturate-[95%] grayscale-[12%]' : ''
         }`}
       >
-        {/* Cánh trái: Hiển thị Mệnh giá ưu đãi khổng lồ */}
-        <div className={`w-32 flex flex-col justify-center items-center text-white p-4 relative shrink-0 bg-gradient-to-b ${colors.gradient}`}>
+        {/* Cánh trái: Hiển thị Mệnh giá ưu đãi thanh thoát */}
+        <div className={`w-28 self-stretch flex flex-col justify-center items-center text-white p-3 relative shrink-0 bg-gradient-to-b ${colors.gradient}`}>
           {/* Semicircles Decorative cutouts */}
           <div className="absolute top-0 right-0 w-3 h-3 bg-slate-50 rounded-bl-full pointer-events-none"></div>
           <div className="absolute bottom-0 right-0 w-3 h-3 bg-slate-50 rounded-tl-full pointer-events-none"></div>
           
-          <div className="bg-white/10 p-2.5 rounded-full border border-white/15 mb-2.5">
-            <Tag className="w-6 h-6 text-white" />
+          <div className="bg-white/15 p-2 rounded-full border border-white/20 mb-1.5">
+            <Tag className="w-5 h-5 text-white" />
           </div>
-          <span className="text-xs uppercase font-extrabold text-white/70 tracking-widest">ƯU ĐÃI</span>
-          <span className="text-xl font-black text-center leading-tight mt-1 truncate w-full font-sans">
-            {renderDiscountValue(item.discountType, item.value)}
-          </span>
+          <span className="text-[10px] uppercase font-extrabold text-white/80 tracking-widest">ƯU ĐÃI</span>
+          {(() => {
+            const valStr = renderDiscountValue(item.discountType, item.value);
+            const isFreeText = valStr === 'MIỄN PHÍ';
+            return (
+              <span className={`${isFreeText ? 'text-xs font-black tracking-tight' : 'text-base font-black'} text-center leading-tight mt-0.5 w-full font-sans whitespace-nowrap`}>
+                {valStr}
+              </span>
+            );
+          })()}
         </div>
 
-        {/* Cánh phải: Nội dung chi tiết ràng buộc */}
-        <div className="flex-1 p-5 flex flex-col justify-between relative bg-white">
-          <div className="space-y-2.5 text-left">
-            <div className="flex justify-between items-start gap-4">
-              <h4 className="font-extrabold text-slate-800 text-sm leading-snug">{item.title}</h4>
-              <span className={`font-mono text-xs font-black px-2.5 py-0.5 rounded-lg shrink-0 ${colors.badge}`}>
+        {/* Cánh phải: Nội dung chi tiết thoáng đãng */}
+        <div className="flex-1 p-4 flex flex-col justify-between relative bg-white">
+          <div className="space-y-2 text-left">
+            <div className="flex justify-between items-start gap-2">
+              <h4 className="font-extrabold text-slate-800 text-sm leading-snug line-clamp-1">{item.title}</h4>
+              <span className={`font-mono text-[11px] font-black px-2 py-0.5 rounded-md shrink-0 ${colors.badge}`}>
                 {isFree ? 'FREE' : `${item.pointsCost} Pts`}
               </span>
             </div>
             
-            <p className="text-xs text-slate-500 leading-relaxed font-medium">{item.description}</p>
+            <p className="text-xs text-slate-500 leading-relaxed font-medium line-clamp-2">{item.description}</p>
             
             {/* RÀNG BUỘC CHI TIẾT (Nếu có) */}
-            <div className="flex flex-wrap gap-1.5 pt-1.5">
+            <div className="flex flex-wrap gap-1 pt-1">
               {item.applicableServiceCode && (
                 <span className="text-[9px] font-bold bg-slate-50 border border-slate-200 text-slate-600 px-2 py-0.5 rounded-md">
                   Gói: {item.applicableServiceCode}
@@ -522,23 +532,23 @@ export default function CustomerRewardsPage() {
 
             {/* Lock Tooltip nếu bị khóa */}
             {item.isGrayscale && (
-              <div className="bg-amber-50/70 text-amber-700 text-[10px] p-2.5 rounded-xl border border-amber-100/60 flex items-start gap-1.5 mt-2 font-semibold">
-                <AlertCircle size={14} className="shrink-0 mt-0.5 text-amber-600" />
-                <span>{item.unlockTooltip}</span>
+              <div className="bg-amber-50/80 text-amber-800 text-[10px] p-2 rounded-lg border border-amber-200/60 flex items-center gap-1.5 mt-1.5 font-semibold">
+                <AlertCircle size={13} className="shrink-0 text-amber-600" />
+                <span className="line-clamp-1">{item.unlockTooltip}</span>
               </div>
             )}
           </div>
 
-          <div className="mt-5 pt-3 border-t border-slate-100 flex justify-between items-center">
+          <div className="mt-3 pt-2.5 border-t border-slate-150/80 flex justify-between items-center">
             <span className="flex items-center gap-1 text-[9px] text-slate-400 font-bold">
               <Clock size={11} className="text-slate-400" /> Hết hạn: {item.endDate ? new Date(item.endDate).toLocaleDateString('vi-VN') : '30 ngày'}
             </span>
             
             <button
               onClick={onRedeem}
-              className={`px-4.5 py-1.5 rounded-xl text-[10px] font-black tracking-wider uppercase transition-all active:scale-[0.98] ${
+              className={`px-3.5 py-1.5 rounded-xl text-[10px] font-black tracking-wider uppercase transition-all active:scale-[0.98] cursor-pointer ${
                 item.isGrayscale 
-                  ? 'bg-slate-100 text-slate-500 border border-slate-200 hover:bg-slate-200 cursor-pointer shadow-none' 
+                  ? 'bg-slate-100 text-slate-500 border border-slate-200 hover:bg-slate-200 shadow-none' 
                   : colors.button
               }`}
             >
@@ -556,12 +566,12 @@ export default function CustomerRewardsPage() {
   function WalletTicketCard({ voucher, onUse }) {
     return (
       <div 
-        className={`flex rounded-2xl overflow-hidden bg-white border border-slate-150 shadow-md hover:shadow-lg transition-all duration-300 relative ${
+        className={`flex h-full min-h-[175px] rounded-2xl overflow-hidden bg-white border border-slate-200/80 shadow-sm hover:shadow-md transition-all duration-300 relative items-stretch ${
           voucher.isExpired ? 'opacity-60 bg-slate-50' : ''
         }`}
       >
         {/* Cánh trái: Hiển thị Mệnh giá */}
-        <div className={`w-32 flex flex-col justify-center items-center text-white p-4 relative shrink-0 ${
+        <div className={`w-28 self-stretch flex flex-col justify-center items-center text-white p-3 relative shrink-0 ${
           voucher.isExpired 
             ? 'bg-slate-400' 
             : 'bg-gradient-to-b from-indigo-600 via-blue-600 to-indigo-700 shadow-md shadow-indigo-500/10'
@@ -570,29 +580,35 @@ export default function CustomerRewardsPage() {
           <div className="absolute top-0 right-0 w-3 h-3 bg-slate-50 rounded-bl-full pointer-events-none"></div>
           <div className="absolute bottom-0 right-0 w-3 h-3 bg-slate-50 rounded-tl-full pointer-events-none"></div>
           
-          <div className="bg-white/10 p-2.5 rounded-full border border-white/15 mb-2.5">
-            <QrCode className="w-6 h-6 text-white" />
+          <div className="bg-white/15 p-2 rounded-full border border-white/20 mb-1.5">
+            <QrCode className="w-5 h-5 text-white" />
           </div>
-          <span className="text-[10px] uppercase font-extrabold text-white/70 tracking-widest">SỞ HỮU</span>
-          <span className="text-xl font-black text-center leading-tight mt-1 truncate w-full font-sans">
-            {renderDiscountValue(voucher.discountType, voucher.value)}
-          </span>
+          <span className="text-[10px] uppercase font-extrabold text-white/80 tracking-widest">SỞ HỮU</span>
+          {(() => {
+            const valStr = renderDiscountValue(voucher.discountType, voucher.value);
+            const isFreeText = valStr === 'MIỄN PHÍ';
+            return (
+              <span className={`${isFreeText ? 'text-xs font-black tracking-tight' : 'text-base font-black'} text-center leading-tight mt-0.5 w-full font-sans whitespace-nowrap`}>
+                {valStr}
+              </span>
+            );
+          })()}
         </div>
 
         {/* Cánh phải: Thông tin */}
-        <div className="flex-1 p-5 flex flex-col justify-between relative bg-white">
-          <div className="space-y-2.5 text-left">
-            <div className="flex justify-between items-start gap-4">
-              <h4 className="font-extrabold text-slate-800 text-sm leading-snug">{voucher.title}</h4>
+        <div className="flex-1 p-4 flex flex-col justify-between relative bg-white">
+          <div className="space-y-2 text-left">
+            <div className="flex justify-between items-start gap-2">
+              <h4 className="font-extrabold text-slate-800 text-sm leading-snug line-clamp-1">{voucher.title}</h4>
               <span className="text-[9px] font-black text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100">
                 Khả dụng
               </span>
             </div>
             
-            <p className="text-xs text-slate-500 leading-relaxed font-medium">{voucher.description}</p>
+            <p className="text-xs text-slate-500 leading-relaxed font-medium line-clamp-2">{voucher.description}</p>
             
             {/* RÀNG BUỘC SỬ DỤNG */}
-            <div className="flex flex-wrap gap-1.5 pt-1.5">
+            <div className="flex flex-wrap gap-1 pt-1">
               {voucher.applicableServiceCode && (
                 <span className="text-[9px] font-bold bg-slate-50 border border-slate-200 text-slate-600 px-2 py-0.5 rounded-md">
                   Gói: {voucher.applicableServiceCode}
@@ -616,7 +632,7 @@ export default function CustomerRewardsPage() {
             </div>
           </div>
 
-          <div className="mt-5 pt-3 border-t border-slate-100 flex justify-between items-center">
+          <div className="mt-3 pt-2.5 border-t border-slate-150/80 flex justify-between items-center">
             <span className="flex items-center gap-1 text-[9px] text-slate-400 font-bold">
               <Clock size={11} className="text-slate-400" /> Hết hạn: {voucher.expiryDate || 'N/A'}
             </span>
@@ -624,7 +640,7 @@ export default function CustomerRewardsPage() {
             <button
               disabled={voucher.isExpired}
               onClick={onUse}
-              className={`px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-[10px] font-black tracking-wider uppercase shadow transition-all active:scale-[0.98] ${
+              className={`px-4 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-[10px] font-black tracking-wider uppercase shadow transition-all active:scale-[0.98] ${
                 voucher.isExpired ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none' : 'cursor-pointer'
               }`}
             >
