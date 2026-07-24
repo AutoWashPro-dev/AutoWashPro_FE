@@ -18,6 +18,18 @@ export default function CustomerRewardsPage() {
 
   // 1. Danh sách quà tặng đổi điểm (Rewards Shop)
   const [rewardItems, setRewardItems] = useState([]);
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    type: 'FREE', // 'FREE' | 'POINTS'
+    rewardData: null
+  });
+
+  const [rewardAlert, setRewardAlert] = useState({
+    isOpen: false,
+    type: 'success', // 'success' | 'warning' | 'error'
+    title: '',
+    message: ''
+  });
 
   // 2. Danh sách Ví Voucher cá nhân (My Voucher Wallet)
   const [myVouchers, setMyVouchers] = useState([]);
@@ -97,24 +109,39 @@ export default function CustomerRewardsPage() {
     loadProfileData();
   }, [activeTab]);
 
-  // Xử lý đổi quà bằng điểm thưởng
-  const handleRedeemGift = async (item) => {
+  const handleRedeemGift = (item) => {
     if (item.isGrayscale) {
-      alert(`Bạn chưa đủ điều kiện đổi quà này: ${item.unlockTooltip}`);
+      setRewardAlert({
+        isOpen: true,
+        type: 'warning',
+        title: "Chưa đủ điều kiện nhận quà",
+        message: `Cần thêm ${item.pointsCost - profile.loyaltyPoints} điểm Loyalty hoặc đạt hạng cao hơn để mở khóa quà tặng này.`
+      });
       return;
     }
 
     if (profile.loyaltyPoints < item.pointsCost) {
-      alert("Số điểm tích lũy của bạn không đủ để đổi quà này!");
+      setRewardAlert({
+        isOpen: true,
+        type: 'warning',
+        title: "Chưa đủ điều kiện nhận quà",
+        message: `Số điểm tích lũy của bạn không đủ để đổi quà này! Cần thêm ${item.pointsCost - profile.loyaltyPoints} điểm Loyalty.`
+      });
       return;
     }
 
-    const confirmText = item.pointsCost === 0
-      ? `Bạn muốn nhận quà tặng miễn phí "${item.title}" trực tiếp vào ví chứ?`
-      : `Bạn có chắc chắn muốn dùng ${item.pointsCost} Pts để đổi lấy "${item.title}" không?`;
+    setConfirmModal({
+      isOpen: true,
+      type: item.pointsCost === 0 ? 'FREE' : 'POINTS',
+      rewardData: item
+    });
+  };
 
-    const confirmRedeem = window.confirm(confirmText);
-    if (!confirmRedeem) return;
+  const executeRedeem = async () => {
+    const item = confirmModal.rewardData;
+    if (!item) return;
+    
+    setConfirmModal(prev => ({ ...prev, isOpen: false }));
 
     try {
       const cId = profile.customerId || 1;
@@ -123,13 +150,23 @@ export default function CustomerRewardsPage() {
       } else {
         await customerApi.exchangePoints(item.id, cId);
       }
-      alert(`Đổi quà thành công! Đơn hàng ưu đãi "${item.title}" đã được gửi vào ví của bạn.`);
       
-      // Tải lại thông tin sau khi đổi thành công
+      setRewardAlert({
+        isOpen: true,
+        type: 'success',
+        title: "Nhận quà thành công!",
+        message: `Ưu đãi [${item.title}] đã được lưu vào 'Ví của tôi'. Bạn có thể sử dụng ngay khi đặt lịch dọn xe!`
+      });
+      
       await loadProfileData();
     } catch (err) {
       console.error('Failed to redeem gift:', err);
-      alert('Đổi quà thất bại: ' + (err.response?.data?.message || err.message));
+      setRewardAlert({
+        isOpen: true,
+        type: 'error',
+        title: "Đổi quà thất bại",
+        message: err.response?.data?.message || err.message || "Đã xảy ra lỗi khi quy đổi."
+      });
     }
   };
 
@@ -430,6 +467,131 @@ export default function CustomerRewardsPage() {
           </div>
         )}
       </div>
+
+      {/* CONFIRM REDEEM/CLAIM MODAL */}
+      {confirmModal.isOpen && confirmModal.rewardData && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl max-w-sm w-full shadow-2xl p-6 flex flex-col items-center text-center space-y-4 border border-slate-100 animate-in fade-in zoom-in-95 duration-150">
+            {confirmModal.type === 'FREE' ? (
+              <>
+                <div className="w-16 h-16 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center shadow-lg shadow-rose-500/10">
+                  <Gift className="w-8 h-8" />
+                </div>
+                <div className="space-y-1">
+                  <h3 className="text-base font-black tracking-tight font-outfit">Xác nhận nhận quà tặng</h3>
+                  <p className="text-xs text-slate-500 font-medium leading-relaxed">
+                    Bạn có muốn nhận quà tặng miễn phí <strong className="text-slate-800 font-bold">[{confirmModal.rewardData.title}]</strong> trực tiếp vào ví của mình không?
+                  </p>
+                </div>
+                <div className="flex gap-3 w-full pt-2">
+                  <button
+                    onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+                    className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-655 font-bold rounded-xl text-xs transition-colors"
+                  >
+                    Hủy bỏ
+                  </button>
+                  <button
+                    onClick={executeRedeem}
+                    className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs transition-colors"
+                  >
+                    Xác nhận Nhận Quà
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="w-16 h-16 bg-amber-50 text-amber-500 rounded-2xl flex items-center justify-center shadow-lg shadow-amber-500/10">
+                  <Coins className="w-8 h-8" />
+                </div>
+                <div className="space-y-2 w-full">
+                  <h3 className="text-base font-black tracking-tight font-outfit">Xác nhận đổi ưu đãi</h3>
+                  <div className="bg-slate-50 border border-slate-150 rounded-2xl p-4 text-xs space-y-2 text-left w-full">
+                    <div className="flex justify-between items-center">
+                      <span className="font-bold text-slate-500">Ưu đãi</span>
+                      <span className="font-black text-slate-800">{confirmModal.rewardData.title}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="font-bold text-slate-500">Chi phí</span>
+                      <span className="font-black text-rose-600 font-mono">-{confirmModal.rewardData.pointsCost} Pts</span>
+                    </div>
+                    <div className="h-px bg-slate-200 my-1" />
+                    <div className="flex justify-between items-center font-bold">
+                      <span className="text-slate-500">Điểm hiện tại</span>
+                      <span className="text-slate-800 font-mono">{profile.loyaltyPoints} Pts</span>
+                    </div>
+                    <div className="flex justify-between items-center font-bold">
+                      <span className="text-slate-500">Còn lại sau đổi</span>
+                      <span className="text-indigo-700 font-mono">{profile.loyaltyPoints - confirmModal.rewardData.pointsCost} Pts</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex gap-3 w-full pt-2">
+                  <button
+                    onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+                    className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-655 font-bold rounded-xl text-xs transition-colors"
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    onClick={executeRedeem}
+                    className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-xs transition-colors"
+                  >
+                    Đổi ngay
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ACTION ALERT DIALOG */}
+      {rewardAlert.isOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl max-w-sm w-full shadow-2xl p-6 flex flex-col items-center text-center space-y-4 border border-slate-100 animate-in fade-in zoom-in-95 duration-150 text-slate-800">
+            {rewardAlert.type === 'warning' && (
+              <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center">
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                </svg>
+              </div>
+            )}
+            {rewardAlert.type === 'error' && (
+              <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center">
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+              </div>
+            )}
+            {rewardAlert.type === 'success' && (
+              <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center">
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path>
+                </svg>
+              </div>
+            )}
+
+            <div className="space-y-1">
+              <h3 className="text-base font-black tracking-tight font-outfit">{rewardAlert.title}</h3>
+              <p className="text-xs text-slate-500 font-medium leading-relaxed">
+                {rewardAlert.message}
+              </p>
+            </div>
+
+            <button
+              onClick={() => {
+                setRewardAlert(prev => ({ ...prev, isOpen: false }));
+                if (rewardAlert.type === 'success') {
+                  setActiveTab('wallet');
+                }
+              }}
+              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg px-6 py-2.5 font-bold text-xs transition-colors cursor-pointer"
+            >
+              Xác nhận
+            </button>
+          </div>
+        </div>
+      )}
 
     </div>
   );

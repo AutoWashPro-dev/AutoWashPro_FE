@@ -26,11 +26,12 @@ import {
   History,
   ClipboardList
 } from 'lucide-react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { bookingAdminApi } from '../services/bookingAdminApi';
 import { loyaltyApi } from '../services/loyaltyApi';
 
 export default function AdminBookingsPage() {
+  const navigate = useNavigate();
   // 1. Initialize localStorage databases if not exists to enable E2E integration
   useEffect(() => {
     // Loyalty Settings
@@ -238,6 +239,8 @@ export default function AdminBookingsPage() {
   const [qrCodeModalBooking, setQrCodeModalBooking] = useState(null);
   const [momoQrUrl, setMomoQrUrl] = useState(null);
   const [momoActiveBookingId, setMomoActiveBookingId] = useState(null);
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
     const loadDataFromStorage = () => {
     const bookings = JSON.parse(localStorage.getItem('autowash_bookings') || '{}');
     const customers = JSON.parse(localStorage.getItem('autowash_customers') || '[]');
@@ -987,24 +990,22 @@ const allBookingsMapped = getAllBookings().map(b => {
     if (!selectedBooking) return;
 
     const bookingId = selectedBooking.bookingId || selectedBooking.id;
+    const bookingCode = selectedBooking.bookingCode || selectedBooking.id;
     const statusUpper = (selectedBooking.status || '').toUpperCase();
 
     // ── NO_SHOW Late-Arrival Guard ("Cứu Đơn" at payment step) ──
-    // If customer arrived late and booking was flagged as NO_SHOW, enforce downstream check
     if (isLateArrival(selectedBooking) || statusUpper === 'NO_SHOW' || statusUpper === 'CANCELLED_NO_SHOW') {
       const { hasCapacity, checkedSlots } = checkDownstreamSlotAvailability(selectedBooking);
 
       if (!hasCapacity) {
-        // Block: subsequent slots are fully booked
         const slotSummary = checkedSlots.map(s => `${s.time}: ${s.bookedCount}/${s.maxCapacity}`).join(', ');
         alert(
           `Khách hàng đi trễ và các khung giờ tiếp theo đã đầy công suất! Không thể thực hiện check-in.\n\n` +
           `Chi tiết: ${slotSummary || 'Không có khung giờ tiếp theo'}`
         );
-        return; // ← Hard stop: do NOT proceed with payment
+        return;
       }
 
-      // Capacity available → log the override and continue with payment
       console.log(
         `🛡️ [Cứu Đơn Override] Staff authorized late check-in for ${bookingId}. ` +
         `Available downstream slots: ${checkedSlots.filter(s => s.availableCapacity > 0).map(s => s.time).join(', ')}`
@@ -1012,140 +1013,152 @@ const allBookingsMapped = getAllBookings().map(b => {
     }
 
     try {
-      await bookingAdminApi.checkoutBooking(bookingId, {
-        bookingId,
-        paymentMethod: tempPaymentMethod === 'VNPay' ? 'BANK_TRANSFER' : tempPaymentMethod.toUpperCase(),
-        voucherCode: selectedVoucherCode || null,
-        notes: selectedBooking.notes
-      });
-
-    } catch (err) {
-      console.warn('API checkout error, falling back to localStorage:', err.message);
-    }
-
-    // Load tier multipliers dynamically
-    const customerTier = selectedBooking.customer.tier;
-    const currentTierConfig = tierMatrix.find((t) => t.key === customerTier) || { pointMultiplier: 1.0 };
-    const tierMultiplier = currentTierConfig.pointMultiplier || 1.0;
-
-    // Spring Boot Logic: Points Earned = floor(final_amount / baseSpend) x basePoints x Tier Multiplier
-    const pointsEarned = Math.floor(finalAmount / baseSpendToEarnPoint) * basePointsToEarn * tierMultiplier;
-
-    // Update customer in database (visits + 1, spend + finalAmount, points + earned)
-    let alertUpgradeMessage = '';
-    let updatedCustomerSnapshot = null;
-
-    const updatedCustomers = customersDb.map((c) => {
-      if (c.id === selectedBooking.customer.id) {
-        const newVisits = c.visits + 1;
-        const newSpend = c.totalSpend + finalAmount;
-        const newPoints = c.points + pointsEarned;
-
-        // Evaluate upgrade: Scan tier matrix from Platinum -> Gold -> Silver -> Member
-        let nextTier = c.tier;
-        const sortedTiers = [...tierMatrix].sort((a, b) => b.minSpend - a.minSpend);
-        for (let t of sortedTiers) {
-          if (newSpend >= t.minSpend) {
-            nextTier = t.key;
-            break;
-          }
+      setIsSubmitting(true);
+      
+      try {
+        await bookingAdminApi.updateStatus(bookingId, 'Completed');
+      } catch (apiErr) {
+        console.warn('API /complete or /status update error, fallback to checkout API:', apiErr.message);
+        try {
+          await bookingAdminApi.checkoutBooking(bookingId, {
+            bookingId,
+            paymentMethod: tempPaymentMethod === 'VNPay' ? 'BANK_TRANSFER' : tempPaymentMethod.toUpperCase(),
+            voucherCode: selectedVoucherCode || null,
+            notes: selectedBooking.notes
+          });
+        } catch (checkoutErr) {
+          console.warn('Fallback checkout API error:', checkoutErr.message);
         }
-
-        if (nextTier !== c.tier) {
-          alertUpgradeMessage = `\n\n🎉 CHÚC MỪNG: Khách hàng ${c.name} đã được thăng hạng từ ${c.tier} lên ${nextTier} thành công do đạt mốc chi tiêu ${newSpend.toLocaleString('vi-VN')} đ!`;
-        }
-
-        updatedCustomerSnapshot = {
-          ...c,
-          visits: newVisits,
-          totalSpend: newSpend,
-          points: newPoints,
-          tier: nextTier
-        };
-
-        return updatedCustomerSnapshot;
       }
-      return c;
-    });
 
-    // Update voucher status to USED if a voucher was applied
-    if (selectedVoucherCode) {
-      const allVouchers = JSON.parse(localStorage.getItem('autowash_vouchers') || '{}');
-      const customerWallet = allVouchers[selectedBooking.customer.id] || [];
-      const updatedWallet = customerWallet.map((v) => {
-        if (v.code === selectedVoucherCode && v.status === 'ISSUED') {
-          return { ...v, status: 'USED' };
+      // Load tier multipliers dynamically
+      const customerTier = selectedBooking.customer?.tier || 'Member';
+      const currentTierConfig = tierMatrix.find((t) => t.key === customerTier) || { pointMultiplier: 1.0 };
+      const tierMultiplier = currentTierConfig.pointMultiplier || 1.0;
+
+      const pointsEarned = Math.floor(finalAmount / baseSpendToEarnPoint) * basePointsToEarn * tierMultiplier;
+
+      let alertUpgradeMessage = '';
+      let updatedCustomerSnapshot = null;
+
+      const updatedCustomers = customersDb.map((c) => {
+        if (c.id === selectedBooking.customer?.id) {
+          const newVisits = c.visits + 1;
+          const newSpend = c.totalSpend + finalAmount;
+          const newPoints = c.points + pointsEarned;
+
+          let nextTier = c.tier;
+          const sortedTiers = [...tierMatrix].sort((a, b) => b.minSpend - a.minSpend);
+          for (let t of sortedTiers) {
+            if (newSpend >= t.minSpend) {
+              nextTier = t.key;
+              break;
+            }
+          }
+
+          if (nextTier !== c.tier) {
+            alertUpgradeMessage = `\n\n🎉 CHÚC MỪNG: Khách hàng ${c.name} đã được thăng hạng từ ${c.tier} lên ${nextTier} thành công do đạt mốc chi tiêu ${newSpend.toLocaleString('vi-VN')} đ!`;
+          }
+
+          updatedCustomerSnapshot = {
+            ...c,
+            visits: newVisits,
+            totalSpend: newSpend,
+            points: newPoints,
+            tier: nextTier
+          };
+
+          return updatedCustomerSnapshot;
         }
-        return v;
+        return c;
       });
-      allVouchers[selectedBooking.customer.id] = updatedWallet;
-      localStorage.setItem('autowash_vouchers', JSON.stringify(allVouchers));
+
+      if (selectedVoucherCode) {
+        const allVouchers = JSON.parse(localStorage.getItem('autowash_vouchers') || '{}');
+        const customerWallet = allVouchers[selectedBooking.customer?.id] || [];
+        const updatedWallet = customerWallet.map((v) => {
+          if (v.code === selectedVoucherCode && v.status === 'ISSUED') {
+            return { ...v, status: 'USED' };
+          }
+          return v;
+        });
+        allVouchers[selectedBooking.customer?.id] = updatedWallet;
+        localStorage.setItem('autowash_vouchers', JSON.stringify(allVouchers));
+      }
+
+      localStorage.setItem('autowash_customers', JSON.stringify(updatedCustomers));
+      setCustomersDb(updatedCustomers);
+
+      const pointsLog = JSON.parse(localStorage.getItem('autowash_points_log') || '{}');
+      const log = pointsLog[selectedBooking.customer?.id] || [];
+      let updatedLog = [...log];
+
+      if (pointsEarned > 0) {
+        updatedLog = [
+          { date: 'Vừa xong', type: 'EARN', amount: pointsEarned, reason: `Tích điểm đơn dọn xe ${bookingId}` },
+          ...updatedLog
+        ];
+      }
+      pointsLog[selectedBooking.customer?.id] = updatedLog;
+      localStorage.setItem('autowash_points_log', JSON.stringify(pointsLog));
+
+      const updatedBooking = {
+        ...selectedBooking,
+        status: 'Completed',
+        paymentMethod: tempPaymentMethod,
+        pointsRedeemed: 0,
+        voucherApplied: selectedVoucherCode || null,
+        discount: discountAmount,
+        finalAmount,
+        paymentStatus: 'PAID',
+        completedTime: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+      };
+
+      saveBookingToDb(updatedBooking);
+
+      const customerAfterCheckout = updatedCustomerSnapshot || {
+        ...(selectedBooking.customer || {}),
+        totalSpend: (selectedBooking.customer?.totalSpend || 0) + finalAmount,
+        tier: selectedBooking.customer?.tier || 'Member'
+      };
+
+      const updatedTotalSpending = Number(customerAfterCheckout.totalSpend) || 0;
+      const updatedLoyaltyPoints = Number(customerAfterCheckout.points) || 0;
+      const customerRecord = {
+        fullName: customerAfterCheckout.name || selectedBooking.customer?.name || 'Quý khách',
+        totalSpending: updatedTotalSpending,
+        loyaltyPoints: updatedLoyaltyPoints,
+        tier: customerAfterCheckout.tier || 'Member'
+      };
+
+      const loyaltyProgress = getLoyaltyProgressData(customerRecord.tier, updatedTotalSpending, customerRecord.fullName);
+
+      alert(`Thanh toán đơn hàng ${bookingCode} thành công!`);
+
+      setSuccessModalData({
+        finalAmount,
+        pointsEarned,
+        totalPoints: updatedLoyaltyPoints,
+        customer: customerAfterCheckout,
+        customerRecord,
+        updatedLoyaltyPoints,
+        updatedTotalSpending,
+        alertUpgradeMessage,
+        loyaltyProgress
+      });
+      setShowSuccessModal(true);
+      setIsConfirmModalOpen(false);
+      setRefreshTrigger(prev => prev + 1);
+      setSelectedDate(selectedDate);
+      setViewMode('list');
+      navigate('/admin/bookings');
+
+    } catch (error) {
+      console.error('Final confirmation error:', error);
+      alert('Đã xảy ra lỗi trong quá trình thanh toán: ' + error.message);
+    } finally {
+      setIsSubmitting(false);
     }
-
-    localStorage.setItem('autowash_customers', JSON.stringify(updatedCustomers));
-    setCustomersDb(updatedCustomers);
-
-    // Insert Log logs (EARN)
-    const pointsLog = JSON.parse(localStorage.getItem('autowash_points_log') || '{}');
-    const log = pointsLog[selectedBooking.customer.id] || [];
-    let updatedLog = [...log];
-
-    if (pointsEarned > 0) {
-      updatedLog = [
-        { date: 'Vừa xong', type: 'EARN', amount: pointsEarned, reason: `Tích điểm đơn dọn xe ${selectedBooking.id}` },
-        ...updatedLog
-      ];
-    }
-    pointsLog[selectedBooking.customer.id] = updatedLog;
-    localStorage.setItem('autowash_points_log', JSON.stringify(pointsLog));
-
-    const updatedBooking = {
-      ...selectedBooking,
-      status: 'Completed',
-      paymentMethod: tempPaymentMethod,
-      pointsRedeemed: 0,
-      voucherApplied: selectedVoucherCode || null,
-      discount: discountAmount,
-      finalAmount,
-      paymentStatus: 'PAID',
-      completedTime: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
-    };
-
-    saveBookingToDb(updatedBooking);
-
-    const customerAfterCheckout = updatedCustomerSnapshot || {
-      ...selectedBooking.customer,
-      totalSpend: selectedBooking.customer.totalSpend + finalAmount,
-      tier: selectedBooking.customer.tier
-    };
-
-    // Compute loyalty metrics using hardcoded thresholds to prevent NaN
-    const updatedTotalSpending = Number(customerAfterCheckout.totalSpend) || 0;
-    const updatedLoyaltyPoints = Number(customerAfterCheckout.points) || 0;
-    const customerRecord = {
-      fullName: customerAfterCheckout.name || selectedBooking.customer.name || 'Quý khách',
-      totalSpending: updatedTotalSpending,
-      loyaltyPoints: updatedLoyaltyPoints,
-      tier: customerAfterCheckout.tier || 'Member'
-    };
-
-    const loyaltyProgress = getLoyaltyProgressData(customerRecord.tier, updatedTotalSpending, customerRecord.fullName);
-
-    setSuccessModalData({
-      finalAmount,
-      pointsEarned,
-      totalPoints: updatedLoyaltyPoints,
-      customer: customerAfterCheckout,
-      customerRecord,
-      updatedLoyaltyPoints,
-      updatedTotalSpending,
-      alertUpgradeMessage,
-      loyaltyProgress
-    });
-    setShowSuccessModal(true);
-    setRefreshTrigger(prev => prev + 1); // Trigger an explicit re-fetch of the bookings list
-    setSelectedDate(selectedDate);
-    setViewMode('list');
   };
 
   const handleCloseSuccessModal = () => {
@@ -1818,7 +1831,7 @@ const allBookingsMapped = getAllBookings().map(b => {
 
                             <button
                               disabled={!windowInfo.isValid}
-                              onClick={handleConfirmPayment}
+                              onClick={() => setIsConfirmModalOpen(true)}
                               className={`w-full text-white text-xs font-black py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md ${
                                 windowInfo.isValid
                                   ? 'bg-indigo-600 hover:bg-indigo-700 cursor-pointer font-outfit'
@@ -2049,6 +2062,94 @@ const allBookingsMapped = getAllBookings().map(b => {
         </div>
       )}
 
+
+  {/* PAYMENT CONFIRMATION MODAL */}
+  {isConfirmModalOpen && (
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden border border-slate-100">
+        <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+          <h3 className="text-base font-black text-slate-800 font-outfit">Xác nhận Thanh toán</h3>
+          <button 
+            onClick={() => setIsConfirmModalOpen(false)}
+            className="text-slate-400 hover:text-slate-600 transition-colors"
+            disabled={isSubmitting}
+          >
+            <XCircle className="w-5 h-5" />
+          </button>
+        </div>
+        
+        <div className="p-6 space-y-4">
+          <p className="text-xs text-slate-500 font-medium">
+            Vui lòng kiểm tra lại thông tin giao dịch trước khi xác nhận hoàn tất thanh toán.
+          </p>
+          
+          <div className="bg-slate-50 border border-slate-150 rounded-2xl p-4 space-y-3">
+            <div className="flex justify-between items-center text-xs">
+              <span className="font-bold text-slate-500">Mã đơn hàng</span>
+              <span className="font-black text-slate-800 font-mono">
+                {bookingDetail?.bookingCode || bookingDetail?.id || selectedBooking?.bookingCode || selectedBooking?.id}
+              </span>
+            </div>
+            
+            <div className="flex justify-between items-center text-xs">
+              <span className="font-bold text-slate-500">Tên khách hàng</span>
+              <span className="font-black text-slate-800">
+                {bookingDetail?.customer?.fullName || bookingDetail?.customer?.name || bookingDetail?.customerName || selectedBooking?.customer?.fullName || selectedBooking?.customer?.name || selectedBooking?.customerName || 'Khách hàng'}
+              </span>
+            </div>
+            
+            <div className="flex justify-between items-center text-xs">
+              <span className="font-bold text-slate-500">Dịch vụ</span>
+              <span className="font-black text-slate-800">
+                {bookingDetail?.serviceName || bookingDetail?.service?.name || selectedBooking?.serviceName || selectedBooking?.service?.name}
+              </span>
+            </div>
+            
+            <div className="flex justify-between items-center text-xs">
+              <span className="font-bold text-slate-500">Phương thức thanh toán</span>
+              <span className="font-black text-slate-800">
+                {tempPaymentMethod === 'Cash' ? 'Tiền mặt' : (bookingDetail?.paymentMethod || selectedBooking?.paymentMethod || "Tiền mặt")}
+              </span>
+            </div>
+            
+            <div className="h-px bg-slate-200 my-2" />
+            
+            <div className="flex justify-between items-center">
+              <span className="text-xs font-bold text-slate-500">Tổng tiền thực thu</span>
+              <span className="text-sm font-black text-emerald-600 font-mono">
+                {((bookingDetail?.finalAmount || bookingDetail?.amount || finalAmount || 0).toLocaleString('vi-VN'))} đ
+              </span>
+            </div>
+          </div>
+        </div>
+        
+        <div className="p-6 pt-0 flex gap-3">
+          <button
+            type="button"
+            onClick={() => setIsConfirmModalOpen(false)}
+            className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 active:scale-[0.98] text-slate-600 font-bold text-xs rounded-xl transition-all"
+            disabled={isSubmitting}
+          >
+            Hủy bỏ / Quay lại
+          </button>
+          
+          <button
+            type="button"
+            onClick={handleConfirmPayment}
+            className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 active:scale-[0.98] text-white font-bold text-xs rounded-xl transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-indigo-600/20"
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? (
+              <span className="animate-spin rounded-full h-3 w-3 border-2 border-white border-t-transparent" />
+            ) : (
+              <Check className="w-3.5 h-3.5" />
+            )}
+            Xác nhận & Thanh toán
+          </button>
+        </div>
+      </div>
+    </div>
+  )}
 
   {/* SUCCESS PAYMENT MODAL */}
   {showSuccessModal && successModalData && (

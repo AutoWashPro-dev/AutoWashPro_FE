@@ -30,6 +30,12 @@ export default function CustomerAccountPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [accountAlert, setAccountAlert] = useState({
+    isOpen: false,
+    type: 'warning', // 'warning' | 'error' | 'success' | 'info'
+    title: '',
+    message: ''
+  });
 
   // State mật khẩu
   const [currentPassword, setCurrentPassword] = useState('');
@@ -66,16 +72,36 @@ export default function CustomerAccountPage() {
 
   // Gửi email kích hoạt tài khoản
   const handleSendVerification = async () => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email || email === 'N/A' || !emailRegex.test(email)) {
+      setAccountAlert({
+        isOpen: true,
+        type: 'warning',
+        title: "Địa chỉ Email không hợp lệ",
+        message: "Vui lòng nhập địa chỉ Email hợp lệ trước khi nhận mã xác thực."
+      });
+      return;
+    }
     setIsSendingVerification(true);
     setSuccessMessage('');
     setErrorMessage('');
     try {
       const res = await customerApi.requestEmailVerification();
       setIsEmailVerified(true);
-      setSuccessMessage(res.message || "Hệ thống đã gửi link kích hoạt đến Gmail của bạn. Trạng thái đã được xác thực!");
+      setAccountAlert({
+        isOpen: true,
+        type: 'info',
+        title: "Đã gửi mã xác thực!",
+        message: "Mã OTP xác thực đã được gửi tới email. Vui lòng kiểm tra hộp thư đến của bạn."
+      });
     } catch (err) {
       console.error("Failed to request email verification:", err);
-      setErrorMessage(err.response?.data?.message || "Gửi yêu cầu xác thực thất bại. Vui lòng thử lại!");
+      setAccountAlert({
+        isOpen: true,
+        type: 'error',
+        title: "Gửi mã xác thực thất bại",
+        message: err.response?.data?.message || "Gửi yêu cầu xác thực thất bại. Vui lòng thử lại!"
+      });
     } finally {
       setIsSendingVerification(false);
     }
@@ -86,6 +112,15 @@ export default function CustomerAccountPage() {
     e.preventDefault();
     setSuccessMessage('');
     setErrorMessage('');
+    if (!fullName || !fullName.trim()) {
+      setAccountAlert({
+        isOpen: true,
+        type: 'warning',
+        title: "Thiếu thông tin bắt buộc",
+        message: "Vui lòng không để trống trường Họ và tên."
+      });
+      return;
+    }
     try {
       const updatedData = await customerApi.updateProfile({ fullName, email });
       if (updatedData) {
@@ -102,10 +137,20 @@ export default function CustomerAccountPage() {
           createdAt: updatedData.createdAt ? new Date(updatedData.createdAt).toLocaleDateString('vi-VN') : "N/A"
         });
       }
-      setSuccessMessage("Cập nhật thông tin tài khoản thành công!");
+      setAccountAlert({
+        isOpen: true,
+        type: 'success',
+        title: "Cập nhật thông tin thành công!",
+        message: "Hồ sơ cá nhân của bạn đã được cập nhật thay đổi thành công."
+      });
     } catch (err) {
       console.error("Failed to update profile:", err);
-      setErrorMessage(err.response?.data?.message || "Cập nhật thông tin thất bại. Vui lòng thử lại!");
+      setAccountAlert({
+        isOpen: true,
+        type: 'error',
+        title: "Cập nhật thất bại",
+        message: err.response?.data?.message || "Cập nhật thông tin thất bại. Vui lòng thử lại!"
+      });
     }
   };
 
@@ -114,22 +159,64 @@ export default function CustomerAccountPage() {
     e.preventDefault();
     setSuccessMessage('');
     setErrorMessage('');
-    if (newPassword !== confirmPassword) {
-      setErrorMessage("Mật khẩu mới và Xác nhận mật khẩu không trùng khớp!");
+    
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      setAccountAlert({
+        isOpen: true,
+        type: 'warning',
+        title: "Thiếu thông tin mật khẩu",
+        message: "Vui lòng nhập đầy đủ Mật khẩu hiện tại, Mật khẩu mới và Xác nhận mật khẩu."
+      });
       return;
     }
+
+    if (newPassword.length < 6) {
+      setAccountAlert({
+        isOpen: true,
+        type: 'warning',
+        title: "Mật khẩu quá ngắn",
+        message: "Mật khẩu mới phải chứa ít nhất 6 ký tự để đảm bảo tính an toàn."
+      });
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setAccountAlert({
+        isOpen: true,
+        type: 'warning',
+        title: "Mật khẩu xác nhận không khớp",
+        message: "Mật khẩu mới và Mật khẩu xác nhận không trùng khớp. Vui lòng kiểm tra lại."
+      });
+      return;
+    }
+
     try {
       await customerApi.changePassword({
         oldPassword: currentPassword,
         newPassword: newPassword
       });
-      setSuccessMessage("Thay đổi mật khẩu tài khoản thành công!");
+      
+      setAccountAlert({
+        isOpen: true,
+        type: 'success',
+        title: "Đổi mật khẩu thành công!",
+        message: "Mật khẩu của bạn đã được thay đổi. Vui lòng sử dụng mật khẩu mới cho các lần đăng nhập tiếp theo."
+      });
+
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
     } catch (err) {
       console.error("Failed to change password:", err);
-      setErrorMessage(err.response?.data?.message || "Thay đổi mật khẩu thất bại. Vui lòng kiểm tra lại mật khẩu hiện tại!");
+      const isAuthError = err.response?.status === 400 || err.response?.status === 401;
+      setAccountAlert({
+        isOpen: true,
+        type: 'error',
+        title: "Cập nhật thất bại",
+        message: isAuthError 
+          ? "Mật khẩu hiện tại không chính xác. Vui lòng thử lại."
+          : (err.response?.data?.message || "Thay đổi mật khẩu thất bại. Vui lòng kiểm tra lại mật khẩu hiện tại!")
+      });
     }
   };
 
@@ -349,6 +436,55 @@ export default function CustomerAccountPage() {
 
         </div>
       </div>
+      {/* CUSTOM ACCOUNT ALERT MODAL */}
+      {accountAlert.isOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl max-w-sm w-full shadow-2xl p-6 flex flex-col items-center text-center space-y-4 border border-slate-100 animate-in fade-in zoom-in-95 duration-150 text-slate-800">
+            {accountAlert.type === 'warning' && (
+              <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center">
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                </svg>
+              </div>
+            )}
+            {accountAlert.type === 'error' && (
+              <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center">
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+              </div>
+            )}
+            {accountAlert.type === 'info' && (
+              <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center">
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+              </div>
+            )}
+            {accountAlert.type === 'success' && (
+              <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center">
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path>
+                </svg>
+              </div>
+            )}
+
+            <div className="space-y-1">
+              <h3 className="text-base font-black tracking-tight font-outfit">{accountAlert.title}</h3>
+              <p className="text-xs text-slate-500 font-medium leading-relaxed">
+                {accountAlert.message}
+              </p>
+            </div>
+
+            <button
+              onClick={() => setAccountAlert(prev => ({ ...prev, isOpen: false }))}
+              className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-6 py-2.5 font-bold text-xs transition-colors cursor-pointer"
+            >
+              Xác nhận
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

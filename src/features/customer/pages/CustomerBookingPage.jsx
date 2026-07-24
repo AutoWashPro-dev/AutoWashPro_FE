@@ -22,6 +22,21 @@ export default function CustomerBookingPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const [bookingTab, setBookingTab] = useState('new'); // 'new' hoặc 'history'
+  const [bookingAlert, setBookingAlert] = useState({
+    isOpen: false,
+    type: 'warning', // 'warning' | 'error' | 'success' | 'info'
+    title: '',
+    message: '',
+    bookingData: null
+  });
+  const [vehicleAlert, setVehicleAlert] = useState({
+    isOpen: false,
+    type: 'success', // 'success' | 'warning' | 'error'
+    title: '',
+    message: '',
+    data: null
+  });
+
 
   // Mẫu dữ liệu xe máy của khách hàng
   const [vehicles, setVehicles] = useState([]);
@@ -344,7 +359,8 @@ export default function CustomerBookingPage() {
   };
 
   const handleVehicleLicensePlateChange = (e) => {
-    setVehicleLicensePlate(e.target.value.toUpperCase());
+    const formatted = e.target.value.toUpperCase().replace(/[^A-Z0-9\-\s.]/g, '');
+    setVehicleLicensePlate(formatted);
   };
 
   const handleSetDefaultVehicle = async (veh) => {
@@ -370,16 +386,36 @@ export default function CustomerBookingPage() {
     const trimmedPlate = vehicleLicensePlate.trim().toUpperCase();
 
     if (!trimmedModel) {
-      alert('Vui lòng nhập tên/dòng xe máy.');
+      setVehicleAlert({
+        isOpen: true,
+        type: 'warning',
+        title: "Thiếu thông tin xe",
+        message: "Vui lòng nhập tên/dòng xe máy."
+      });
       return;
     }
 
     if (!trimmedPlate) {
-      alert('Vui lòng nhập biển số xe.');
+      setVehicleAlert({
+        isOpen: true,
+        type: 'warning',
+        title: "Thiếu thông tin xe",
+        message: "Vui lòng nhập biển số xe."
+      });
       return;
     }
 
-    // Strictly mapped API Payload
+    const plateRegex = /^[0-9]{2}[-A-Z0-9]{1,3}[-\s]?[0-9]{3,5}(\.[0-9]{2})?$/i;
+    if (!plateRegex.test(trimmedPlate)) {
+      setVehicleAlert({
+        isOpen: true,
+        type: 'warning',
+        title: "Biển số xe không hợp lệ",
+        message: "Vui lòng nhập đúng định dạng biển số xe máy (Ví dụ: 59-A1 123.45 hoặc 29-H1 9999)."
+      });
+      return;
+    }
+
     const payload = {
       model: trimmedModel,
       licensePlate: trimmedPlate,
@@ -390,10 +426,8 @@ export default function CustomerBookingPage() {
       let savedVehicle;
       
       if (editingVehicle) {
-        // (Mock) Handle Edit / Update flow
         savedVehicle = { ...payload, id: editingVehicle.id || editingVehicle.vehicleId, vehicleType: editingVehicle.vehicleType || 'MOTORCYCLE' };
       } else {
-        // Direct API Creation flow
         savedVehicle = await customerApi.addVehicle(payload);
       }
       
@@ -419,27 +453,52 @@ export default function CustomerBookingPage() {
       });
 
       setSelectedVehicle(normalizedVehicle);
-      closeVehicleModal();
-      alert(editingVehicle ? 'Cập nhật xe thành công!' : 'Đăng ký xe mới thành công!');
+      
+      setVehicleAlert({
+        isOpen: true,
+        type: 'success',
+        title: editingVehicle ? "Cập nhật xe thành công!" : "Đăng ký xe máy thành công!",
+        message: `Chiếc xe ${trimmedModel} (${trimmedPlate}) đã được ${editingVehicle ? 'cập nhật' : 'thêm'} thành công vào Ga-ra của bạn.`
+      });
       console.log('[CustomerBookingPage] vehicle saved:', normalizedVehicle);
     } catch (err) {
       console.error('Failed to save vehicle:', err);
-      alert('Lỗi khi lưu xe: ' + (err.response?.data?.message || err.message));
+      setVehicleAlert({
+        isOpen: true,
+        type: 'error',
+        title: "Kết nối máy chủ thất bại",
+        message: "Không thể lưu thông tin xe do lỗi kết nối mạng (Network Error). Vui lòng kiểm tra lại đường truyền và thử lại."
+      });
     }
   };
 
   // Gửi đơn đặt lịch lên hệ thống
   const handleConfirmBooking = async () => {
     if (!selectedVehicle) {
-      alert("Vui lòng chọn 1 chiếc xe máy để dọn rửa.");
+      setBookingAlert({
+        isOpen: true,
+        type: 'warning',
+        title: "Chưa chọn phương tiện",
+        message: "Vui lòng chọn hoặc đăng ký xe của bạn tại Ga-ra trước khi tiến hành đặt lịch dọn xe."
+      });
       return;
     }
     if (!selectedPackage) {
-      alert("Vui lòng chọn 1 gói dịch vụ dọn rửa chính.");
+      setBookingAlert({
+        isOpen: true,
+        type: 'warning',
+        title: "Chưa chọn gói dịch vụ",
+        message: "Vui lòng chọn 1 gói dịch vụ chính (Basic, Premium, hoặc Deluxe) để tiếp tục."
+      });
       return;
     }
     if (!selectedDate || !selectedTime) {
-      alert("Vui lòng chọn ngày và giờ hẹn mong muốn.");
+      setBookingAlert({
+        isOpen: true,
+        type: 'warning',
+        title: "Chưa chọn khung giờ hẹn",
+        message: "Vui lòng chọn ngày và khung giờ dọn xe phù hợp."
+      });
       return;
     }
 
@@ -447,22 +506,42 @@ export default function CustomerBookingPage() {
     const trimmedModel = String(selectedVehicle.model || '').trim();
 
     if (!trimmedLicensePlate) {
-      alert('Vui lòng chọn xe có biển số hợp lệ.');
+      setBookingAlert({
+        isOpen: true,
+        type: 'warning',
+        title: "Biển số không hợp lệ",
+        message: "Vui lòng chọn xe có biển số hợp lệ."
+      });
       return;
     }
     if (!trimmedModel) {
-      alert('Vui lòng chọn xe có model hợp lệ.');
+      setBookingAlert({
+        isOpen: true,
+        type: 'warning',
+        title: "Dòng xe không hợp lệ",
+        message: "Vui lòng chọn xe có model hợp lệ."
+      });
       return;
     }
 
     const selectedPackageId = Number(selectedPackage?.id || selectedPackage?.serviceId || 0);
     if (!selectedPackageId) {
-      alert('Không tìm thấy gói dịch vụ. Vui lòng chọn lại.');
+      setBookingAlert({
+        isOpen: true,
+        type: 'error',
+        title: "Gói dịch vụ không tìm thấy",
+        message: "Không tìm thấy gói dịch vụ. Vui lòng chọn lại."
+      });
       return;
     }
     const selectedSlot = timeSlots.find(s => s.slotId === selectedTimeSlotId || s.time === selectedTime);
-if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || selectedSlot.availableCapacity <= 0)) {
-      alert("Khung giờ này hiện đã đầy công suất dọn rửa! Rất tiếc vì sự bất tiện này, mong quý khách vui lòng chọn một khung giờ khác.");
+    if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || selectedSlot.availableCapacity <= 0)) {
+      setBookingAlert({
+        isOpen: true,
+        type: 'error',
+        title: "Khung giờ đầy công suất",
+        message: "Khung giờ này hiện đã đầy công suất dọn rửa! Rất tiếc vì sự bất tiện này, mong quy khách vui lòng chọn một khung giờ khác."
+      });
       return;
     }
     setIsSubmitting(true);
@@ -483,8 +562,6 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
       const response = await axios.post('/api/v1/customer/bookings', bookingData, { headers });
       const createdBooking = response.data;
-
-      alert(`Đặt lịch thành công! Mã đơn của bạn là: ${createdBooking.bookingCode || createdBooking.id}. Hãy đến trạm đúng giờ hẹn.`);
 
       // Sync local history fallback
       setUserHistory(prev => [
@@ -507,13 +584,31 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
       setSelectedTime("");
       setSelectedTimeSlotId(null);
 
-      setBookingTab('history');
+      setBookingAlert({
+        isOpen: true,
+        type: 'success',
+        title: "Đặt lịch dọn xe thành công!",
+        message: "Lịch hẹn dọn xe của bạn đã được ghi nhận trên hệ thống.",
+        bookingData: {
+          bookingCode: createdBooking.bookingCode || createdBooking.id,
+          vehicleName: `${trimmedModel} (${trimmedLicensePlate})`,
+          serviceName: selectedPackage.name,
+          timeSlot: `${selectedTime} - ${selectedDate}`,
+          totalAmount: createdBooking.finalAmount || (calculateTotalAmount() - calculateDiscount())
+        }
+      });
+
       await loadUserHistory();
       await loadCustomerVouchers();
     } catch (err) {
       console.error('Failed to create booking:', err);
       const message = err.response?.data?.message || err.response?.data?.error || err.message || 'Không thể lưu đặt lịch. Vui lòng thử lại.';
-      alert('Đã xảy ra lỗi khi tạo đơn đặt lịch: ' + message);
+      setBookingAlert({
+        isOpen: true,
+        type: 'error',
+        title: "Lỗi Đặt lịch",
+        message: 'Đã xảy ra lỗi khi tạo đơn đặt lịch: ' + message
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -987,6 +1082,7 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
                   className="w-full rounded-xl border border-slate-200 px-4 py-2.5 font-mono text-sm tracking-wide outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                   required
                 />
+                <p className="text-[10px] text-slate-400 font-medium mt-0.5">Định dạng chuẩn: 59-A1 123.45 hoặc 29-H1 9999</p>
               </div>
 
               <div className="flex items-center gap-2 pt-2">
@@ -1025,6 +1121,126 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* CUSTOM BOOKING ALERT MODAL */}
+      {bookingAlert.isOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl max-w-sm w-full shadow-2xl p-6 flex flex-col items-center text-center space-y-4 border border-slate-100 animate-in fade-in zoom-in-95 duration-150 text-slate-800">
+            {bookingAlert.type === 'warning' && (
+              <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center">
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                </svg>
+              </div>
+            )}
+            {bookingAlert.type === 'error' && (
+              <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center">
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+              </div>
+            )}
+            {bookingAlert.type === 'success' && (
+              <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center">
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path>
+                </svg>
+              </div>
+            )}
+
+            <div className="space-y-1 w-full">
+              <h3 className="text-base font-black tracking-tight font-outfit">{bookingAlert.title}</h3>
+              <p className="text-xs text-slate-500 font-medium leading-relaxed">
+                {bookingAlert.message}
+              </p>
+            </div>
+
+            {bookingAlert.type === 'success' && bookingAlert.bookingData && (
+              <div className="bg-slate-50 border border-slate-150 rounded-2xl p-4 text-xs space-y-2 text-left w-full">
+                <div className="flex justify-between items-center">
+                  <span className="font-bold text-slate-500">Mã đơn hẹn</span>
+                  <span className="font-black text-slate-800 font-mono">{bookingAlert.bookingData.bookingCode}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="font-bold text-slate-500">Phương tiện</span>
+                  <span className="font-black text-slate-800">{bookingAlert.bookingData.vehicleName}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="font-bold text-slate-500">Gói dịch vụ</span>
+                  <span className="font-black text-slate-800">{bookingAlert.bookingData.serviceName}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="font-bold text-slate-500">Khung giờ</span>
+                  <span className="font-black text-slate-800">{bookingAlert.bookingData.timeSlot}</span>
+                </div>
+                <div className="h-px bg-slate-200 my-1" />
+                <div className="flex justify-between items-center font-bold">
+                  <span className="text-slate-500">Tổng tạm tính</span>
+                  <span className="text-indigo-700 font-mono">{Number(bookingAlert.bookingData.totalAmount || 0).toLocaleString('vi-VN')} đ</span>
+                </div>
+              </div>
+            )}
+
+            <button
+              onClick={() => {
+                setBookingAlert(prev => ({ ...prev, isOpen: false }));
+                if (bookingAlert.type === 'success') {
+                  setBookingTab('history');
+                }
+              }}
+              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg px-6 py-2.5 font-bold text-xs transition-colors cursor-pointer"
+            >
+              {bookingAlert.type === 'success' ? "Xem lịch sử đặt lịch" : "Đã hiểu"}
+            </button>
+          </div>
+        </div>
+      )}
+      {/* CUSTOM VEHICLE ALERT MODAL */}
+      {vehicleAlert.isOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl max-w-sm w-full shadow-2xl p-6 flex flex-col items-center text-center space-y-4 border border-slate-100 animate-in fade-in zoom-in-95 duration-150 text-slate-800">
+            {vehicleAlert.type === 'warning' && (
+              <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center">
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                </svg>
+              </div>
+            )}
+            {vehicleAlert.type === 'error' && (
+              <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center">
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+              </div>
+            )}
+            {vehicleAlert.type === 'success' && (
+              <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center">
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path>
+                </svg>
+              </div>
+            )}
+
+            <div className="space-y-1">
+              <h3 className="text-base font-black tracking-tight font-outfit">{vehicleAlert.title}</h3>
+              <p className="text-xs text-slate-500 font-medium leading-relaxed">
+                {vehicleAlert.message}
+              </p>
+            </div>
+
+            <button
+              onClick={() => {
+                setVehicleAlert(prev => ({ ...prev, isOpen: false }));
+                if (vehicleAlert.type === 'success') {
+                  closeVehicleModal();
+                }
+              }}
+              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg px-6 py-2.5 font-bold text-xs transition-colors cursor-pointer"
+            >
+              Xác nhận
+            </button>
           </div>
         </div>
       )}

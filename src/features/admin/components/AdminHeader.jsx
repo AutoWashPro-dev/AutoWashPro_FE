@@ -2,12 +2,34 @@ import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Search, Bell, ChevronDown, CheckCircle, PlusCircle, AlertTriangle } from 'lucide-react';
 import { notificationApi } from '../services/notificationApi';
+import UserProfileDropdown from '../../../components/UserProfileDropdown';
 
 export default function AdminHeader() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [adminNotifications, setAdminNotifications] = useState([]);
+  const [user, setUser] = useState(null);
   const location = useLocation();
   const isBookingsPage = location.pathname.includes('/bookings');
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem('autowash_user');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        setUser(parsed.user || parsed);
+      }
+    } catch (e) {}
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem('autowash_token');
+    localStorage.removeItem('autowash_user');
+    localStorage.removeItem('token');
+    localStorage.removeItem('role');
+    localStorage.removeItem('user_roles');
+    localStorage.removeItem('accessToken');
+    window.location.href = '/login';
+  };
 
   // Nạp dữ liệu thông báo từ API thực (chuyển tiếp sang localStorage fallback nếu offline)
   useEffect(() => {
@@ -152,15 +174,7 @@ export default function AdminHeader() {
         </div>
 
         {/* User avatar dropdown */}
-        <div className="flex items-center gap-2 p-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200/60 rounded-full pr-3.5 cursor-pointer shadow-sm transition-colors">
-          <img 
-            src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=100" 
-            alt="Avatar" 
-            className="w-7 h-7 rounded-full object-cover"
-          />
-          <span className="text-xs font-bold text-slate-700">Admin User</span>
-          <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-        </div>
+        <UserProfileDropdown user={user} onLogout={handleLogout} />
       </div>
     </header>
   );
