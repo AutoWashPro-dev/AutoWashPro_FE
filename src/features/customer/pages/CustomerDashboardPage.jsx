@@ -207,9 +207,6 @@ export default function CustomerDashboardPage() {
               <div className="bg-slate-50 rounded-xl p-5 border border-slate-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded">
-                      {upcomingBooking.bookingCode}
-                    </span>
                     <span className="text-[10px] font-bold text-yellow-700 bg-yellow-100 px-2 py-0.5 rounded-full">
                       {upcomingBooking.status}
                     </span>

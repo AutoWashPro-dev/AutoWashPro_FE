@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { authApi } from '../services/authApi';
 import { 
@@ -15,7 +15,8 @@ import {
   ExternalLink,
   ShieldCheck,
   Droplets,
-  ChevronLeft
+  ChevronLeft,
+  RefreshCw
 } from 'lucide-react';
 
 export default function RegisterPage() {
@@ -31,6 +32,35 @@ export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [successData, setSuccessData] = useState(null);
+  const [resendCountdown, setResendCountdown] = useState(0);
+  const [resendError, setResendError] = useState('');
+  const [resendSuccess, setResendSuccess] = useState('');
+
+  useEffect(() => {
+    let timer;
+    if (resendCountdown > 0) {
+      timer = setTimeout(() => setResendCountdown(prev => prev - 1), 1000);
+    }
+    return () => clearTimeout(timer);
+  }, [resendCountdown]);
+
+  const handleResendEmail = async () => {
+    setResendError('');
+    setResendSuccess('');
+    try {
+      await authApi.registerWithEmail({
+        fullName: formData.fullName.trim(),
+        username: formData.username.trim(),
+        phoneNumber: formData.phoneNumber.trim(),
+        email: formData.email.trim(),
+        password: formData.password,
+      });
+      setResendSuccess('Đã gửi lại link xác thực email thành công!');
+      setResendCountdown(60);
+    } catch (err) {
+      setResendError(err.message || 'Không thể gửi lại email xác thực.');
+    }
+  };
 
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
@@ -104,6 +134,28 @@ export default function RegisterPage() {
               <div className="font-mono font-bold text-blue-600 text-center bg-white py-2 px-3 rounded-xl border border-blue-100 shadow-sm">
                 {successData.email || formData.email}
               </div>
+            </div>
+
+            <div className="mt-4 space-y-2">
+              {resendError && (
+                <p className="text-[10px] text-red-500 font-bold text-center">{resendError}</p>
+              )}
+              {resendSuccess && (
+                <p className="text-[10px] text-emerald-650 font-bold text-center">{resendSuccess}</p>
+              )}
+              <button
+                type="button"
+                disabled={resendCountdown > 0}
+                onClick={handleResendEmail}
+                className={`w-full py-2.5 px-4 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
+                  resendCountdown > 0
+                    ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
+                    : 'bg-white hover:bg-slate-50 text-blue-650 border border-slate-200 shadow-sm cursor-pointer'
+                }`}
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${resendCountdown > 0 ? '' : 'animate-spin'}`} style={{ animationDuration: '3s' }} />
+                <span>{resendCountdown > 0 ? `Gửi lại email sau (${resendCountdown}s)` : 'Gửi lại email xác nhận'}</span>
+              </button>
             </div>
 
             {/* Dev Mock Mode Action */}
