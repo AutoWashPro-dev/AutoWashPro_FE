@@ -161,15 +161,26 @@ export const serviceCatalogApi = {
   createSlot: async (data) => {
     try {
       const times = data.time ? data.time.split('-').map(s => s.trim()) : ['08:00', '09:00'];
+      const sTime = data.startTime || times[0] || '08:00';
+      const eTime = data.endTime || times[1] || '09:00';
       const payload = {
-        startTime: times[0] || '08:00',
-        endTime: times[1] || '09:00',
+        startTime: sTime.length === 5 ? `${sTime}:00` : sTime,
+        endTime: eTime.length === 5 ? `${eTime}:00` : eTime,
         maxCapacity: Number(data.maxCapacity) || 3,
+        dayOfWeek: data.dayOfWeek || 'ALL',
         isActive: true,
         displayOrder: 1
       };
       const res = await api.post('/admin/slots', payload);
-      return { ...data, id: `SL-${Date.now()}`, timeSlotId: res.data?.timeSlotId || Date.now(), isActive: true };
+      return { 
+        ...data, 
+        id: `SL-${Date.now()}`, 
+        timeSlotId: res.data?.slotId || res.data?.timeSlotId || Date.now(), 
+        startTime: payload.startTime,
+        endTime: payload.endTime,
+        dayOfWeek: payload.dayOfWeek,
+        isActive: true 
+      };
     } catch (err) {
       console.warn('API createSlot fallback:', err.message);
       return { ...data, id: `SL-${Date.now()}`, timeSlotId: Date.now(), isActive: true };
@@ -179,16 +190,26 @@ export const serviceCatalogApi = {
   updateSlot: async (id, data, timeSlotId) => {
     try {
       const times = data.time ? data.time.split('-').map(s => s.trim()) : ['08:00', '09:00'];
+      const sTime = data.startTime || times[0] || '08:00';
+      const eTime = data.endTime || times[1] || '09:00';
       const payload = {
-        startTime: times[0] || '08:00',
-        endTime: times[1] || '09:00',
+        startTime: sTime.length === 5 ? `${sTime}:00` : sTime,
+        endTime: eTime.length === 5 ? `${eTime}:00` : eTime,
         maxCapacity: Number(data.maxCapacity) || 3,
+        dayOfWeek: data.dayOfWeek || 'ALL',
         isActive: data.isActive !== undefined ? data.isActive : true,
         displayOrder: 1
       };
       const actualId = timeSlotId || id;
       await api.put(`/admin/slots/${actualId}`, payload);
-      return { ...data, id, timeSlotId: actualId };
+      return { 
+        ...data, 
+        id, 
+        timeSlotId: actualId,
+        startTime: payload.startTime,
+        endTime: payload.endTime,
+        dayOfWeek: payload.dayOfWeek
+      };
     } catch (err) {
       console.warn('API updateSlot fallback:', err.message);
       return { ...data, id, timeSlotId: id };

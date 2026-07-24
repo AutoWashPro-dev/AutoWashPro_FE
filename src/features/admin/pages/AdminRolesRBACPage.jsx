@@ -25,7 +25,7 @@ import {
 import { roleApi } from '../services/roleApi';
 
 export default function AdminRolesRBACPage() {
-  const [activeTab, setActiveTab] = useState('roles'); // 'roles' | 'matrix'
+  const [activeTab, setActiveTab] = useState('matrix'); // 'matrix' | 'roles'
   const [loading, setLoading] = useState(true);
   
   const getRoles = () => {
@@ -272,30 +272,18 @@ export default function AdminRolesRBACPage() {
             <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin text-[#0047AB]' : ''}`} />
           </button>
 
-          {activeTab === 'matrix' && (
-            <button
-              onClick={handleSaveMatrix}
-              disabled={!hasUnsavedChanges || isSaving}
-              className={`px-4.5 py-2.5 rounded-xl text-xs font-black flex items-center gap-2 transition-all shadow-md cursor-pointer ${
-                hasUnsavedChanges
-                  ? 'bg-[#57f287] hover:bg-[#44db72] text-slate-900 shadow-[#57f287]/20 scale-[1.02]'
-                  : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
-              }`}
-            >
-              <Save className="w-4 h-4" />
-              {isSaving ? 'Đang cập nhật...' : 'Lưu Thay Đổi Phân Quyền'}
-            </button>
-          )}
-
-          {!isManager && (
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="px-4.5 py-2.5 bg-[#0047AB] hover:bg-[#003a8c] text-white text-xs font-black rounded-xl transition-all flex items-center gap-2 shadow-lg shadow-[#0047AB]/20 cursor-pointer hover:scale-[1.02]"
-            >
-              <Plus className="w-4 h-4" />
-              Tạo Vai Trò Mới (Custom Role)
-            </button>
-          )}
+          <button
+            onClick={handleSaveMatrix}
+            disabled={!hasUnsavedChanges || isSaving}
+            className={`px-4.5 py-2.5 rounded-xl text-xs font-black flex items-center gap-2 transition-all shadow-md cursor-pointer ${
+              hasUnsavedChanges
+                ? 'bg-[#57f287] hover:bg-[#44db72] text-slate-900 shadow-[#57f287]/20 scale-[1.02]'
+                : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
+            }`}
+          >
+            <Save className="w-4 h-4" />
+            {isSaving ? 'Đang cập nhật...' : 'Lưu Thay Đổi Phân Quyền'}
+          </button>
         </div>
       </div>
 

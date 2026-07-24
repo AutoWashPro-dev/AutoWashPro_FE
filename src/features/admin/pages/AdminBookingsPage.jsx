@@ -741,28 +741,53 @@ const getAllBookings = () => {
       }
     }
 
+    // Calculate total duration and service names from items
+    let serviceName = 'Dịch vụ dọn xe';
+    let totalDuration = b.estimatedDuration || 20;
+    if (b.items && b.items.length > 0) {
+      const itemNames = b.items.map(i => i.serviceNameSnapshot || i.serviceName || i.name).filter(Boolean);
+      if (itemNames.length > 0) {
+        serviceName = itemNames.join(' + ');
+      }
+      const itemMinutesSum = b.items.reduce((acc, i) => acc + (i.durationMinutes || i.duration || 15), 0);
+      if (itemMinutesSum > 0) {
+        totalDuration = itemMinutesSum;
+      }
+    } else if (b.service?.name) {
+      serviceName = b.service.name;
+    }
+
+    const custObj = b.customer || {};
+    const custName = b.customerName || custObj.fullName || custObj.name || 'Khách hàng vãng lai';
+    const custPhone = b.customerPhone || custObj.phoneNumber || custObj.phone || '';
+    const rawTier = b.customerTier || (typeof custObj.tier === 'object' ? custObj.tier?.tierName : custObj.tier) || 'Member';
+    const custTier = String(rawTier).toUpperCase();
+    const custAvatar = custObj.avatarUrl || custObj.avatar || (`https://api.dicebear.com/7.x/avataaars/svg?seed=${custPhone || 'guest'}`);
+    const amount = Number(b.finalAmount ?? b.totalEstimatedAmount ?? (b.service?.price || 0));
+
     const normalizedBooking = {
       ...b,
       id: stringId,
       bookingDate: b.bookingDate || selectedDate, // Ép ngày booking trùng với ngày đang chọn của POS
       slotTime: formattedSlotTime || '08:00',
       customer: {
-        name: b.customerName || 'Khách hàng vãng lai',
-        phone: b.customerPhone || '',
-        tier: 'Member',
-        points: 0,
-        avatar: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&q=80&w=100'
+        name: custName,
+        phone: custPhone,
+        tier: custTier,
+        points: custObj.loyaltyPoints !== undefined ? custObj.loyaltyPoints : (b.customerPoints || 0),
+        avatar: custAvatar
       },
       vehicle: {
         type: 'Xe máy',
-        model: b.model || 'N/A',
-        plate: b.licensePlate || 'N/A'
+        model: b.model || b.vehicle?.model || 'N/A',
+        plate: b.licensePlate || b.vehicle?.plate || 'N/A'
       },
       service: {
-        name: b.items?.[0]?.serviceNameSnapshot || 'Dịch vụ dọn xe',
-        price: Number(b.finalAmount || b.totalEstimatedAmount || 0)
+        name: serviceName,
+        price: amount
       },
-      finalAmount: Number(b.finalAmount || 0),
+      estimatedDuration: totalDuration,
+      finalAmount: amount,
       source: b.source || 'APP',
       status: (() => {
         const s = String(b.status || '').toUpperCase();
@@ -773,7 +798,7 @@ const getAllBookings = () => {
         if (s === 'CANCELED' || s === 'CANCELLED' || s.startsWith('CANCEL')) return 'Canceled';
         return b.status || 'Pending';
       })(),
-      custId: b.customerId || ''
+      custId: b.customerId || custObj.customerId || ''
     };
 
     allMap.set(stringId, normalizedBooking);
@@ -787,8 +812,8 @@ const allBookingsMapped = getAllBookings().map(b => {
   const customer = customersDb.find(c => String(c.id) === String(b.custId)) || {
     name: b.customer.name,
     phone: b.customer.phone,
-    tier: 'Member',
-    points: 0,
+    tier: b.customer.tier,
+    points: b.customer.points,
     avatar: b.customer.avatar
   };
   
@@ -798,6 +823,9 @@ const allBookingsMapped = getAllBookings().map(b => {
       ...customer, 
       name: b.customer.name,
       phone: b.customer.phone,
+      tier: b.customer.tier || customer.tier || 'Member',
+      points: b.customer.points !== undefined ? b.customer.points : (customer.points || 0),
+      avatar: b.customer.avatar || customer.avatar,
       displayPhone: b.customer.phone || customer.phone || ''
     } 
   };
@@ -1314,58 +1342,67 @@ const allBookingsMapped = getAllBookings().map(b => {
             </div>
 
             {/* Table */}
-            <div className="flex-1 overflow-y-auto no-scrollbar">
+            <div className="flex-1 overflow-x-auto overflow-y-auto no-scrollbar">
               {filteredBookings.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-20 text-slate-400 space-y-2">
                   <ClipboardList className="w-10 h-10 text-slate-300" />
                   <p className="text-xs font-bold">Không tìm thấy lịch đặt nào trong danh sách này</p>
                 </div>
               ) : (
-                <table className="w-full text-left border-collapse">
+                <table className="w-full text-left border-collapse min-w-[700px]">
                   <thead className="sticky top-0 bg-slate-50 border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-wider z-10">
                     <tr>
-                      <th className="py-3 px-5">Mã đơn / QR</th>
-                      <th className="py-3 px-3">Giờ hẹn</th>
-                      <th className="py-3 px-3">Khách hàng & SĐT</th>
-                      <th className="py-3 px-3">Xe máy & Biển số</th>
-                      <th className="py-3 px-3">Gói dịch vụ</th>
-                      <th className="py-3 px-3 text-right">Tổng tiền</th>
-                      <th className="py-3 px-4 text-center">Nguồn</th>
-                      <th className="py-3 px-5 text-center">Trạng thái</th>
+                      <th className="py-3 px-3">Mã đơn / QR</th>
+                      <th className="py-3 px-2">Giờ hẹn</th>
+                      <th className="py-3 px-2">Khách hàng & SĐT</th>
+                      <th className="py-3 px-2">Xe máy & Biển số</th>
+                      <th className="py-3 px-2">Gói dịch vụ</th>
+                      <th className="py-3 px-2 text-right">Tổng tiền</th>
+                      <th className="py-3 px-1.5 text-center">Nguồn</th>
+                      <th className="py-3 px-2 text-center">Trạng thái</th>
+                      <th className="py-3 px-3 text-center">Thao tác</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 text-xs">
                     {filteredBookings.map(b => {
                       let statusBadge = '';
-                      if (b.status === 'Completed') {
-                        statusBadge = 'bg-emerald-50 text-emerald-600 border-emerald-100';
-                      } else if (b.status === 'In_progress') {
-                        statusBadge = 'bg-blue-50 text-blue-600 border-blue-100';
-                      } else if (b.status === 'Confirmed') {
-                        statusBadge = 'bg-indigo-50 text-indigo-650 border-indigo-100';
-                      } else if (b.status === 'Pending') {
-                        statusBadge = 'bg-amber-50 text-amber-600 border-amber-100';
+                      let statusText = '';
+                      const sUpper = String(b.status || '').toUpperCase();
+
+                      if (sUpper === 'COMPLETED') {
+                        statusBadge = 'bg-emerald-50 text-emerald-700 border-emerald-200';
+                        statusText = 'Đã hoàn thành';
+                      } else if (sUpper === 'IN_PROGRESS') {
+                        statusBadge = 'bg-blue-50 text-blue-700 border-blue-200 animate-pulse';
+                        statusText = 'Đang rửa xe';
+                      } else if (sUpper === 'CONFIRMED') {
+                        statusBadge = 'bg-indigo-50 text-indigo-700 border-indigo-200';
+                        statusText = 'Đã xác nhận';
+                      } else if (sUpper === 'PENDING') {
+                        statusBadge = 'bg-amber-50 text-amber-700 border-amber-200';
+                        statusText = 'Chờ Check-in';
                       } else {
-                        statusBadge = 'bg-rose-50 text-rose-600 border-rose-100';
+                        statusBadge = 'bg-rose-50 text-rose-700 border-rose-200';
+                        statusText = sUpper.includes('NO_SHOW') ? 'Vắng mặt' : 'Đã hủy';
                       }
 
                       return (
                         <tr key={b.id} className="hover:bg-slate-50/70 transition-colors">
-                          <td className="py-3.5 px-5 font-black text-slate-800">
-                            <div className="flex items-center gap-1.5">
+                          <td className="py-3 px-3 font-black text-slate-800">
+                            <div className="flex items-center gap-1">
                               <span>{b.id}</span>
                               <button 
                                 onClick={(e) => { e.stopPropagation(); setQrCodeModalBooking(b); }}
                                 className="p-1 hover:bg-slate-100 rounded text-indigo-650"
                                 title="Xem mã QR quét check-in"
                               >
-                                <QrCode className="w-4.5 h-4.5" />
+                                <QrCode className="w-3.5 h-3.5" />
                               </button>
                             </div>
                           </td>
-                          <td className="py-3.5 px-3">
+                          <td className="py-3 px-2">
                             <div className="flex flex-col">
-                              <span className="flex items-center gap-1 font-bold text-slate-650">
+                              <span className="flex items-center gap-1 font-bold text-slate-700">
                                 <Clock className="w-3.5 h-3.5 text-slate-400" />
                                 {b.slotTime}
                                 {b.note && <span className="px-1.5 py-0.5 bg-rose-50 text-rose-600 text-[8px] font-bold rounded">Trễ</span>}
@@ -1373,17 +1410,17 @@ const allBookingsMapped = getAllBookings().map(b => {
                               <span className="text-[9px] text-slate-400 font-extrabold mt-0.5">{b.bookingDate}</span>
                             </div>
                           </td>
-                          <td className="py-3.5 px-3">
-                            <div className="flex items-center gap-2">
+                          <td className="py-3 px-2">
+                            <div className="flex items-center gap-1.5">
                               <img 
-                                src={b.customer?.avatar || 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&q=80&w=100'} 
+                                src={b.customer?.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=guest'} 
                                 alt="Avatar" 
                                 className="w-6.5 h-6.5 rounded-full object-cover ring-1 ring-slate-200" 
                               />
                               <div className="flex flex-col">
-                                <span className="font-extrabold text-slate-700 flex items-center gap-1">
+                                <span className="font-extrabold text-slate-800 flex items-center gap-1">
                                   {b.customer?.name || b.customerName || 'Khách hàng vãng lai'}
-                                  <span className="px-1.5 py-0.2 bg-[#57f287] text-slate-800 text-[7px] font-black rounded">
+                                  <span className="px-1 py-0.2 bg-[#57f287] text-slate-800 text-[7px] font-black rounded uppercase">
                                     {b.customer?.tier || 'Member'}
                                   </span>
                                 </span>
@@ -1393,39 +1430,38 @@ const allBookingsMapped = getAllBookings().map(b => {
                               </div>
                             </div>
                           </td>
-                          <td className="py-3.5 px-3">
-                            <div className="flex items-center gap-1.5">
-                              <Bike className="w-3.5 h-3.5 text-slate-400" />
+                          <td className="py-3 px-2">
+                            <div className="flex items-center gap-1">
+                              <Bike className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                               <span className="font-bold text-slate-750">{b.vehicle.model}</span>
-                              <span className="px-2 py-0.5 bg-slate-900 text-white font-mono text-[9px] font-black rounded-lg">{b.vehicle.plate}</span>
+                              <span className="px-1.5 py-0.5 bg-slate-900 text-white font-mono text-[8.5px] font-black rounded-md">{b.vehicle.plate}</span>
                             </div>
                           </td>
-                          <td className="py-3.5 px-3">
+                          <td className="py-3 px-2 max-w-[170px]">
                             <div className="flex flex-col">
-                              <span className="font-bold text-slate-800">{b.service.name}</span>
+                              <span className="font-bold text-slate-800 truncate" title={b.service.name}>{b.service.name}</span>
                               <span className="text-[9px] text-slate-400 font-semibold">Thời lượng: {b.estimatedDuration} phút</span>
                             </div>
                           </td>
-                          <td className="py-3.5 px-3 text-right font-black text-slate-800">
+                          <td className="py-3 px-2 text-right font-black text-slate-800 whitespace-nowrap">
                             {b.finalAmount.toLocaleString('vi-VN')} đ
                           </td>
-                          <td className="py-3.5 px-4 text-center">
+                          <td className="py-3 px-1.5 text-center">
                             <span className="px-1.5 py-0.5 bg-slate-100 text-slate-600 font-mono text-[9px] font-black rounded">{b.source}</span>
                           </td>
-                          <td className="py-3.5 px-5 text-center">
-                            <div className="flex items-center justify-center gap-2">
-                              <span className={`inline-block px-2.5 py-1 rounded-full border text-[9px] font-bold ${statusBadge}`}>
-                                {b.status === 'Pending' || b.status === 'Confirmed' || b.status === 'In_progress' ? 'Chờ Check-in' :
-                                 b.status === 'Completed' ? 'Đã xong' : 'Đã hủy'}
-                              </span>
-                              <button 
-                                onClick={() => handleOpenDetail(b)}
-                                className="px-3 py-1 bg-[#0047AB] hover:bg-[#003a8c] text-white text-[10px] font-extrabold rounded-lg shadow-sm flex items-center gap-0.5 cursor-pointer"
-                              >
-                                Xem chi tiết
-                                <ChevronRight className="w-3 h-3" />
-                              </button>
-                            </div>
+                          <td className="py-3 px-2 text-center whitespace-nowrap">
+                            <span className={`inline-block px-2 py-0.5 rounded-full border text-[9px] font-extrabold ${statusBadge}`}>
+                              {statusText}
+                            </span>
+                          </td>
+                          <td className="py-3 px-3 text-center whitespace-nowrap">
+                            <button 
+                              onClick={() => handleOpenDetail(b)}
+                              className="px-2.5 py-1 bg-[#0047AB] hover:bg-[#003a8c] text-white text-[10px] font-extrabold rounded-lg shadow-sm inline-flex items-center gap-0.5 cursor-pointer transition-colors whitespace-nowrap"
+                            >
+                              Xem chi tiết
+                              <ChevronRight className="w-3 h-3" />
+                            </button>
                           </td>
                         </tr>
                       );
@@ -1437,7 +1473,7 @@ const allBookingsMapped = getAllBookings().map(b => {
           </div>
 
           {/* Right: Daily Availability Monitor (Read-Only Operational Capacity Monitor) */}
-          <div className="w-full lg:w-[420px] shrink-0 bg-white border border-slate-200/60 rounded-2xl shadow-sm flex flex-col min-h-0 overflow-hidden font-sans">
+          <div className="w-full lg:w-[350px] shrink-0 bg-white border border-slate-200/60 rounded-2xl shadow-sm flex flex-col min-h-0 overflow-hidden font-sans">
             {/* Header */}
             <div className="p-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50/50">
               <div className="flex items-center gap-2 text-slate-850 font-extrabold text-sm">

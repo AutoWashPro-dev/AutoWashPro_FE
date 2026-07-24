@@ -26,6 +26,19 @@ const formatDayOfWeek = (dow) => {
   return map[dow] || dow;
 };
 
+// Chuỗi 24 giờ cố định (00:00 -> 23:45) chống lỗi AM/PM (CH/SA) trên trình duyệt
+const TIME_OPTIONS_24H = (() => {
+  const list = [];
+  for (let h = 0; h < 24; h++) {
+    for (let m = 0; m < 60; m += 15) {
+      const hh = String(h).padStart(2, '0');
+      const mm = String(m).padStart(2, '0');
+      list.push(`${hh}:${mm}`);
+    }
+  }
+  return list;
+})();
+
 export default function AdminServicesSlotsPage() {
   const getRoles = () => {
     try {
@@ -145,13 +158,18 @@ const [availableSlots, setAvailableSlots] = useState([]);
 
   const [slotForm, setSlotForm] = useState({
     time: '',
-    maxCapacity: ''
+    startTime: '08:00',
+    endTime: '08:30',
+    maxCapacity: '',
+    dayOfWeek: 'ALL'
   });
 
   // Add Slot Modal State
   const [isAddSlotModalOpen, setIsAddSlotModalOpen] = useState(false);
-  const [newSlotTime, setNewSlotTime] = useState('');
-  const [newSlotMaxCapacity, setNewSlotMaxCapacity] = useState(8);
+  const [newSlotStartTime, setNewSlotStartTime] = useState('19:00');
+  const [newSlotEndTime, setNewSlotEndTime] = useState('19:30');
+  const [newSlotMaxCapacity, setNewSlotMaxCapacity] = useState(3);
+  const [newSlotDayOfWeek, setNewSlotDayOfWeek] = useState('ALL');
 
   useEffect(() => {
   if (isSpecificSlotBlockEnabled && closureForm.closureDate) {
@@ -203,55 +221,39 @@ const handleLockSlot = async (e) => {
 
 const handleSaveClosure = async (e) => {
   e.preventDefault();
-  if (!closureForm.closureDate) {
-    alert('Vui lòng chọn ngày đóng cửa!');
+  if (!closureForm.closureDate || !closureForm.reason.trim()) {
+    alert('Vui lòng nhập đầy đủ Ngày nghỉ và Lý do!');
     return;
   }
+
   try {
-    const created = await serviceCatalogApi.createClosure(closureForm);
+    const created = await serviceCatalogApi.createClosure({
+      closureDate: closureForm.closureDate,
+      reason: closureForm.reason.trim(),
+      isFullDay: true
+    });
+
     setClosures(prev => [...prev, created]);
-    alert('Đã thêm ngày nghỉ lễ thành công!');
+    alert(`Đã thiết lập lịch nghỉ trạm ngày ${closureForm.closureDate} thành công!`);
     setClosureModalOpen(false);
     setClosureForm({ closureDate: '', reason: '', isFullDay: true });
-    setIsSpecificSlotBlockEnabled(false);
   } catch (err) {
-    const errMsg = err.response?.data?.message || err.message || 'Lỗi khi thêm ngày nghỉ!';
+    const errMsg = err.response?.data?.message || err.message || 'Lỗi không xác định khi tạo ngày nghỉ!';
     alert(errMsg);
   }
 };
 
-const handleDeleteClosure = async (id) => {
-  const target = closures.find(c => (c.closureId || c.garageClosureId) === id);
-  if (!target) return;
-
-  if (target.isFullDay === false) {
-    if (!confirm('Bạn có chắc chắn muốn mở khóa cho khung giờ này?')) {
-      return;
-    }
-    try {
-      await serviceCatalogApi.lockSingleSlot({
-        date: target.closureDate,
-        slotId: target.slotId,
-        lock: false
-      });
-      setClosures(prev => prev.filter(c => (c.closureId || c.garageClosureId) !== id));
-      alert('Đã mở khóa khung giờ thành công!');
-    } catch (err) {
-      const errMsg = err.response?.data?.message || err.message || 'Lỗi khi mở khóa khung giờ!';
-      alert(errMsg);
-    }
+const handleDeleteClosure = async (closureId) => {
+  if (!window.confirm('Bạn có chắc chắn muốn xóa lịch nghỉ trạm này và mở cửa hoạt động lại?')) {
     return;
   }
 
-  if (!confirm('Bạn có chắc chắn muốn mở cửa hoạt động lại cho ngày nghỉ này?')) {
-    return;
-  }
   try {
-    await serviceCatalogApi.deleteClosure(id);
-    setClosures(prev => prev.filter(c => c.closureId !== id && c.garageClosureId !== id));
-    alert('Đã mở cửa hoạt động lại thành công!');
+    await serviceCatalogApi.deleteClosure(closureId);
+    setClosures(prev => prev.filter(c => (c.closureId || c.garageClosureId) !== closureId));
+    alert('Đã mở cửa hoạt động lại trạm thành công!');
   } catch (err) {
-    const errMsg = err.response?.data?.message || err.message || 'Lỗi khi xóa lịch nghỉ!';
+    const errMsg = err.response?.data?.message || err.message || 'Lỗi khi xóa ngày nghỉ!';
     alert(errMsg);
   }
 };
@@ -277,13 +279,13 @@ const handleDeleteClosure = async (id) => {
     }));
   };
 
-  const handleOpenAddService = () => {
+  const handleOpenAddService = (type) => {
     setCurrentService(null);
     setServiceForm({
       name: '',
       price: '',
-      duration: '',
-      type: catalogSubTab,
+      duration: type === 'core' ? '20' : '10',
+      type: type,
       desc: ''
     });
     setServiceModalOpen(true);
@@ -341,9 +343,22 @@ const handleDeleteClosure = async (id) => {
 
   const handleOpenEditSlot = (slot) => {
     setCurrentSlot(slot);
+    let start = slot.startTime || '';
+    let end = slot.endTime || '';
+    if (!start || !end) {
+      const parts = (slot.time || '').split('-').map(p => p.trim());
+      start = parts[0] ? parts[0].substring(0, 5) : '08:00';
+      end = parts[1] ? parts[1].substring(0, 5) : '08:30';
+    } else {
+      start = start.substring(0, 5);
+      end = end.substring(0, 5);
+    }
+
     setSlotForm({
       time: slot.time,
-      maxCapacity: slot.maxCapacity,
+      startTime: start,
+      endTime: end,
+      maxCapacity: slot.maxCapacity || 3,
       dayOfWeek: slot.dayOfWeek || 'ALL'
     });
     setSlotModalOpen(true);
@@ -351,26 +366,79 @@ const handleDeleteClosure = async (id) => {
 
   const handleSaveSlot = async (e) => {
     e.preventDefault();
-    if (!slotForm.maxCapacity) {
-      alert('Vui lòng nhập công suất tối đa!');
+    const { startTime, endTime, maxCapacity, dayOfWeek } = slotForm;
+    if (!startTime || !endTime) {
+      alert('Vui lòng chọn đầy đủ Giờ bắt đầu và Giờ kết thúc!');
+      return;
+    }
+    if (startTime >= endTime) {
+      alert('⚠️ Ràng buộc thời gian: Giờ bắt đầu phải nhỏ hơn Giờ kết thúc (ví dụ: 08:00 - 08:30)!');
+      return;
+    }
+    const capacityNum = parseInt(maxCapacity, 10);
+    if (isNaN(capacityNum) || capacityNum < 1) {
+      alert('Công suất tối đa phải là số nguyên dương (≥ 1)!');
       return;
     }
 
+    const targetDay = dayOfWeek || 'ALL';
+
+    // RÀNG BUỘC CHỐNG CHỒNG THỜI GIAN (Time Overlap Validation)
+    const hasOverlap = slots.some(sl => {
+      if (sl.id === currentSlot.id) return false;
+      if (sl.isActive === false) return false;
+
+      const slDay = sl.dayOfWeek || 'ALL';
+      const dayConflict = targetDay === 'ALL' || slDay === 'ALL' || targetDay === slDay;
+      if (!dayConflict) return false;
+
+      let s2 = sl.startTime || '';
+      let e2 = sl.endTime || '';
+      if (!s2 || !e2) {
+        const parts = (sl.time || '').split('-').map(p => p.trim());
+        s2 = parts[0] ? parts[0].substring(0, 5) : '00:00';
+        e2 = parts[1] ? parts[1].substring(0, 5) : '00:00';
+      } else {
+        s2 = s2.substring(0, 5);
+        e2 = e2.substring(0, 5);
+      }
+
+      // Công thức trùng lặp giao thoa: S1 < E2 && S2 < E1
+      return (startTime < e2 && s2 < endTime);
+    });
+
+    if (hasOverlap) {
+      alert(`⚠️ RÀNG BUỘC TRÙNG LẶP THỜI GIAN: Khung giờ [${startTime} - ${endTime}] bị giao thoa thời gian với một khung giờ sẵn có trên hệ thống! Vui lòng điều chỉnh lại khoảng giờ.`);
+      return;
+    }
+
+    const formattedTime = `${startTime}:00 - ${endTime}:00`;
+
     try {
-      await serviceCatalogApi.updateSlot(currentSlot.id, slotForm, currentSlot.timeSlotId);
+      await serviceCatalogApi.updateSlot(currentSlot.id, {
+        time: formattedTime,
+        startTime: `${startTime}:00`,
+        endTime: `${endTime}:00`,
+        maxCapacity: capacityNum,
+        dayOfWeek: targetDay
+      }, currentSlot.timeSlotId);
+
       setSlots(prev => {
-        const next = prev.map(sl => {
+        const next = sortAndReIndexSlots(prev.map(sl => {
           if (sl.id === currentSlot.id) {
             return {
               ...sl,
-              maxCapacity: Number(slotForm.maxCapacity),
-              dayOfWeek: slotForm.dayOfWeek || 'ALL'
+              time: formattedTime,
+              startTime: `${startTime}:00`,
+              endTime: `${endTime}:00`,
+              maxCapacity: capacityNum,
+              dayOfWeek: targetDay
             };
           }
           return sl;
-        });
+        }));
         localStorage.setItem('autowash_slots', JSON.stringify(next));
-        alert(`Đã cập nhật cấu hình khung giờ ${currentSlot.time} thành công!`);
+        alert(`Đã cập nhật cấu hình khung giờ (${startTime} - ${endTime}) thành công!`);
         return next;
       });
       setSlotModalOpen(false);
@@ -380,50 +448,73 @@ const handleDeleteClosure = async (id) => {
     }
   };
 
-  // Handler: Add New Slot with validation + API integration (HH:MM:SS format)
+  // Handler: Add New Slot with validation + Overlap Guard + API integration
   const handleAddSlot = async (e) => {
     e.preventDefault();
 
-    // Validate time range format: "HH:MM - HH:MM" or "HH:MM:SS - HH:MM:SS"
-    const timeRangeRegex = /^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?\s*-\s*([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/;
-    if (!newSlotTime.trim() || !timeRangeRegex.test(newSlotTime.trim())) {
-      alert('Định dạng khung giờ không hợp lệ! Vui lòng nhập theo mẫu: HH:MM - HH:MM (ví dụ: 19:00 - 20:00)');
+    if (!newSlotStartTime || !newSlotEndTime) {
+      alert('Vui lòng chọn đầy đủ Giờ bắt đầu và Giờ kết thúc!');
       return;
     }
-
-    // Validate capacity is a positive integer
+    if (newSlotStartTime >= newSlotEndTime) {
+      alert('⚠️ Ràng buộc thời gian: Giờ bắt đầu phải nhỏ hơn Giờ kết thúc (ví dụ: 19:00 - 19:30)!');
+      return;
+    }
     const capacityNum = parseInt(newSlotMaxCapacity, 10);
     if (isNaN(capacityNum) || capacityNum < 1) {
       alert('Công suất tối đa phải là số nguyên dương (≥ 1)!');
       return;
     }
 
-    // Normalize time to HH:MM:SS format
-    const normalizedTime = appendSeconds(newSlotTime.replace(/\s+/g, ' ').trim());
+    const targetDay = newSlotDayOfWeek || 'ALL';
 
-    // Frontend Duplicate Prevention Guard (strict unique constraint)
-    // Scan all existing slots with normalized HH:MM:SS comparison
-    const isDuplicate = slots.some(sl => {
-      const existingNormalized = appendSeconds(sl.time.replace(/\s+/g, ' ').trim());
-      return existingNormalized === normalizedTime;
+    // RÀNG BUỘC CHỐNG CHỒNG THỜI GIAN (Time Overlap Validation Guard)
+    const hasOverlap = slots.some(sl => {
+      if (sl.isActive === false) return false;
+
+      const slDay = sl.dayOfWeek || 'ALL';
+      const dayConflict = targetDay === 'ALL' || slDay === 'ALL' || targetDay === slDay;
+      if (!dayConflict) return false;
+
+      let s2 = sl.startTime || '';
+      let e2 = sl.endTime || '';
+      if (!s2 || !e2) {
+        const parts = (sl.time || '').split('-').map(p => p.trim());
+        s2 = parts[0] ? parts[0].substring(0, 5) : '00:00';
+        e2 = parts[1] ? parts[1].substring(0, 5) : '00:00';
+      } else {
+        s2 = s2.substring(0, 5);
+        e2 = e2.substring(0, 5);
+      }
+
+      // Công thức trùng lặp giao thoa: S1 < E2 && S2 < E1
+      return (newSlotStartTime < e2 && s2 < newSlotEndTime);
     });
-    if (isDuplicate) {
-      alert('Khung giờ này đã tồn tại trên hệ thống! Vui lòng nhập một khung giờ khác.');
+
+    if (hasOverlap) {
+      alert(`⚠️ RÀNG BUỘC TRÙNG LẶP THỜI GIAN: Khung giờ [${newSlotStartTime} - ${newSlotEndTime}] bị giao thoa thời gian với một khung giờ sẵn có trên hệ thống! Vui lòng chọn khoảng giờ khác.`);
       return;
     }
 
+    const formattedTime = `${newSlotStartTime}:00 - ${newSlotEndTime}:00`;
+
     try {
       const created = await serviceCatalogApi.createSlot({
-        time: normalizedTime,
-        maxCapacity: capacityNum
+        time: formattedTime,
+        startTime: `${newSlotStartTime}:00`,
+        endTime: `${newSlotEndTime}:00`,
+        maxCapacity: capacityNum,
+        dayOfWeek: targetDay
       });
 
       const newSlotObj = {
         ...created,
-        id: `SL-NEW-${Date.now()}`, // Temporary; sortAndReIndexSlots will reassign
-        time: normalizedTime,
+        id: `SL-NEW-${Date.now()}`,
+        time: formattedTime,
+        startTime: `${newSlotStartTime}:00`,
+        endTime: `${newSlotEndTime}:00`,
         maxCapacity: capacityNum,
-        dayOfWeek: 'ALL',
+        dayOfWeek: targetDay,
         isActive: true
       };
 
@@ -433,12 +524,12 @@ const handleDeleteClosure = async (id) => {
         return next;
       });
 
-      alert('Thêm khung giờ dọn rửa mới thành công!');
+      alert(`Thêm khung giờ ${newSlotStartTime} - ${newSlotEndTime} mới thành công!`);
       setIsAddSlotModalOpen(false);
-      setNewSlotTime('');
-      setNewSlotMaxCapacity(8);
+      setNewSlotStartTime('19:00');
+      setNewSlotEndTime('19:30');
+      setNewSlotMaxCapacity(3);
     } catch (err) {
-      // Backend Conflict Error Handling: route 409 / duplicate constraint violations
       const httpStatus = err.response?.status;
       const serverMessage = (err.response?.data?.message || err.message || '').toLowerCase();
       const isDuplicateConflict =
@@ -688,21 +779,21 @@ const handleDeleteClosure = async (id) => {
             </div>
           </div>
 
-          {currentUser?.roleName !== 'ROLE_MANAGER' && (
-            <div className="flex items-center justify-end shrink-0">
-              <button
-                onClick={() => {
-                  setNewSlotTime('');
-                  setNewSlotMaxCapacity(8);
-                  setIsAddSlotModalOpen(true);
-                }}
-                className="bg-[#0047AB] hover:bg-[#003a8c] text-white text-xs font-black py-2.5 px-4.5 rounded-xl flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
-              >
-                <Plus className="w-4 h-4" />
-                Thêm khung giờ mới
-              </button>
-            </div>
-          )}
+          <div className="flex items-center justify-end shrink-0">
+            <button
+              onClick={() => {
+                setNewSlotStartTime('19:00');
+                setNewSlotEndTime('19:30');
+                setNewSlotMaxCapacity(3);
+                setNewSlotDayOfWeek('ALL');
+                setIsAddSlotModalOpen(true);
+              }}
+              className="bg-[#0047AB] hover:bg-[#003a8c] text-white text-xs font-black py-2.5 px-4.5 rounded-xl flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              Thêm khung giờ mới
+            </button>
+          </div>
 
           {/* Slots Table */}
           <div className="flex-1 bg-white border border-slate-200/60 rounded-2xl shadow-sm overflow-hidden flex flex-col min-h-0">
@@ -1084,7 +1175,7 @@ const handleDeleteClosure = async (id) => {
             <div className="flex items-center justify-between pb-3 border-b border-slate-150">
               <h3 className="font-extrabold text-slate-850 flex items-center gap-1.5 text-sm">
                 <Clock className="w-5 h-5 text-indigo-650" />
-                Cấu hình: {currentSlot.time}
+                Cấu hình Khung giờ dọn xe
               </h3>
               <button onClick={() => setSlotModalOpen(false)} className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg">
                 <X className="w-4.5 h-4.5" />
@@ -1092,13 +1183,41 @@ const handleDeleteClosure = async (id) => {
             </div>
 
             <form onSubmit={handleSaveSlot} className="space-y-4 text-xs">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-600 block">Giờ bắt đầu *</label>
+                  <select
+                    value={slotForm.startTime}
+                    onChange={e => setSlotForm({...slotForm, startTime: e.target.value})}
+                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-800 font-mono text-center cursor-pointer"
+                  >
+                    {TIME_OPTIONS_24H.map(t => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-600 block">Giờ kết thúc *</label>
+                  <select
+                    value={slotForm.endTime}
+                    onChange={e => setSlotForm({...slotForm, endTime: e.target.value})}
+                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-800 font-mono text-center cursor-pointer"
+                  >
+                    {TIME_OPTIONS_24H.map(t => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
               <div className="space-y-1">
                 <label className="font-bold text-slate-600 block">Công suất phục vụ tối đa (xe / giờ) *</label>
                 <input
                   type="number"
                   required
                   min="1"
-                  placeholder="Ví dụ: 8"
+                  max="50"
+                  placeholder="Ví dụ: 3"
                   value={slotForm.maxCapacity}
                   onChange={e => setSlotForm({...slotForm, maxCapacity: e.target.value})}
                   className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-700 text-center"
@@ -1125,9 +1244,16 @@ const handleDeleteClosure = async (id) => {
                 </select>
               </div>
 
+              <div className="bg-amber-50/60 border border-amber-200/80 rounded-xl p-2.5 flex items-start gap-2">
+                <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <p className="text-[10px] text-amber-800 font-bold leading-relaxed">
+                  Ràng buộc hệ thống: Giờ bắt đầu và giờ kết thúc không được giao thoa / chồng lấn thời gian với các khung giờ đã tồn tại khác.
+                </p>
+              </div>
+
               <div className="flex gap-2.5 pt-2 justify-end">
                 <button type="button" onClick={() => setSlotModalOpen(false)} className="px-4 py-2.5 bg-slate-100 text-slate-600 font-bold rounded-xl">Hủy</button>
-                <button type="submit" className="px-4.5 py-2.5 bg-indigo-600 text-white font-black rounded-xl">Cập nhật</button>
+                <button type="submit" className="px-4.5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-xl">Cập nhật</button>
               </div>
             </form>
           </div>
@@ -1149,17 +1275,31 @@ const handleDeleteClosure = async (id) => {
             </div>
 
             <form onSubmit={handleAddSlot} className="space-y-4 text-xs">
-              <div className="space-y-1">
-                <label className="font-bold text-slate-600 block">Khung giờ hoạt động *</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="Ví dụ: 19:00 - 20:00"
-                  value={newSlotTime}
-                  onChange={e => setNewSlotTime(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-700 font-outfit tracking-wider"
-                />
-                <p className="text-[10px] text-slate-400 font-medium mt-0.5">Nhập định dạng: HH:MM - HH:MM (24 giờ)</p>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-600 block">Giờ bắt đầu *</label>
+                  <select
+                    value={newSlotStartTime}
+                    onChange={e => setNewSlotStartTime(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-800 font-mono text-center cursor-pointer"
+                  >
+                    {TIME_OPTIONS_24H.map(t => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-1">
+                  <label className="font-bold text-slate-600 block">Giờ kết thúc *</label>
+                  <select
+                    value={newSlotEndTime}
+                    onChange={e => setNewSlotEndTime(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-800 font-mono text-center cursor-pointer"
+                  >
+                    {TIME_OPTIONS_24H.map(t => (
+                      <option key={t} value={t}>{t}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
 
               <div className="space-y-1">
@@ -1169,17 +1309,37 @@ const handleDeleteClosure = async (id) => {
                   required
                   min="1"
                   max="50"
-                  placeholder="Ví dụ: 8"
+                  placeholder="Ví dụ: 3"
                   value={newSlotMaxCapacity}
                   onChange={e => setNewSlotMaxCapacity(e.target.value)}
                   className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-700 text-center"
                 />
               </div>
 
+              <div className="space-y-1">
+                <label className="font-bold text-slate-600 block">Áp dụng cho ngày trong tuần *</label>
+                <select
+                  value={newSlotDayOfWeek}
+                  onChange={e => setNewSlotDayOfWeek(e.target.value)}
+                  className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-700"
+                >
+                  <option value="ALL">Mọi ngày (T2 - CN)</option>
+                  <option value="WEEKDAY">Ngày thường (T2 - T6)</option>
+                  <option value="WEEKEND">Cuối tuần (T7 - CN)</option>
+                  <option value="MON">Thứ 2</option>
+                  <option value="TUE">Thứ 3</option>
+                  <option value="WED">Thứ 4</option>
+                  <option value="THU">Thứ 5</option>
+                  <option value="FRI">Thứ 6</option>
+                  <option value="SAT">Thứ 7</option>
+                  <option value="SUN">Chủ Nhật</option>
+                </select>
+              </div>
+
               <div className="bg-indigo-50/50 border border-indigo-100 rounded-xl p-3 flex items-start gap-2">
                 <Info className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5" />
                 <p className="text-[10px] text-indigo-700 font-semibold leading-relaxed">
-                  Khung giờ mới sẽ được kích hoạt ngay lập tức và áp dụng cho mọi ngày trong tuần. Bạn có thể chỉnh sửa phạm vi áp dụng sau khi tạo.
+                  Hệ thống tự động kiểm tra xem khung giờ mới có bị giao thoa với các khung giờ hoạt động sẵn có không trước khi lưu.
                 </p>
               </div>
 

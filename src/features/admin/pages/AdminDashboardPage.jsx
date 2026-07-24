@@ -11,49 +11,36 @@ import {
 } from 'lucide-react';
 import { dashboardApi } from '../services/dashboardApi';
 
+const createSmoothPath = (pts) => {
+  if (!pts || pts.length === 0) return '';
+  if (pts.length === 1) return `M ${pts[0].x},${pts[0].y}`;
+  let d = `M ${pts[0].x},${pts[0].y}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[i];
+    const p1 = pts[i + 1];
+    const cp1x = p0.x + (p1.x - p0.x) * 0.4;
+    const cp1y = p0.y;
+    const cp2x = p0.x + (p1.x - p0.x) * 0.6;
+    const cp2y = p1.y;
+    d += ` C ${cp1x},${cp1y} ${cp2x},${cp2y} ${p1.x},${p1.y}`;
+  }
+  return d;
+};
+
+const createAreaPath = (pts, bottomY = 1000) => {
+  const lineD = createSmoothPath(pts);
+  if (!lineD) return '';
+  const firstX = pts[0].x;
+  const lastX = pts[pts.length - 1].x;
+  return `${lineD} L ${lastX},${bottomY} L ${firstX},${bottomY} Z`;
+};
+
 const AdminDashboardPage = () => {
   const [period, setPeriod] = useState('today'); // 'today', 'week', 'month', 'year'
   const [liveData, setLiveData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [kpiSummary, setKpiSummary] = useState(null); // Lưu trữ trực tiếp response từ /api/v1/admin/dashboard/kpi-summary
   const [errorMsg, setErrorMsg] = useState(null);
-
-  // AI Advisor States (E2E-3)
-  const [aiProposal, setAiProposal] = useState(null);
-  const [loadingAi, setLoadingAi] = useState(false);
-  const [applyingProposal, setApplyingProposal] = useState(false);
-  const [showAiPanel, setShowAiPanel] = useState(false);
-
-  const handleRequestAiHelp = async () => {
-    setLoadingAi(true);
-    setShowAiPanel(true);
-    try {
-      const timeRange = period.toUpperCase();
-      const res = await dashboardApi.analyzeDashboard(timeRange);
-      setAiProposal(res);
-    } catch (err) {
-      console.error('Failed to request AI Advisor proposal:', err);
-      alert('Không thể nhận đề xuất từ AI Advisor: ' + (err.response?.data?.message || err.message));
-    } finally {
-      setLoadingAi(false);
-    }
-  };
-
-  const handleApplyAiProposal = async () => {
-    if (!aiProposal || !aiProposal.proposalId) return;
-    setApplyingProposal(true);
-    try {
-      const res = await dashboardApi.applyProposal(aiProposal.proposalId);
-      alert(res.message || 'Kích hoạt chiến dịch từ đề xuất AI thành công!');
-      // Reload dashboard stats
-      setPeriod(period);
-    } catch (err) {
-      console.error('Failed to apply AI proposal:', err);
-      alert('Lỗi áp dụng đề xuất AI: ' + (err.response?.data?.message || err.message));
-    } finally {
-      setApplyingProposal(false);
-    }
-  };
 
   const initialEmptyData = {
     bookingsCount: 0,
@@ -222,17 +209,22 @@ const AdminDashboardPage = () => {
 
           occupancyChart: (() => {
             return slots.map(s => {
-              const occ = Math.round(s.occupancyRate || 0);
+              const actualBooked = Number(s.actualBooked || 0);
+              const configuredCapacity = Number(s.configuredMaxCapacity || 1);
+              const rawOcc = Number(s.occupancyRate || 0);
+              const occ = rawOcc > 0 && rawOcc < 1 ? Number(rawOcc.toFixed(1)) : Math.round(rawOcc);
               const risk = Math.round(s.noShowRate || 0);
               const timeStr = s.timeSlot || '08:00';
               const endHourStr = (parseInt(timeStr.split(':')[0], 10) + 1).toString().padStart(2, '0') + ':00';
               return {
                 time: timeStr,
                 label: `${timeStr} - ${endHourStr}`,
-                occ: occ,
-                occStr: `${occ}% (${s.actualBooked || 0}/${s.configuredMaxCapacity || 0} xe)`,
+                actualBooked,
+                configuredCapacity,
+                occ,
+                occStr: `${occ}% (${actualBooked}/${configuredCapacity} xe)`,
                 level: occ >= 80 ? 'high' : occ >= 50 ? 'med' : 'low',
-                risk: risk,
+                risk,
                 riskStr: `${risk}% (${s.isHighRisk ? 'Cao 🔥' : 'Thấp'})`,
                 note: s.isHighRisk ? '⚠️ Cảnh báo E2E-1: Khung giờ rủi ro cao' : 'Hoạt động ổn định theo E2E-1'
               };
@@ -306,14 +298,6 @@ return (
         </div>
         
         <div className="flex items-center gap-3 self-start md:self-auto">
-          <button
-            onClick={handleRequestAiHelp}
-            className="flex items-center gap-1.5 bg-gradient-to-r from-violet-600 to-indigo-650 text-white text-xs font-black px-4.5 py-2.5 rounded-xl hover:shadow-lg hover:shadow-indigo-600/10 active:scale-[0.98] transition-all cursor-pointer shadow-sm"
-          >
-            <HelpCircle className="w-4 h-4 text-indigo-200 animate-bounce" />
-            Nhận Hiến Kế AI 💡
-          </button>
-
           <div className="bg-white border border-slate-200/80 rounded-xl p-1 flex gap-1.5 text-xs text-slate-500 shadow-sm">
             <button 
               onClick={() => setPeriod('today')} 
@@ -350,78 +334,6 @@ return (
           </div>
         </div>
       </div>
-
-      {/* AI Advisor Panel */}
-      {showAiPanel && (
-        <div className="bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white rounded-3xl p-6 shadow-2xl relative overflow-hidden border border-indigo-500/20 text-xs">
-          <div className="absolute top-0 right-0 w-80 h-80 bg-violet-600/10 rounded-full blur-3xl pointer-events-none"></div>
-          <div className="absolute -left-20 -bottom-20 w-80 h-80 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
-          
-          <div className="flex items-center justify-between pb-3.5 border-b border-slate-700/50">
-            <div className="flex items-center gap-2.5">
-              <div className="bg-indigo-500/20 p-2 rounded-xl border border-indigo-400/30">
-                <Gauge className="w-5 h-5 text-indigo-400 animate-pulse" />
-              </div>
-              <div className="text-left">
-                <h3 className="font-extrabold text-sm tracking-tight font-outfit">AI Advisor Command</h3>
-                <p className="text-[10px] text-slate-400 font-semibold mt-0.5">Trợ lý AI phân tích hiệu suất và đề xuất chiến lược Win-back tự động.</p>
-              </div>
-            </div>
-            <button 
-              onClick={() => setShowAiPanel(false)}
-              className="p-1.5 text-slate-400 hover:text-white bg-slate-800/40 hover:bg-slate-800 rounded-xl transition-all cursor-pointer"
-            >
-              <XCircle className="w-4 h-4" />
-            </button>
-          </div>
-
-          {loadingAi ? (
-            <div className="flex flex-col items-center justify-center py-12 space-y-3">
-              <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-              <p className="text-slate-300 text-[11px] font-bold animate-pulse">Trợ lý AI đang thu thập dữ liệu dashboard và phân tích...</p>
-            </div>
-          ) : aiProposal ? (
-            <div className="mt-5 space-y-5 text-left">
-              {/* Lời khuyên */}
-              <div className="bg-slate-800/40 p-4.5 rounded-2xl border border-slate-700/40 leading-relaxed text-slate-200">
-                <h4 className="font-black text-indigo-300 uppercase tracking-wider text-[9px] mb-2">💡 Phân tích & Lời khuyên từ AI</h4>
-                <p className="whitespace-pre-line font-medium leading-relaxed">{aiProposal.advisoryText || 'Không phát hiện rủi ro nào đáng kể trong thời gian này.'}</p>
-              </div>
-
-              {/* Voucher đề xuất */}
-              {aiProposal.proposedVoucher && (
-                <div className="bg-indigo-600/10 p-5 rounded-2xl border border-indigo-500/30 grid grid-cols-1 md:grid-cols-4 gap-4 items-center">
-                  <div className="md:col-span-3 space-y-1.5">
-                    <div className="flex items-center gap-2">
-                      <span className="bg-indigo-500 text-white font-mono font-black px-2.5 py-0.5 rounded text-[9px] tracking-wider uppercase">
-                        {aiProposal.proposedVoucher.code}
-                      </span>
-                      <span className="text-[9px] text-indigo-300 font-extrabold">Đề xuất Voucher Win-back</span>
-                    </div>
-                    <h5 className="font-black text-white text-xs">{aiProposal.proposedVoucher.name}</h5>
-                    <p className="text-[10px] text-slate-400 font-semibold leading-relaxed">
-                      Áp dụng cho hạng: <strong className="text-white">{aiProposal.proposedVoucher.minTier}+</strong> • 
-                      Vắng mặt: <strong className="text-white">&gt; {aiProposal.proposedVoucher.minRecencyDays} ngày</strong> • 
-                      Ngân sách: <strong className="text-white">{aiProposal.proposedVoucher.totalBudget} vouchers</strong>
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <button
-                      onClick={handleApplyAiProposal}
-                      disabled={applyingProposal}
-                      className="w-full md:w-auto bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white text-[10px] font-black px-5 py-3 rounded-xl shadow-lg transition-all cursor-pointer disabled:opacity-50 active:scale-[0.98]"
-                    >
-                      {applyingProposal ? "Đang kích hoạt..." : "✅ 1-Click Apply"}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          ) : (
-            <p className="text-slate-400 py-10 font-bold text-center">Không có đề xuất nào sẵn sàng. Bấm nút phía trên để nhận hiến kế.</p>
-          )}
-        </div>
-      )}
 
       {/* 1. KPI CARDS (4-Column Golden Ratio Grid) */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
@@ -571,31 +483,33 @@ return (
             <div className="absolute inset-x-12 top-4 bottom-10">
               <div className="relative z-10 w-full h-full flex items-end justify-between gap-2">
                 
-                {/* Continuous SVG AOV Trend Line & Exact Dots */}
-                {current.stackedChart && current.stackedChart.length > 0 && (
-                  <svg viewBox="0 0 1000 1000" preserveAspectRatio="none" className="absolute inset-0 w-full h-full pointer-events-none z-20 overflow-visible">
-                    <defs>
-                      <filter id="lineGlow" x="-20%" y="-20%" width="140%" height="140%">
-                        <feDropShadow dx="0" dy="4" stdDeviation="4" floodColor="#4f46e5" floodOpacity="0.35" />
-                      </filter>
-                    </defs>
-                    <polyline 
-                      points={current.stackedChart.map((col, idx) => {
-                        const maxAov = current.maxAov || Math.max(...current.stackedChart.map(c => c.aov || 0), 100);
-                        const aovPct = maxAov > 0 ? Math.min(100, Math.max(0, ((col.aov || 0) / maxAov) * 100)) : 0;
-                        const x = ((idx + 0.5) / current.stackedChart.length) * 1000;
-                        const y = 1000 - (aovPct * 10);
-                        return `${x},${y}`;
-                      }).join(' ')} 
-                      fill="none" 
-                      stroke="#4f46e5" 
-                      strokeWidth="24" 
-                      strokeLinecap="round" 
-                      strokeLinejoin="round"
-                      filter="url(#lineGlow)"
-                    />
-                  </svg>
-                )}
+                {/* Continuous SVG AOV Smooth Curve & Gradient Area Fill */}
+                {current.stackedChart && current.stackedChart.length > 0 && (() => {
+                  const points = current.stackedChart.map((col, idx) => {
+                    const maxAov = current.maxAov || Math.max(...current.stackedChart.map(c => c.aov || 0), 100);
+                    const aovPct = maxAov > 0 ? Math.min(100, Math.max(0, ((col.aov || 0) / maxAov) * 100)) : 0;
+                    const x = ((idx + 0.5) / current.stackedChart.length) * 1000;
+                    const y = 1000 - (aovPct * 10);
+                    return { x, y };
+                  });
+                  const lineD = createSmoothPath(points);
+                  const areaD = createAreaPath(points, 1000);
+                  return (
+                    <svg viewBox="0 0 1000 1000" preserveAspectRatio="none" className="absolute inset-0 w-full h-full pointer-events-none z-20 overflow-visible">
+                      <defs>
+                        <linearGradient id="indigoArea" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#4f46e5" stopOpacity="0.22" />
+                          <stop offset="100%" stopColor="#4f46e5" stopOpacity="0.0" />
+                        </linearGradient>
+                        <filter id="lineGlow" x="-20%" y="-20%" width="140%" height="140%">
+                          <feDropShadow dx="0" dy="2" stdDeviation="2.5" floodColor="#4f46e5" floodOpacity="0.3" />
+                        </filter>
+                      </defs>
+                      <path d={areaD} fill="url(#indigoArea)" />
+                      <path d={lineD} fill="none" stroke="#4f46e5" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" filter="url(#lineGlow)" />
+                    </svg>
+                  );
+                })()}
 
               {current.stackedChart && current.stackedChart.length > 0 ? current.stackedChart.map((col, idx) => {
                 const maxVal = current.maxBar || Math.max(...current.stackedChart.map(c => c.total || 0), 1000);
@@ -739,7 +653,7 @@ return (
       <div className="bg-white border border-slate-200/60 p-5 rounded-2xl shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-3">
           <div>
-            <h3 className="font-bold text-base text-slate-850 font-outfit">Biểu đồ 2: Hiệu suất 12 Khung giờ E2E-1 & Cảnh báo rủi ro</h3>
+            <h3 className="font-bold text-base text-slate-850 font-outfit">Biểu đồ 2: Hiệu suất Khai thác Slot E2E-1 & Cảnh báo rủi ro</h3>
             <p className="text-xs text-slate-400 mt-0.5 font-medium">Theo dõi công suất khai thác theo khung giờ và rủi ro hủy hẹn/trễ giờ theo thời gian thực (API /slot-performance).</p>
           </div>
           <div className="flex flex-wrap gap-4 text-xs font-bold items-center">
@@ -774,47 +688,54 @@ return (
           <div className="absolute inset-x-12 top-4 bottom-10">
             <div className="relative z-10 w-full h-full flex items-end justify-between gap-1.5">
               
-              {/* Continuous SVG No-Show Trend Line & Exact Dots */}
-              {current.occupancyChart && (
-                <svg viewBox="0 0 1000 1000" preserveAspectRatio="none" className="absolute inset-0 w-full h-full pointer-events-none z-20 overflow-visible">
-                  <defs>
-                    <filter id="roseGlow" x="-20%" y="-20%" width="140%" height="140%">
-                      <feDropShadow dx="0" dy="4" stdDeviation="4" floodColor="#ef4444" floodOpacity="0.4" />
-                    </filter>
-                  </defs>
-                  <polyline 
-                    points={current.occupancyChart.map((slot, idx) => {
-                      const maxR = current.maxRisk || 30;
-                      const riskPct = maxR > 0 ? Math.min(100, Math.max(0, ((slot.risk || 0) / maxR) * 100)) : 0;
-                      const x = ((idx + 0.5) / current.occupancyChart.length) * 1000;
-                      const y = 1000 - (riskPct * 10);
-                      return `${x},${y}`;
-                    }).join(' ')} 
-                    fill="none" 
-                    stroke="#ef4444" 
-                    strokeWidth="24" 
-                    strokeLinecap="round" 
-                    strokeLinejoin="round"
-                    filter="url(#roseGlow)"
-                  />
-                </svg>
-              )}
+              {/* Continuous SVG No-Show Smooth Curve & Gradient Area Fill */}
+              {current.occupancyChart && current.occupancyChart.length > 0 && (() => {
+                const points = current.occupancyChart.map((slot, idx) => {
+                  const maxR = current.maxRisk || 30;
+                  const riskPct = maxR > 0 ? Math.min(100, Math.max(0, ((slot.risk || 0) / maxR) * 100)) : 0;
+                  const x = ((idx + 0.5) / current.occupancyChart.length) * 1000;
+                  const y = 1000 - (riskPct * 10);
+                  return { x, y };
+                });
+                const lineD = createSmoothPath(points);
+                const areaD = createAreaPath(points, 1000);
+                return (
+                  <svg viewBox="0 0 1000 1000" preserveAspectRatio="none" className="absolute inset-0 w-full h-full pointer-events-none z-20 overflow-visible">
+                    <defs>
+                      <linearGradient id="roseArea" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor="#ef4444" stopOpacity="0.2" />
+                        <stop offset="100%" stopColor="#ef4444" stopOpacity="0.0" />
+                      </linearGradient>
+                      <filter id="roseGlow" x="-20%" y="-20%" width="140%" height="140%">
+                        <feDropShadow dx="0" dy="2" stdDeviation="2.5" floodColor="#ef4444" floodOpacity="0.3" />
+                      </filter>
+                    </defs>
+                    <path d={areaD} fill="url(#roseArea)" />
+                    <path d={lineD} fill="none" stroke="#ef4444" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" filter="url(#roseGlow)" />
+                  </svg>
+                );
+              })()}
 
             {current.occupancyChart ? current.occupancyChart.map((slot, idx) => {
               const maxO = current.maxOcc || 100;
-              const heightPct = maxO > 0 ? Math.min(100, Math.max(0, ((slot.occ || 0) / maxO) * 100)) : 0;
+              const rawOccPct = ((slot.occ || 0) / maxO) * 100;
+              const hasBookings = (slot.actualBooked > 0) || (slot.occ > 0);
+              const heightPct = hasBookings ? Math.min(100, Math.max(8, rawOccPct)) : 1.5;
               const maxR = current.maxRisk || 30;
               const riskPct = maxR > 0 ? Math.min(100, Math.max(0, ((slot.risk || 0) / maxR) * 100)) : 0;
-              const isLowOrSilver = slot.occ < 30;
 
               return (
                 <div key={idx} className="flex-1 flex flex-col items-center h-full justify-end group relative cursor-pointer">
                   
                   {/* Hover Tooltip Card */}
-                  <div className="absolute -top-32 left-1/2 transform -translate-x-1/2 bg-slate-900/95 text-white p-3 rounded-2xl shadow-2xl opacity-0 group-hover:opacity-100 transition-all pointer-events-none z-40 w-52 text-[11px] leading-relaxed border border-slate-700/80 backdrop-blur-sm">
+                  <div className="absolute -top-32 left-1/2 transform -translate-x-1/2 bg-slate-900/95 text-white p-3 rounded-2xl shadow-2xl opacity-0 group-hover:opacity-100 transition-all pointer-events-none z-40 w-56 text-[11px] leading-relaxed border border-slate-700/80 backdrop-blur-sm">
                     <div className="font-extrabold text-cyan-400 border-b border-slate-700/80 pb-1 mb-1.5 flex justify-between items-center">
                       <span>Khung giờ: {slot.time}</span>
                       <span className="px-1.5 py-0.5 bg-cyan-950 text-cyan-300 rounded text-[10px]">Lấp đầy {slot.occ}%</span>
+                    </div>
+                    <div className="text-slate-200 font-medium mb-1 flex items-center justify-between text-[10px]">
+                      <span className="text-slate-400">Số xe đã đặt trong DB:</span>
+                      <span className="font-extrabold text-amber-300">{slot.actualBooked} / {slot.configuredCapacity} chỗ</span>
                     </div>
                     <div className="text-slate-200 font-medium mb-1.5 flex items-start gap-1">
                       <span className="text-amber-400 shrink-0">📌</span>
@@ -840,15 +761,15 @@ return (
                   {/* Column Bar (% Lấp đầy Slot) */}
                   <div 
                     className={`w-full max-w-[28px] sm:max-w-[36px] rounded-t-xl overflow-hidden shadow-sm transition-all duration-300 group-hover:brightness-110 group-hover:-translate-y-0.5 ${
-                      slot.isHighRisk ? 'bg-rose-500' : slot.occ >= 80 ? 'bg-amber-500' : isLowOrSilver ? 'bg-slate-300/90' : 'bg-[#06b6d4]'
+                      slot.isHighRisk ? 'bg-rose-500' : slot.occ >= 80 ? 'bg-amber-500' : hasBookings ? 'bg-[#06b6d4]' : 'bg-slate-200/80'
                     }`} 
                     style={{ height: `${heightPct}%` }}
-                    title={`Khung giờ ${slot.time}: Lấp đầy ${slot.occ}%, Rủi ro No-Show ${slot.risk}%`}
+                    title={`Khung giờ ${slot.time}: Đã đặt ${slot.actualBooked}/${slot.configuredCapacity} xe (${slot.occ}%), Rủi ro ${slot.risk}%`}
                   />
                 </div>
               );
             }) : (
-              <div className="w-full h-full flex items-center justify-center text-xs text-slate-400">Đang tải dữ liệu 12 khung giờ E2E-1...</div>
+              <div className="w-full h-full flex items-center justify-center text-xs text-slate-400">Đang tải dữ liệu khung giờ E2E-1...</div>
             )}
             </div>
           </div>

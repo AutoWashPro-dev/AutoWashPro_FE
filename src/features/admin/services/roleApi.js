@@ -41,42 +41,33 @@ api.interceptors.response.use(
 
 // Fallback dữ liệu chuẩn cho Frontend UX (khớp 100% PermissionCatalog mới trên Backend)
 const MOCK_PERMISSIONS = [
-  // Phase 1: Identity & RBAC
-  { permissionId: 1, permissionCode: 'READ_STAFF', permissionLabel: 'Xem danh sách / chi tiết nhân viên', moduleGroup: 'Identity & RBAC', phase: 1, enabled: true },
-  { permissionId: 2, permissionCode: 'CREATE_UPDATE_STAFF', permissionLabel: 'Tạo / sửa / khóa nhân viên', moduleGroup: 'Identity & RBAC', phase: 1, enabled: true },
-  { permissionId: 3, permissionCode: 'DELETE_STAFF', permissionLabel: 'Xóa nhân viên (soft/hard)', moduleGroup: 'Identity & RBAC', phase: 1, enabled: true },
-  { permissionId: 4, permissionCode: 'ASSIGN_ROLE', permissionLabel: 'Gán vai trò cho nhân viên', moduleGroup: 'Identity & RBAC', phase: 1, enabled: true },
-  { permissionId: 5, permissionCode: 'MANAGE_ROLE', permissionLabel: 'Tạo / sửa / xóa vai trò', moduleGroup: 'Identity & RBAC', phase: 1, enabled: true },
-  { permissionId: 6, permissionCode: 'CONFIG_RBAC_MATRIX', permissionLabel: 'Cấu hình ma trận phân quyền', moduleGroup: 'Identity & RBAC', phase: 1, enabled: true },
-  
-  // Phase 1: Customer CRM & Loyalty
-  { permissionId: 7, permissionCode: 'VIEW_CUSTOMER_PROFILE', permissionLabel: 'Xem hồ sơ khách hàng & tích điểm', moduleGroup: 'Customer CRM', phase: 1, enabled: true },
-  { permissionId: 8, permissionCode: 'MANAGE_CUSTOMER_STATUS', permissionLabel: 'Quản lý khách hàng (Khóa / Mở khóa)', moduleGroup: 'Customer CRM', phase: 1, enabled: true },
-  { permissionId: 9, permissionCode: 'MANAGE_LOYALTY_CONFIG', permissionLabel: 'Cấu hình chính sách Tích điểm & Hạng thành viên', moduleGroup: 'Customer CRM', phase: 1, enabled: true },
-  
-  // Phase 1: Booking & POS
-  { permissionId: 10, permissionCode: 'CREATE_WALK_IN_BOOKING', permissionLabel: 'Tạo & tiếp nhận đơn trực tiếp tại trạm', moduleGroup: 'Booking & POS', phase: 1, enabled: true },
-  { permissionId: 11, permissionCode: 'CASHIER_CHECKIN', permissionLabel: 'Thu tiền tại quầy (Checkout / Hóa đơn)', moduleGroup: 'Booking & POS', phase: 1, enabled: true },
-  { permissionId: 12, permissionCode: 'CANCEL_BOOKING', permissionLabel: 'Hủy đặt lịch rửa xe & giải phóng khoang', moduleGroup: 'Booking & POS', phase: 1, enabled: true },
-  { permissionId: 13, permissionCode: 'VIEW_SLOT_AVAILABILITY', permissionLabel: 'Xem sơ đồ khung giờ & khoang trống', moduleGroup: 'Booking & POS', phase: 1, enabled: true },
-  
-  // Phase 1: Operations
-  { permissionId: 14, permissionCode: 'VIEW_STATION_QUEUE', permissionLabel: 'Xem danh sách xe đang rửa tại trạm', moduleGroup: 'Operations', phase: 1, enabled: true },
-  { permissionId: 15, permissionCode: 'MANAGE_WASH_PROGRESS', permissionLabel: 'Bắt đầu rửa & xác nhận hoàn thành ca rửa', moduleGroup: 'Operations', phase: 1, enabled: true },
-  { permissionId: 16, permissionCode: 'MONITOR_REALTIME_QUEUE', permissionLabel: 'Giám sát màn hình tổng Dashboard realtime', moduleGroup: 'Operations', phase: 1, enabled: true },
-  { permissionId: 17, permissionCode: 'VIEW_DASHBOARD_STATS', permissionLabel: 'Xem báo cáo thống kê doanh thu & hoạt động', moduleGroup: 'Operations', phase: 1, enabled: true },
-  
-  // Phase 1: Service & Pricing
-  { permissionId: 18, permissionCode: 'MANAGE_SERVICE_CATALOG', permissionLabel: 'Quản lý gói dịch vụ & Bảng giá theo xe', moduleGroup: 'Service & Pricing', phase: 1, enabled: true },
-  { permissionId: 19, permissionCode: 'MANAGE_SLOT_CONFIG', permissionLabel: 'Cấu hình khoang rửa & Lịch làm việc', moduleGroup: 'Service & Pricing', phase: 1, enabled: true },
-  
-  // Phase 1: System Settings
-  { permissionId: 20, permissionCode: 'MANAGE_STATION_SETTINGS', permissionLabel: 'Cài đặt thông tin chung của Trạm rửa xe', moduleGroup: 'System Settings', phase: 1, enabled: true },
-  
-  // Phase 2: Notifications
-  { permissionId: 21, permissionCode: 'SEND_BOOKING_NOTIFICATION', permissionLabel: 'Gửi thông báo đặt lịch thành công', moduleGroup: 'Notification (Flow 2)', phase: 2, enabled: false },
-  { permissionId: 22, permissionCode: 'SEND_INCIDENT_ALERT', permissionLabel: 'Gửi cảnh báo sự cố bãi', moduleGroup: 'Notification (Flow 2)', phase: 2, enabled: false },
-  { permissionId: 23, permissionCode: 'VIEW_NOTIFICATION_LOG', permissionLabel: 'Xem nhật ký thông báo', moduleGroup: 'Notification (Flow 2)', phase: 2, enabled: false },
+  // Luồng E2E-1: Vận hành Quầy POS & Đặt lịch
+  { permissionId: 1, permissionCode: 'VIEW_BOOKINGS', permissionLabel: 'Xem danh sách & chi tiết đơn đặt lịch', moduleGroup: 'Luồng E2E-1: Vận hành Quầy POS & Đặt lịch', phase: 1, enabled: true },
+  { permissionId: 2, permissionCode: 'UPDATE_BOOKING_STATUS', permissionLabel: 'Cập nhật trạng thái đơn đặt lịch (Xác nhận, Đang rửa, Xong)', moduleGroup: 'Luồng E2E-1: Vận hành Quầy POS & Đặt lịch', phase: 1, enabled: true },
+  { permissionId: 3, permissionCode: 'CHECKIN_LATE', permissionLabel: 'Xác nhận Check-in trễ giờ tại quầy', moduleGroup: 'Luồng E2E-1: Vận hành Quầy POS & Đặt lịch', phase: 1, enabled: true },
+  { permissionId: 4, permissionCode: 'CHECKOUT_BOOKING', permissionLabel: 'Thanh toán hóa đơn & hoàn tất đơn tại quầy', moduleGroup: 'Luồng E2E-1: Vận hành Quầy POS & Đặt lịch', phase: 1, enabled: true },
+  { permissionId: 5, permissionCode: 'LOCK_SLOT', permissionLabel: 'Khóa / Mở khóa thủ công mốc giờ rửa xe', moduleGroup: 'Luồng E2E-1: Vận hành Quầy POS & Đặt lịch', phase: 1, enabled: true },
+
+  // Luồng E2E-2: Khách hàng CRM
+  { permissionId: 6, permissionCode: 'VIEW_CUSTOMERS', permissionLabel: 'Tra cứu thông tin khách hàng & lịch sử điểm tích lũy', moduleGroup: 'Luồng E2E-2: Khách hàng CRM', phase: 1, enabled: true },
+  { permissionId: 7, permissionCode: 'MANAGE_CUSTOMER_STATUS', permissionLabel: 'Khóa / Mở khóa trạng thái hoạt động tài khoản khách hàng', moduleGroup: 'Luồng E2E-2: Khách hàng CRM', phase: 1, enabled: true },
+
+  // Luồng E2E-3: Khuyến mãi & Direct Gifting
+  { permissionId: 8, permissionCode: 'VIEW_PROMOTIONS', permissionLabel: 'Xem danh sách chiến dịch & KPI khuyến mãi', moduleGroup: 'Luồng E2E-3: Khuyến mãi & Direct Gifting', phase: 1, enabled: true },
+  { permissionId: 9, permissionCode: 'MANAGE_PROMOTIONS', permissionLabel: 'Tạo mới, kích hoạt / xóa chiến dịch Voucher', moduleGroup: 'Luồng E2E-3: Khuyến mãi & Direct Gifting', phase: 1, enabled: true },
+  { permissionId: 10, permissionCode: 'GRANT_PROMOTIONS', permissionLabel: 'Xem trước tệp đối tượng & Tặng voucher trực tiếp', moduleGroup: 'Luồng E2E-3: Khuyến mãi & Direct Gifting', phase: 1, enabled: true },
+  { permissionId: 11, permissionCode: 'VIEW_FEEDBACKS', permissionLabel: 'Xem danh sách đánh giá từ khách hàng', moduleGroup: 'Luồng E2E-3: Khuyến mãi & Direct Gifting', phase: 1, enabled: true },
+  { permissionId: 12, permissionCode: 'RESOLVE_FEEDBACK', permissionLabel: 'Xử lý khiếu nại & Phát voucher đền bù', moduleGroup: 'Luồng E2E-3: Khuyến mãi & Direct Gifting', phase: 1, enabled: true },
+
+  // Luồng E2E-4: Admin Dashboard & Analytics
+  { permissionId: 13, permissionCode: 'VIEW_DASHBOARD', permissionLabel: 'Xem báo cáo KPI, Biểu đồ Doanh thu & Slot', moduleGroup: 'Luồng E2E-4: Dashboard & Analytics', phase: 1, enabled: true },
+
+  // Cấu hình Hệ thống & RBAC Matrix
+  { permissionId: 14, permissionCode: 'VIEW_SERVICES', permissionLabel: 'Xem bảng giá gói rửa & mốc giờ làm việc', moduleGroup: 'Cấu hình Hệ thống & RBAC', phase: 1, enabled: true },
+  { permissionId: 15, permissionCode: 'MANAGE_SERVICES', permissionLabel: 'Thêm mới, sửa giá & Bật/Tắt gói dịch vụ', moduleGroup: 'Cấu hình Hệ thống & RBAC', phase: 1, enabled: true },
+  { permissionId: 16, permissionCode: 'MANAGE_SLOTS', permissionLabel: 'Quản lý khung giờ, công suất & lịch đóng cửa', moduleGroup: 'Cấu hình Hệ thống & RBAC', phase: 1, enabled: true },
+  { permissionId: 17, permissionCode: 'VIEW_NOTIFICATIONS', permissionLabel: 'Xem & đánh dấu đã đọc thông báo trạm', moduleGroup: 'Cấu hình Hệ thống & RBAC', phase: 1, enabled: true },
+  { permissionId: 18, permissionCode: 'CONFIG_RBAC_MATRIX', permissionLabel: 'Cấu hình Ma trận phân quyền RBAC hệ thống', moduleGroup: 'Cấu hình Hệ thống & RBAC', phase: 1, enabled: true }
 ];
 
 const getInitialMockRoles = () => {
@@ -96,7 +87,7 @@ const getInitialMockRoles = () => {
       roleName: 'ROLE_MANAGER',
       description: 'Station Manager (Quản lý vận hành trạm)',
       staffCount: 3,
-      permissions: MOCK_PERMISSIONS.filter(p => p.enabled && !['DELETE_STAFF', 'MANAGE_ROLE', 'CONFIG_RBAC_MATRIX'].includes(p.permissionCode))
+      permissions: MOCK_PERMISSIONS.filter(p => p.enabled && p.permissionCode !== 'CONFIG_RBAC_MATRIX')
     },
     {
       roleId: 3,
@@ -104,9 +95,9 @@ const getInitialMockRoles = () => {
       description: 'Front Desk Cashier (Thu ngân quầy & tiếp nhận xe)',
       staffCount: 5,
       permissions: MOCK_PERMISSIONS.filter(p => [
-        'VIEW_CUSTOMER_PROFILE', 'CREATE_WALK_IN_BOOKING', 'CASHIER_CHECKIN', 'CANCEL_BOOKING',
-        'VIEW_SLOT_AVAILABILITY', 'VIEW_STATION_QUEUE', 'MANAGE_WASH_PROGRESS', 'MONITOR_REALTIME_QUEUE',
-        'SEND_INCIDENT_ALERT'
+        'VIEW_BOOKINGS', 'UPDATE_BOOKING_STATUS', 'CHECKIN_LATE', 'CHECKOUT_BOOKING',
+        'VIEW_DASHBOARD', 'VIEW_SERVICES', 'VIEW_CUSTOMERS', 'VIEW_PROMOTIONS',
+        'VIEW_FEEDBACKS', 'VIEW_NOTIFICATIONS'
       ].includes(p.permissionCode))
     }
   ];
