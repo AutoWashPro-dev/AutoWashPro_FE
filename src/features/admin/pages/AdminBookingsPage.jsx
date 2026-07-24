@@ -29,7 +29,6 @@ import {
 import { useParams } from 'react-router-dom';
 import { bookingAdminApi } from '../services/bookingAdminApi';
 import { loyaltyApi } from '../services/loyaltyApi';
-import { dashboardApi } from '../services/dashboardApi';
 
 export default function AdminBookingsPage() {
   // 1. Initialize localStorage databases if not exists to enable E2E integration
@@ -217,18 +216,15 @@ export default function AdminBookingsPage() {
             const custDetail = await loyaltyApi.getCustomerById(custId);
             if (custDetail) {
               setCustomerDetail(custDetail);
-              setCurrentCustomerProfile(custDetail);
             }
           } catch (error) {
             console.error("API Fetching Error inside AdminBookingsPage:", error.response?.data || error.message);
             setCustomerDetail(null);
-            setCurrentCustomerProfile(null);
           }
         }
       } else {
         setBookingDetail(null);
         setCustomerDetail(null);
-        setCurrentCustomerProfile(null);
       }
       setLoadingDetail(false);
     };
@@ -242,6 +238,13 @@ export default function AdminBookingsPage() {
   const [qrCodeModalBooking, setQrCodeModalBooking] = useState(null);
   const [momoQrUrl, setMomoQrUrl] = useState(null);
   const [momoActiveBookingId, setMomoActiveBookingId] = useState(null);
+  const [adminAlert, setAdminAlert] = useState({
+    isOpen: false,
+    type: 'info', // 'success' | 'warning' | 'error' | 'info'
+    title: '',
+    message: '',
+    details: null
+  });
     const loadDataFromStorage = () => {
     const bookings = JSON.parse(localStorage.getItem('autowash_bookings') || '{}');
     const customers = JSON.parse(localStorage.getItem('autowash_customers') || '[]');
@@ -337,7 +340,7 @@ export default function AdminBookingsPage() {
   useEffect(() => {
     const fetchSlotPerformance = async () => {
       try {
-          const data = await dashboardApi.getSlotPerformance({
+        const data = await bookingAdminApi.getSlotPerformance({
           timeRange: 'CUSTOM',
           fromDate: selectedDate,
           toDate: selectedDate
@@ -347,6 +350,7 @@ export default function AdminBookingsPage() {
         }
       } catch (err) {
         console.warn("Failed to fetch slot performance:", err.message);
+        // Fallback: Populate mock slotPerformanceData matching slots configuration
         const slots = getSlotsData();
         const fallbackList = slots.map(s => {
           const bookedCount = getBookedCount(s.time);
@@ -589,10 +593,13 @@ export default function AdminBookingsPage() {
     if (!hasCapacity) {
       // All subsequent slots are full → block the override
       const slotSummary = checkedSlots.map(s => `${s.time}: ${s.bookedCount}/${s.maxCapacity}`).join(', ');
-      alert(
-        `Khách hàng đi trễ và các khung giờ tiếp theo đã đầy công suất! Không thể thực hiện check-in.\n\n` +
-        `Chi tiết khung giờ tiếp theo: ${slotSummary || 'Không có khung giờ nào khả dụng'}`
-      );
+      setAdminAlert({
+        isOpen: true,
+        type: 'warning',
+        title: 'Không thể Cứu Đơn (Quá công suất)',
+        message: 'Khách hàng đi trễ và các khung giờ tiếp theo đã đầy công suất! Không thể thực hiện check-in.',
+        details: slotSummary || 'Không có khung giờ nào khả dụng'
+      });
       return;
     }
 
@@ -616,14 +623,20 @@ export default function AdminBookingsPage() {
       });
 
       const availableSlot = checkedSlots.find(s => s.availableCapacity > 0);
-      alert(
-        `✅ Cứu đơn thành công! Trạng thái đơn đã chuyển về PENDING.\n` +
-        `Khung giờ khả dụng tiếp theo: ${availableSlot?.time || 'N/A'} (còn ${availableSlot?.availableCapacity || 0} chỗ).\n` +
-        `Hãy tiến hành thanh toán cho khách tại quầy.`
-      );
+      setAdminAlert({
+        isOpen: true,
+        type: 'success',
+        title: 'Cứu Đơn Thành Công!',
+        message: `Đã khôi phục trạng thái đơn về PENDING. Khung giờ khả dụng tiếp theo: ${availableSlot?.time || 'N/A'} (còn ${availableSlot?.availableCapacity || 0} chỗ). Hãy tiến hành thanh toán cho khách tại quầy.`
+      });
       setViewMode('list');
     } catch (err) {
-      alert("Lỗi cứu đơn check-in trễ: " + (err.response?.data?.message || err.message));
+      setAdminAlert({
+        isOpen: true,
+        type: 'error',
+        title: 'Lỗi Xử Lý Cứu Đơn',
+        message: err.response?.data?.message || err.message || 'Đã xảy ra lỗi không xác định.'
+      });
     }
   };
 
@@ -802,7 +815,7 @@ const getAllBookings = () => {
     const custObj = b.customer || {};
     const custName = b.customerName || custObj.fullName || custObj.name || 'Khách hàng vãng lai';
     const custPhone = b.customerPhone || custObj.phoneNumber || custObj.phone || '';
-    const rawTier = custObj.tierName || (typeof custObj.tier === 'object' ? (custObj.tier?.tierName || custObj.tier?.tier) : custObj.tier) || 'Member';
+    const rawTier = b.customerTier || (typeof custObj.tier === 'object' ? custObj.tier?.tierName : custObj.tier) || 'Member';
     const custTier = String(rawTier).toUpperCase();
     const custAvatar = custObj.avatarUrl || custObj.avatar || (`https://api.dicebear.com/7.x/avataaars/svg?seed=${custPhone || 'guest'}`);
     const amount = Number(b.finalAmount ?? b.totalEstimatedAmount ?? (b.service?.price || 0));
@@ -889,7 +902,6 @@ const allBookingsMapped = getAllBookings().map(b => {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [slotPerformanceData, setSlotPerformanceData] = useState([]);
-  const [currentCustomerProfile, setCurrentCustomerProfile] = useState(null);
 
   // Load dynamic rates from Settings
   const baseSpendToEarnPoint = loyaltySettings.baseSpend || 10000;
@@ -1039,10 +1051,13 @@ const allBookingsMapped = getAllBookings().map(b => {
       if (!hasCapacity) {
         // Block: subsequent slots are fully booked
         const slotSummary = checkedSlots.map(s => `${s.time}: ${s.bookedCount}/${s.maxCapacity}`).join(', ');
-        alert(
-          `Khách hàng đi trễ và các khung giờ tiếp theo đã đầy công suất! Không thể thực hiện check-in.\n\n` +
-          `Chi tiết: ${slotSummary || 'Không có khung giờ tiếp theo'}`
-        );
+        setAdminAlert({
+          isOpen: true,
+          type: 'warning',
+          title: 'Không thể Cứu Đơn (Quá công suất)',
+          message: 'Khách hàng đi trễ và các khung giờ tiếp theo đã đầy công suất! Không thể thực hiện check-in.',
+          details: slotSummary || 'Không có khung giờ nào khả dụng'
+        });
         setIsSubmitting(false);
         setShowConfirmModal(false);
         return; // ← Hard stop: do NOT proceed with payment
@@ -1080,8 +1095,8 @@ const allBookingsMapped = getAllBookings().map(b => {
     }
 
     // Fallback/Calculation logic
-    const customerTier = currentCustomerProfile?.tierName || selectedBooking.customer.tier;
-    const currentTierConfig = tierMatrix.find((t) => String(t.key).toUpperCase() === String(customerTier).toUpperCase()) || { pointMultiplier: 1.0 };
+    const customerTier = selectedBooking.customer.tier;
+    const currentTierConfig = tierMatrix.find((t) => t.key === customerTier) || { pointMultiplier: 1.0 };
     const tierMultiplier = currentTierConfig.pointMultiplier || 1.0;
     const pointsEarned = latestEarnedPoints || Math.floor(finalAmount / baseSpendToEarnPoint) * basePointsToEarn * tierMultiplier;
 
@@ -1089,10 +1104,9 @@ const allBookingsMapped = getAllBookings().map(b => {
     let alertUpgradeMessage = '';
     let updatedCustomerSnapshot = null;
 
-    const custIdToMatch = currentCustomerProfile?.customerId || currentCustomerProfile?.id || selectedBooking.customer.id;
     const updatedCustomers = customersDb.map((c) => {
-      if (String(c.id) === String(custIdToMatch)) {
-        const newVisits = (c.visits || 0) + 1;
+      if (c.id === selectedBooking.customer.id) {
+        const newVisits = c.visits + 1;
         const newSpend = c.totalSpend + finalAmount;
         const newPoints = c.points + pointsEarned;
 
@@ -1170,8 +1184,8 @@ const allBookingsMapped = getAllBookings().map(b => {
 
     const customerAfterCheckout = updatedCustomerSnapshot || {
       ...selectedBooking.customer,
-      totalSpend: (Number(currentCustomerProfile?.totalSpending) || Number(selectedBooking.customer.totalSpend) || 0) + finalAmount,
-      tier: currentCustomerProfile?.tierName || selectedBooking.customer.tier
+      totalSpend: selectedBooking.customer.totalSpend + finalAmount,
+      tier: selectedBooking.customer.tier
     };
 
     // Compute loyalty metrics using hardcoded thresholds to prevent NaN
@@ -1217,7 +1231,12 @@ const allBookingsMapped = getAllBookings().map(b => {
   const handleCancelBooking = (e) => {
     e.preventDefault();
     if (!cancelReasonText.trim()) {
-      alert('Vui lòng nhập lý do hủy lịch!');
+      setAdminAlert({
+        isOpen: true,
+        type: 'warning',
+        title: 'Thiếu Thông Tin Hủy Lịch',
+        message: 'Vui lòng nhập lý do hủy lịch đặt trước khi xác nhận.'
+      });
       return;
     }
 
@@ -1229,7 +1248,12 @@ const allBookingsMapped = getAllBookings().map(b => {
     };
 
     saveBookingToDb(updatedBooking);
-    alert(`Đã hủy lịch đặt đơn ${selectedBooking.id} thành công.`);
+    setAdminAlert({
+      isOpen: true,
+      type: 'success',
+      title: 'Hủy Lịch Đặt Thành Công',
+      message: `Đã hủy đơn ${selectedBooking.id} và giải phóng khung giờ đặt lịch.`
+    });
     setIsCanceling(false);
     setCancelReasonText('');
     setViewMode('list');
@@ -1416,7 +1440,7 @@ const allBookingsMapped = getAllBookings().map(b => {
                 <table className="w-full text-left border-collapse min-w-[700px]">
                   <thead className="sticky top-0 bg-slate-50 border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-wider z-10">
                     <tr>
-                      <th className="py-3 px-3">Mã đơn / QR</th>
+                      <th className="py-3 px-3">Mã đơn</th>
                       <th className="py-3 px-2">Giờ hẹn</th>
                       <th className="py-3 px-2">Khách hàng & SĐT</th>
                       <th className="py-3 px-2">Xe máy & Biển số</th>
@@ -1580,6 +1604,7 @@ const allBookingsMapped = getAllBookings().map(b => {
                     const noShowPct = noShowRate > 1.0 ? noShowRate : noShowRate * 100;
                     const noShowPctStr = noShowPct.toFixed(0) + '% Hủy/Trễ';
                     
+                    // Format start time string (e.g. "08:00") to full range (e.g. "08:00 - 09:00")
                     let formattedTime = timeSlot;
                     if (timeSlot && !timeSlot.includes('-')) {
                       const parts = timeSlot.split(':');
@@ -1624,6 +1649,7 @@ const allBookingsMapped = getAllBookings().map(b => {
                               </span>
                             </div>
                             
+                            {/* Progress bar representing actualBooked vs configuredMaxCapacity */}
                             <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden flex">
                               <div 
                                 style={{ width: `${Math.min(100, occupancyPct)}%` }} 
@@ -1696,13 +1722,13 @@ const allBookingsMapped = getAllBookings().map(b => {
                     </div>
                   ) : (() => {
                     const displayCustomer = bookingDetail?.customer || selectedBooking?.customer;
-                    const fullName = currentCustomerProfile?.fullName || displayCustomer?.name || 'Khách lẻ';
-                    const phoneNumber = currentCustomerProfile?.phoneNumber || displayCustomer?.phone || '';
-                    const tierName = currentCustomerProfile?.tierName || 'MEMBER';
+                    // Fallbacks for 500 error protection
+                    const fullName = customerDetail?.fullName || bookingDetail?.customerName || displayCustomer?.fullName || displayCustomer?.name || 'Khách lẻ';
+                    const phoneNumber = customerDetail?.phoneNumber || bookingDetail?.customerPhone || displayCustomer?.phoneNumber || displayCustomer?.phone || '';
+                    const tierName = customerDetail?.tierName || bookingDetail?.customerTier || displayCustomer?.tier || 'N/A';
                     const isSilverOrMember = ['member', 'hang member', 'silver', 'silver member', 'regular', 'n/a'].includes(String(tierName).toLowerCase());
-                    const points = currentCustomerProfile?.loyaltyPoints !== undefined ? currentCustomerProfile.loyaltyPoints : (displayCustomer?.points ?? 0);
-                    const pointsVal = points * 1000;
-                    const totalSpending = currentCustomerProfile?.totalSpending !== undefined ? Number(currentCustomerProfile.totalSpending) : 0;
+                    const points = customerDetail?.loyaltyPoints !== undefined ? customerDetail.loyaltyPoints : (displayCustomer?.points ?? 0);
+                    const pointsVal = customerDetail?.loyaltyPoints !== undefined ? customerDetail.loyaltyPoints * 1000 : 0;
 
                     return (
                       <div className="flex items-start gap-4">
@@ -1723,22 +1749,19 @@ const allBookingsMapped = getAllBookings().map(b => {
                                   : 'bg-[#57f287] text-slate-800'
                               }`}
                             >
-                              {tierName}
+                              {customerDetail?.tierName || tierName}
                             </span>
                           </div>
                           <p className="text-xs text-slate-500 font-semibold">
                             Số điện thoại: {phoneNumber}
                           </p>
                           
-                          <div className="flex items-center gap-4 text-xs font-bold text-slate-655 mt-2.5 flex-wrap">
+                          <div className="flex items-center gap-4 text-xs font-bold text-slate-600 mt-2.5">
                             <span className="text-amber-605 flex items-center gap-0.5 bg-amber-50 border border-amber-100/65 px-2.5 py-1 rounded-lg">
-                              <Coins className="w-4 h-4 text-amber-500" /> Ví hiện tại: {points} Pts
+                              <Coins className="w-4 h-4 text-amber-500" /> Ví hiện tại: {(customerDetail?.loyaltyPoints !== undefined ? customerDetail.loyaltyPoints : points)} Pts
                             </span>
-                            <span className="text-emerald-650 flex items-center gap-0.5 bg-emerald-50 border border-emerald-100/65 px-2.5 py-1 rounded-lg">
-                              Chi tiêu: {totalSpending.toLocaleString('vi-VN')} đ
-                            </span>
-                            <span className="text-indigo-650 py-1">
-                              Trị giá quy đổi: {pointsVal.toLocaleString('vi-VN')} đ
+                            <span className="text-indigo-650">
+                              Trị giá quy đổi: {(customerDetail?.loyaltyPoints !== undefined ? customerDetail.loyaltyPoints * 1000 : pointsVal).toLocaleString('vi-VN')} d
                             </span>
                           </div>
                         </div>
@@ -1927,7 +1950,7 @@ const allBookingsMapped = getAllBookings().map(b => {
                         </div>
                         <div className="flex justify-between text-emerald-600">
                           <span>Loyalty tích lũy:</span>
-                          <span>+{Math.floor(selectedBooking.finalAmount / baseSpendToEarnPoint) * basePointsToEarn * (tierMatrix.find(t=>String(t.key).toUpperCase()===String(currentCustomerProfile?.tierName || selectedBooking.customer.tier).toUpperCase())?.pointMultiplier || 1.0)} Pts</span>
+                          <span>+{Math.floor(selectedBooking.finalAmount / baseSpendToEarnPoint) * basePointsToEarn * (tierMatrix.find(t=>t.key===selectedBooking.customer.tier)?.pointMultiplier || 1.0)} Pts</span>
                         </div>
                       </div>
                     </div>
@@ -2097,9 +2120,19 @@ const allBookingsMapped = getAllBookings().map(b => {
                 onClick={async () => {
                   try {
                     await bookingAdminApi.updateStatus(momoActiveBookingId, 'Completed');
-                    alert("Đã xác nhận thanh toán thành công!");
+                    setAdminAlert({
+                      isOpen: true,
+                      type: 'success',
+                      title: 'Xác Nhận Thanh Toán Thành Công',
+                      message: 'Đã xác nhận thanh toán thành công qua MoMo QR!'
+                    });
                   } catch (err) {
-                    alert("Không thể cập nhật trạng thái: " + err.message);
+                    setAdminAlert({
+                      isOpen: true,
+                      type: 'error',
+                      title: 'Lỗi Cập Nhật Trạng Thái',
+                      message: 'Không thể cập nhật trạng thái thanh toán MoMo: ' + err.message
+                    });
                   }
                   setMomoQrUrl(null);
                   setMomoActiveBookingId(null);
@@ -2124,9 +2157,61 @@ const allBookingsMapped = getAllBookings().map(b => {
         </div>
       )}
 
+      {/* PAYMENT CONFIRMATION MODAL */}
+      {showConfirmModal && (
+        <div 
+          className="fixed inset-0 bg-black/55 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onClick={() => {
+            if (!isSubmitting) {
+              setShowConfirmModal(false);
+            }
+          }}
+        >
+          <div 
+            className="bg-white rounded-3xl max-w-sm w-full shadow-2xl p-6 space-y-6 relative border border-slate-100"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex flex-col items-center text-center space-y-3">
+              <div className="w-12 h-12 rounded-2xl bg-indigo-50 flex items-center justify-center text-indigo-650 mb-1">
+                <CreditCard className="w-6 h-6 animate-pulse" />
+              </div>
+              <h3 className="text-base font-black text-slate-800 tracking-tight font-outfit">Xác nhận Thanh toán?</h3>
+              <p className="text-xs text-slate-500 leading-relaxed font-semibold px-2">
+                Đơn hàng <strong>{selectedBooking?.id}</strong> trị giá <span className="text-indigo-700 font-bold">{finalAmount.toLocaleString('vi-VN')} đ</span> sẽ được đánh dấu hoàn tất.
+              </p>
+            </div>
 
-  {/* SUCCESS PAYMENT MODAL */}
-  {showSuccessModal && successModalData && (
+            <div className="w-full flex gap-3">
+              <button 
+                type="button"
+                disabled={isSubmitting}
+                onClick={() => setShowConfirmModal(false)}
+                className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 disabled:opacity-50 text-slate-655 text-xs font-bold rounded-xl transition active:scale-[0.98] cursor-pointer"
+              >
+                Hủy bỏ
+              </button>
+              <button 
+                type="button"
+                disabled={isSubmitting}
+                onClick={async (e) => {
+                  e.preventDefault();
+                  await handleConfirmPayment();
+                }}
+                className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-xs font-black rounded-xl transition flex items-center justify-center gap-2 active:scale-[0.98] cursor-pointer"
+              >
+                {isSubmitting ? (
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  'Xác nhận'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SUCCESS PAYMENT MODAL */}
+      {showSuccessModal && successModalData && (
 <div className="fixed inset-0 bg-black/55 backdrop-blur-sm flex items-center justify-center z-50 p-4">
   <div className="bg-white rounded-3xl max-w-sm w-full shadow-2xl overflow-hidden">
     <div className="p-8 flex flex-col items-center text-center space-y-5">
@@ -2135,7 +2220,7 @@ const allBookingsMapped = getAllBookings().map(b => {
       </div>
       <div className="space-y-1">
         <h3 className="text-lg font-black text-slate-800 tracking-tight font-outfit">Thanh toán thành công</h3>
-        <p className="text-xs text-slate-400 font-semibold">Đơn {selectedBooking?.id} đã được hoàn tất</p>
+        <p className="text-xs text-slate-400 font-semibold">Đơn <strong>{selectedBooking?.id}</strong> đã được hoàn tất</p>
       </div>
     </div>
 
@@ -2177,6 +2262,40 @@ const allBookingsMapped = getAllBookings().map(b => {
     </div>
   </div>
 </div>
+      )}
+
+      {adminAlert.isOpen && (
+        <div className="fixed inset-0 bg-black/55 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-sm w-full shadow-2xl overflow-hidden border border-slate-100 p-6 flex flex-col items-center text-center space-y-4">
+            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${
+              adminAlert.type === 'success' ? 'bg-emerald-100 text-emerald-600' :
+              adminAlert.type === 'warning' ? 'bg-amber-100 text-amber-600' :
+              adminAlert.type === 'error' ? 'bg-rose-100 text-rose-600' : 'bg-blue-100 text-blue-600'
+            }`}>
+              {adminAlert.type === 'success' && <CheckCircle className="w-7 h-7"/>}
+              {adminAlert.type === 'warning' && <AlertTriangle className="w-7 h-7"/>}
+              {adminAlert.type === 'error' && <XCircle className="w-7 h-7"/>}
+              {adminAlert.type === 'info' && <FileText className="w-7 h-7"/>}
+            </div>
+
+            <div className="space-y-1">
+              <h3 className="text-base font-black text-slate-800 font-outfit">{adminAlert.title}</h3>
+              <p className="text-xs text-slate-500 leading-relaxed">{adminAlert.message}</p>
+              {adminAlert.details && (
+                <div className="mt-2 p-2.5 bg-slate-50 border border-slate-200/80 rounded-xl text-[11px] font-mono text-slate-600 text-left">
+                  {adminAlert.details}
+                </div>
+              )}
+            </div>
+
+            <button
+              onClick={() => setAdminAlert(prev => ({ ...prev, isOpen: false }))}
+              className="w-full py-3 bg-slate-900 hover:bg-slate-800 active:scale-[0.98] text-white text-xs font-bold rounded-xl transition-all font-outfit cursor-pointer"
+            >
+              Đã hiểu / Đóng
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );
