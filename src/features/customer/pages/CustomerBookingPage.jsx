@@ -64,6 +64,16 @@ export default function CustomerBookingPage() {
   const [availableVouchers, setAvailableVouchers] = useState([]);
   const [selectedVoucher, setSelectedVoucher] = useState(null);
   const [selectedTimeSlotId, setSelectedTimeSlotId] = useState(null);
+  const [slotRefreshTrigger, setSlotRefreshTrigger] = useState(0);
+
+  const isSlotInPast = (slotDateStr, slotTimeStr) => {
+    if (!slotDateStr || !slotTimeStr) return false;
+    const now = new Date();
+    const [hours, minutes] = slotTimeStr.split(':').map(Number);
+    const slotDateTime = new Date(slotDateStr);
+    slotDateTime.setHours(hours, minutes, 0, 0);
+    return slotDateTime < now;
+  };
 
   const [timeSlots, setTimeSlots] = useState([]);
   const [isVehicleModalOpen, setIsVehicleModalOpen] = useState(false);
@@ -205,14 +215,17 @@ export default function CustomerBookingPage() {
         const slots = await customerApi.getAvailableSlots(selectedDate);
         const mapped = slots.map(s => {
           const timeFormatted = s.startTime ? s.startTime.substring(0, 5) : "";
+          const isPast = s.disabledReason === "PAST_TIME" || (s.startTime ? isSlotInPast(selectedDate, s.startTime) : false);
           return {
             slotId: s.slotId,
             time: timeFormatted,
-            available: s.isAvailable,
+            available: isPast ? false : s.isAvailable,
             bookedCount: s.bookedCount ?? 0,
             maxCapacity: s.maxCapacity ?? 0,
             availableCapacity: s.availableCapacity ?? 0,
-            reason: s.disabledReason === "FULL" ? "ĐẦY" : s.disabledReason === "PAST" ? "ĐÃ QUA" : s.disabledReason ? "T.DỪNG" : ""
+            isPast: isPast,
+            startTime: s.startTime,
+            reason: isPast ? "ĐÃ QUA" : (s.disabledReason === "FULL" ? "ĐẦY" : s.disabledReason ? "T.DỪNG" : "")
           };
         });
         setTimeSlots(mapped);
@@ -222,7 +235,27 @@ export default function CustomerBookingPage() {
       }
     };
     fetchSlots();
-  }, [selectedDate, bookingTab]);
+  }, [selectedDate, bookingTab, slotRefreshTrigger]);
+
+  // Tự động reset lựa chọn khung giờ nếu nó đã trôi qua (quá giờ)
+  useEffect(() => {
+    if (selectedTime || selectedTimeSlotId) {
+      const match = timeSlots.find(s => s.slotId === selectedTimeSlotId || s.time === selectedTime);
+      if (match && match.isPast) {
+        setSelectedTime("");
+        setSelectedTimeSlotId(null);
+      }
+    }
+  }, [timeSlots, selectedDate, selectedTime, selectedTimeSlotId]);
+
+  // Window Focus listener để refresh thời gian thực
+  useEffect(() => {
+    const handleFocus = () => {
+      setSlotRefreshTrigger(prev => prev + 1);
+    };
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, []);
 
   // Hệ số ngày giới hạn được đặt trước theo hạng VIP
   const todayStr = new Date().toISOString().split('T')[0];
@@ -752,28 +785,45 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
                 <div>
                   <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Khung giờ hoạt động</label>
                   <div className="grid grid-cols-3 gap-2">
-                    {timeSlots.map(slot => (
-                      <button
+                    {timeSlots.map(slot => {
+                      const isPast = slot.isPast === true;
+                      const isFull = slot.bookedCount >= slot.maxCapacity || slot.availableCapacity <= 0;
+                      const isDisabled = isPast || isFull;
+
+                      return (
+                        <button
                           key={slot.time}
-                          disabled={slot.bookedCount >= slot.maxCapacity || slot.availableCapacity <= 0}
-                          onClick={() => { setSelectedTime(slot.time); setSelectedTimeSlotId(slot.slotId); }}
-                          className={`py-2 px-1 text-[11px] font-bold rounded-xl border transition-all flex flex-col items-center
-                        justify-center min-h-[50px] ${
-                            selectedTime === slot.time
-                              ? 'bg-blue-600 text-white border-blue-600'
-                              : (slot.bookedCount >= slot.maxCapacity || slot.availableCapacity <= 0)
-                                ? 'bg-slate-100 text-slate-300 border-slate-150 cursor-not-allowed'
-                                : 'bg-white text-slate-700 border-slate-200 hover:border-blue-500 hover:text-blue-600'
+                          type="button"
+                          disabled={isDisabled}
+                          onClick={() => {
+                            if (!isDisabled) {
+                              setSelectedTime(slot.time);
+                              setSelectedTimeSlotId(slot.slotId);
+                            }
+                          }}
+                          className={`py-2 px-1 text-[11px] font-bold rounded-xl border transition-all flex flex-col items-center justify-center min-h-[50px] ${
+                            isPast 
+                              ? 'opacity-40 bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed pointer-events-none'
+                              : selectedTime === slot.time
+                                ? 'bg-blue-600 text-white border-blue-600'
+                                : isFull
+                                  ? 'bg-slate-100 text-slate-300 border-slate-150 cursor-not-allowed'
+                                  : 'bg-white text-slate-700 border-slate-200 hover:border-blue-500 hover:text-blue-600'
                           }`}
                         >
                           <span>{slot.time}</span>
-                          {(slot.bookedCount >= slot.maxCapacity || slot.availableCapacity <= 0) && (
-                                <span className="text-[8px] font-extrabold uppercase mt-0.5 text-red-500">
-                                  ĐẦY
-                                </span>
-                              )}
+                          {isPast ? (
+                            <span className="text-[8px] font-extrabold uppercase mt-0.5 text-gray-400">
+                              Đã qua
+                            </span>
+                          ) : isFull ? (
+                            <span className="text-[8px] font-extrabold uppercase mt-0.5 text-red-500">
+                              ĐẦY
+                            </span>
+                          ) : null}
                         </button>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               </div>
