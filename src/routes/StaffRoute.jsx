@@ -3,7 +3,7 @@ import React from 'react';
 import { Navigate } from 'react-router-dom';
 
 const StaffRoute = ({ children }) => {
-  const role = localStorage.getItem('role') || 'STAFF';
+  const role = sessionStorage.getItem('role') || localStorage.getItem('role') || 'STAFF';
   return role === 'STAFF' ? children : <Navigate to="/login" replace />;
 };
 

@@ -33,8 +33,8 @@ const ProtectedRoute = ({ children }) => {
   const [authenticated, setAuthenticated] = React.useState(false);
 
   React.useEffect(() => {
-    const token = localStorage.getItem('autowash_token') || localStorage.getItem('token');
-    const user = localStorage.getItem('autowash_user');
+    const token = sessionStorage.getItem('autowash_token') || sessionStorage.getItem('token') || localStorage.getItem('autowash_token') || localStorage.getItem('token');
+    const user = sessionStorage.getItem('autowash_user') || localStorage.getItem('autowash_user');
     if (token && user) {
       setAuthenticated(true);
     }

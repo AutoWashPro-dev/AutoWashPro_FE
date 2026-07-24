@@ -8,10 +8,10 @@ const api = axios.create({
   timeout: 5000,
 });
 
-// Thêm interceptor để tự động gắn Bearer Token nếu có trong localStorage
+// Thêm interceptor để tự động gắn Bearer Token nếu có trong sessionStorage
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('autowash_token');
+    const token = sessionStorage.getItem('autowash_token') || localStorage.getItem('autowash_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -25,6 +25,13 @@ api.interceptors.response.use(
   (error) => {
     const status = error.response ? error.response.status : null;
     if (status === 401 || status === 403) {
+      sessionStorage.removeItem('autowash_token');
+      sessionStorage.removeItem('autowash_user');
+      sessionStorage.removeItem('token');
+      sessionStorage.removeItem('role');
+      sessionStorage.removeItem('user_roles');
+      sessionStorage.removeItem('accessToken');
+
       localStorage.removeItem('autowash_token');
       localStorage.removeItem('autowash_user');
       localStorage.removeItem('token');

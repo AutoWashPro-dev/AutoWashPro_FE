@@ -10,7 +10,7 @@ const api = axios.create({
 
 api.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('autowash_token');
+    const token = sessionStorage.getItem('autowash_token') || localStorage.getItem('autowash_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -27,6 +27,13 @@ api.interceptors.response.use(
     // Target 401 Unauthorized (Expired/Revoked Token) or 403 Forbidden
     if (status === 401 || status === 403) {
       // 1. Immediately purge all invalid authentication tokens from client storage
+      sessionStorage.removeItem('autowash_token');
+      sessionStorage.removeItem('autowash_user');
+      sessionStorage.removeItem('token');
+      sessionStorage.removeItem('role');
+      sessionStorage.removeItem('user_roles');
+      sessionStorage.removeItem('accessToken');
+
       localStorage.removeItem('autowash_token');
       localStorage.removeItem('autowash_user');
       localStorage.removeItem('token');
