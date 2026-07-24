@@ -39,6 +39,50 @@ api.interceptors.response.use(
 );
 
 export const customerApi = {
+  // Get customer profile & loyalty progress details
+  getCustomerProfile: async () => {
+    try {
+      const res = await api.get('/customer/loyalty/profile');
+      return res.data;
+    } catch (err) {
+      console.warn('API getCustomerProfile error, using fallback:', err.message);
+      // Fallback matching mock data
+      const userRaw = localStorage.getItem('autowash_user');
+      if (userRaw) {
+        try {
+          const user = JSON.parse(userRaw);
+          const totalSpending = Number(user.totalSpending || user.lifetimeSpend || 115000);
+          return {
+            customerId: user.customerId || user.id || 16,
+            fullName: user.fullName || user.name || 'Nhân Thành',
+            email: user.email || 'ctndx001@gmail.com',
+            phoneNumber: user.phoneNumber || '0123456789',
+            loyaltyPoints: user.loyaltyPoints !== undefined ? user.loyaltyPoints : 11,
+            totalSpending: totalSpending,
+            tierName: user.tierName || 'MEMBER',
+            nextTierName: 'SILVER',
+            nextTierMinSpend: 1000000,
+            spendNeededForNextTier: Math.max(0, 1000000 - totalSpending),
+            progressPercentage: Math.min(100, Math.floor((totalSpending / 1000000) * 100))
+          };
+        } catch (e) {}
+      }
+      return {
+        customerId: 16,
+        fullName: 'Nhân Thành',
+        email: 'ctndx001@gmail.com',
+        phoneNumber: '0123456789',
+        loyaltyPoints: 11,
+        totalSpending: 115000,
+        tierName: 'MEMBER',
+        nextTierName: 'SILVER',
+        nextTierMinSpend: 1000000,
+        spendNeededForNextTier: 885000,
+        progressPercentage: 11.5
+      };
+    }
+  },
+
   // Get customer profile (points, tier, name)
   getProfile: async () => {
     try {
@@ -293,7 +337,7 @@ export const customerApi = {
 
   // Set default vehicle
   setDefaultVehicle: async (vehicleId) => {
-    const res = await api.put(`/customer/vehicles/${vehicleId}/set-default`);
+    const res = await api.patch(`/customer/vehicles/${vehicleId}/default`);
     return res.data;
   },
 
@@ -305,10 +349,6 @@ export const customerApi = {
     } catch (err) {
       console.warn('API getMyPointHistory error, using fallback:', err.message);
       return [
-        { pointTransactionId: 101, points: 50, activityType: 'EARNED', bookingCode: 'AW-9801', createdAt: new Date(Date.now() - 3600000 * 2).toISOString() },
-        { pointTransactionId: 102, points: -20, activityType: 'REDEEMED', bookingCode: null, createdAt: '2026-07-15T14:30:00' },
-        { pointTransactionId: 103, points: 15, activityType: 'EARNED', bookingCode: 'AW-9750', createdAt: '2026-07-10T11:00:00' },
-        { pointTransactionId: 104, points: -50, activityType: 'EXPIRY', bookingCode: null, createdAt: '2026-07-01T00:00:00' }
       ];
     }
   }

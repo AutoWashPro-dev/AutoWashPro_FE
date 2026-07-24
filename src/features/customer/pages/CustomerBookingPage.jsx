@@ -92,6 +92,12 @@ export default function CustomerBookingPage() {
 
   const [bookingWindowDays, setBookingWindowDays] = useState(7);
   const [customerProfile, setCustomerProfile] = useState(null);
+  const [vehicleAlert, setVehicleAlert] = useState({
+    isOpen: false,
+    type: 'success', // 'success' | 'error' | 'warning'
+    title: '',
+    message: ''
+  });
 
   const loadUserProfile = async () => {
     try {
@@ -357,9 +363,21 @@ export default function CustomerBookingPage() {
         ...v,
         isDefault: (v.vehicleId || v.id) === vehicleId
       })));
+
+      setVehicleAlert({
+        isOpen: true,
+        type: 'success',
+        title: "Đã đặt xe mặc định",
+        message: `Chiếc xe ${veh.model || 'Xe máy'} - ${veh.licensePlate || ''} đã được chọn làm phương tiện mặc định.`
+      });
     } catch (err) {
       console.error('Failed to set default vehicle:', err);
-      alert('Có lỗi xảy ra khi đặt xe làm mặc định. Vui lòng thử lại.');
+      setVehicleAlert({
+        isOpen: true,
+        type: 'error',
+        title: "Cập nhật thất bại",
+        message: "Không thể thiết lập xe mặc định. Vui lòng kiểm tra kết nối mạng và thử lại."
+      });
     }
   };
 
@@ -1025,6 +1043,31 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Custom UI Modal Alert / Notification Dialog for Vehicle */}
+      {vehicleAlert.isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl border border-slate-100 flex flex-col items-center text-center">
+            {vehicleAlert.type === 'success' ? (
+              <div className="w-12 h-12 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 mb-4">
+                <CheckCircle className="w-6 h-6" />
+              </div>
+            ) : (
+              <div className="w-12 h-12 rounded-full bg-red-50 border border-red-200 flex items-center justify-center text-red-600 mb-4">
+                <AlertCircle className="w-6 h-6" />
+              </div>
+            )}
+            <h3 className="text-base font-extrabold text-slate-800 mb-1.5">{vehicleAlert.title}</h3>
+            <p className="text-xs text-slate-500 leading-relaxed font-medium mb-5 px-1">{vehicleAlert.message}</p>
+            <button
+              onClick={() => setVehicleAlert(prev => ({ ...prev, isOpen: false }))}
+              className="w-full py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-sm transition active:scale-[0.98]"
+            >
+              Đồng ý
+            </button>
           </div>
         </div>
       )}

@@ -153,5 +153,10 @@ export const bookingAdminApi = {
   adjustLock: async (slotId, date, isLocked) => {
     const res = await api.post(`/admin/slots/${slotId}/lock`, null, { params: { date, lock: isLocked } });
     return res.data;
+  },
+
+  getSlotPerformance: async (params = { timeRange: 'TODAY' }) => {
+    const res = await api.get('/admin/dashboard/slot-performance', { params });
+    return res.data;
   }
 };

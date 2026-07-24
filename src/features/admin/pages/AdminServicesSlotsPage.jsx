@@ -146,6 +146,9 @@ const [availableSlots, setAvailableSlots] = useState([]);
 
   const [slotModalOpen, setSlotModalOpen] = useState(false);
   const [currentSlot, setCurrentSlot] = useState(null);
+  const [isAddSlotModalOpen, setIsAddSlotModalOpen] = useState(false);
+  const [showSlotSuccessModal, setShowSlotSuccessModal] = useState(false);
+  const [createdSlotTime, setCreatedSlotTime] = useState('');
 
   // Temporary Form Inputs
   const [serviceForm, setServiceForm] = useState({
@@ -165,7 +168,6 @@ const [availableSlots, setAvailableSlots] = useState([]);
   });
 
   // Add Slot Modal State
-  const [isAddSlotModalOpen, setIsAddSlotModalOpen] = useState(false);
   const [newSlotStartTime, setNewSlotStartTime] = useState('19:00');
   const [newSlotEndTime, setNewSlotEndTime] = useState('19:30');
   const [newSlotMaxCapacity, setNewSlotMaxCapacity] = useState(3);
@@ -524,7 +526,8 @@ const handleDeleteClosure = async (closureId) => {
         return next;
       });
 
-      alert(`Thêm khung giờ ${newSlotStartTime} - ${newSlotEndTime} mới thành công!`);
+      setCreatedSlotTime(`${newSlotStartTime} - ${newSlotEndTime}`);
+      setShowSlotSuccessModal(true);
       setIsAddSlotModalOpen(false);
       setNewSlotStartTime('19:00');
       setNewSlotEndTime('19:30');

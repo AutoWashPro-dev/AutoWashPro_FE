@@ -29,6 +29,7 @@ import {
 import { useParams } from 'react-router-dom';
 import { bookingAdminApi } from '../services/bookingAdminApi';
 import { loyaltyApi } from '../services/loyaltyApi';
+import { dashboardApi } from '../services/dashboardApi';
 
 export default function AdminBookingsPage() {
   // 1. Initialize localStorage databases if not exists to enable E2E integration
@@ -216,15 +217,18 @@ export default function AdminBookingsPage() {
             const custDetail = await loyaltyApi.getCustomerById(custId);
             if (custDetail) {
               setCustomerDetail(custDetail);
+              setCurrentCustomerProfile(custDetail);
             }
           } catch (error) {
             console.error("API Fetching Error inside AdminBookingsPage:", error.response?.data || error.message);
             setCustomerDetail(null);
+            setCurrentCustomerProfile(null);
           }
         }
       } else {
         setBookingDetail(null);
         setCustomerDetail(null);
+        setCurrentCustomerProfile(null);
       }
       setLoadingDetail(false);
     };
@@ -329,6 +333,39 @@ export default function AdminBookingsPage() {
     isCurrentRequest = false;
   };
 }, [selectedDate, searchQuery, refreshTrigger]);
+
+  useEffect(() => {
+    const fetchSlotPerformance = async () => {
+      try {
+          const data = await dashboardApi.getSlotPerformance({
+          timeRange: 'CUSTOM',
+          fromDate: selectedDate,
+          toDate: selectedDate
+        });
+        if (data) {
+          setSlotPerformanceData(data);
+        }
+      } catch (err) {
+        console.warn("Failed to fetch slot performance:", err.message);
+        const slots = getSlotsData();
+        const fallbackList = slots.map(s => {
+          const bookedCount = getBookedCount(s.time);
+          const occupancyRate = s.maxCapacity > 0 ? (bookedCount / s.maxCapacity) : 0;
+          return {
+            timeSlot: s.time,
+            configuredMaxCapacity: s.maxCapacity,
+            actualBooked: bookedCount,
+            occupancyRate: occupancyRate,
+            isHighRisk: occupancyRate > 0.8 || bookedCount >= s.maxCapacity,
+            noShowRate: occupancyRate > 0.8 ? 0.25 : 0.0,
+            remaining: Math.max(0, s.maxCapacity - bookedCount)
+          };
+        });
+        setSlotPerformanceData(fallbackList);
+      }
+    };
+    fetchSlotPerformance();
+  }, [selectedDate, refreshTrigger]);
 
   // Dates available in day selector
   const availableDates = [
@@ -765,7 +802,7 @@ const getAllBookings = () => {
     const custObj = b.customer || {};
     const custName = b.customerName || custObj.fullName || custObj.name || 'Khách hàng vãng lai';
     const custPhone = b.customerPhone || custObj.phoneNumber || custObj.phone || '';
-    const rawTier = b.customerTier || (typeof custObj.tier === 'object' ? custObj.tier?.tierName : custObj.tier) || 'Member';
+    const rawTier = custObj.tierName || (typeof custObj.tier === 'object' ? (custObj.tier?.tierName || custObj.tier?.tier) : custObj.tier) || 'Member';
     const custTier = String(rawTier).toUpperCase();
     const custAvatar = custObj.avatarUrl || custObj.avatar || (`https://api.dicebear.com/7.x/avataaars/svg?seed=${custPhone || 'guest'}`);
     const amount = Number(b.finalAmount ?? b.totalEstimatedAmount ?? (b.service?.price || 0));
@@ -849,6 +886,10 @@ const allBookingsMapped = getAllBookings().map(b => {
   const [isCanceling, setIsCanceling] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successModalData, setSuccessModalData] = useState(null);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [slotPerformanceData, setSlotPerformanceData] = useState([]);
+  const [currentCustomerProfile, setCurrentCustomerProfile] = useState(null);
 
   // Load dynamic rates from Settings
   const baseSpendToEarnPoint = loyaltySettings.baseSpend || 10000;
@@ -985,6 +1026,7 @@ const allBookingsMapped = getAllBookings().map(b => {
   // Action: Confirm Payment & Complete Wash (Combined Check-in & Point Accumulation)
   const handleConfirmPayment = async () => {
     if (!selectedBooking) return;
+    setIsSubmitting(true);
 
     const bookingId = selectedBooking.bookingId || selectedBooking.id;
     const statusUpper = (selectedBooking.status || '').toUpperCase();
@@ -1001,6 +1043,8 @@ const allBookingsMapped = getAllBookings().map(b => {
           `Khách hàng đi trễ và các khung giờ tiếp theo đã đầy công suất! Không thể thực hiện check-in.\n\n` +
           `Chi tiết: ${slotSummary || 'Không có khung giờ tiếp theo'}`
         );
+        setIsSubmitting(false);
+        setShowConfirmModal(false);
         return; // ← Hard stop: do NOT proceed with payment
       }
 
@@ -1011,7 +1055,9 @@ const allBookingsMapped = getAllBookings().map(b => {
       );
     }
 
+    let latestEarnedPoints = 0;
     try {
+      // 1. Call Checkout API
       await bookingAdminApi.checkoutBooking(bookingId, {
         bookingId,
         paymentMethod: tempPaymentMethod === 'VNPay' ? 'BANK_TRANSFER' : tempPaymentMethod.toUpperCase(),
@@ -1019,25 +1065,34 @@ const allBookingsMapped = getAllBookings().map(b => {
         notes: selectedBooking.notes
       });
 
+      // 2. Call Points History API to retrieve latest points based on createdAt
+      const custId = selectedBooking.customerId || selectedBooking.customer?.id || selectedBooking.customer?.customerId;
+      if (custId) {
+        const pointsHistory = await loyaltyApi.getCustomerPointHistory(custId);
+        if (pointsHistory && pointsHistory.length > 0) {
+          // Find the latest earned transaction
+          const latestTx = pointsHistory[0]; // usually sorted DESC
+          latestEarnedPoints = latestTx.points || 0;
+        }
+      }
     } catch (err) {
-      console.warn('API checkout error, falling back to localStorage:', err.message);
+      console.warn('API checkout or points history error, falling back to local calculation:', err.message);
     }
 
-    // Load tier multipliers dynamically
-    const customerTier = selectedBooking.customer.tier;
-    const currentTierConfig = tierMatrix.find((t) => t.key === customerTier) || { pointMultiplier: 1.0 };
+    // Fallback/Calculation logic
+    const customerTier = currentCustomerProfile?.tierName || selectedBooking.customer.tier;
+    const currentTierConfig = tierMatrix.find((t) => String(t.key).toUpperCase() === String(customerTier).toUpperCase()) || { pointMultiplier: 1.0 };
     const tierMultiplier = currentTierConfig.pointMultiplier || 1.0;
-
-    // Spring Boot Logic: Points Earned = floor(final_amount / baseSpend) x basePoints x Tier Multiplier
-    const pointsEarned = Math.floor(finalAmount / baseSpendToEarnPoint) * basePointsToEarn * tierMultiplier;
+    const pointsEarned = latestEarnedPoints || Math.floor(finalAmount / baseSpendToEarnPoint) * basePointsToEarn * tierMultiplier;
 
     // Update customer in database (visits + 1, spend + finalAmount, points + earned)
     let alertUpgradeMessage = '';
     let updatedCustomerSnapshot = null;
 
+    const custIdToMatch = currentCustomerProfile?.customerId || currentCustomerProfile?.id || selectedBooking.customer.id;
     const updatedCustomers = customersDb.map((c) => {
-      if (c.id === selectedBooking.customer.id) {
-        const newVisits = c.visits + 1;
+      if (String(c.id) === String(custIdToMatch)) {
+        const newVisits = (c.visits || 0) + 1;
         const newSpend = c.totalSpend + finalAmount;
         const newPoints = c.points + pointsEarned;
 
@@ -1115,8 +1170,8 @@ const allBookingsMapped = getAllBookings().map(b => {
 
     const customerAfterCheckout = updatedCustomerSnapshot || {
       ...selectedBooking.customer,
-      totalSpend: selectedBooking.customer.totalSpend + finalAmount,
-      tier: selectedBooking.customer.tier
+      totalSpend: (Number(currentCustomerProfile?.totalSpending) || Number(selectedBooking.customer.totalSpend) || 0) + finalAmount,
+      tier: currentCustomerProfile?.tierName || selectedBooking.customer.tier
     };
 
     // Compute loyalty metrics using hardcoded thresholds to prevent NaN
@@ -1142,6 +1197,10 @@ const allBookingsMapped = getAllBookings().map(b => {
       alertUpgradeMessage,
       loyaltyProgress
     });
+    
+    // Smooth transition: close confirm modal and open success modal
+    setShowConfirmModal(false);
+    setIsSubmitting(false);
     setShowSuccessModal(true);
     setRefreshTrigger(prev => prev + 1); // Trigger an explicit re-fetch of the bookings list
     setSelectedDate(selectedDate);
@@ -1478,20 +1537,20 @@ const allBookingsMapped = getAllBookings().map(b => {
           </div>
 
           {/* Right: Daily Availability Monitor (Read-Only Operational Capacity Monitor) */}
-          <div className="w-full lg:w-[350px] shrink-0 bg-white border border-slate-200/60 rounded-2xl shadow-sm flex flex-col min-h-0 overflow-hidden font-sans">
+          <div className="w-full lg:w-[380px] shrink-0 bg-white border border-slate-200/60 rounded-2xl shadow-sm flex flex-col min-h-0 overflow-hidden font-sans">
             {/* Header */}
-            <div className="p-4 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50/50">
-              <div className="flex items-center gap-2 text-slate-850 font-extrabold text-sm">
-                <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold border border-indigo-100/80">
-                  <Activity className="w-4.5 h-4.5" />
+            <div className="p-3 border-b border-slate-100 flex items-center justify-between shrink-0 bg-slate-50/50">
+              <div className="flex items-center gap-1.5 text-slate-850 font-extrabold text-xs">
+                <div className="w-7.5 h-7.5 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold border border-indigo-100/85">
+                  <Activity className="w-4 h-4" />
                 </div>
                 <div>
-                  <span className="font-outfit tracking-tight text-slate-800 text-sm block">Giám sát công suất</span>
-                  <span className="text-[10px] text-slate-400 font-semibold block">Trạng thái đặt lịch theo khung giờ</span>
+                  <span className="font-outfit tracking-tight text-slate-800 text-xs block">Giám sát công suất</span>
+                  <span className="text-[9px] text-slate-400 font-semibold block">Trạng thái đặt lịch theo khung giờ</span>
                 </div>
               </div>
 
-              <span className="px-2.5 py-1 bg-slate-100 text-slate-600 border border-slate-200/70 rounded-full text-[10px] font-black">
+              <span className="px-2 py-0.5 bg-slate-100 text-slate-600 border border-slate-200/70 rounded-full text-[9px] font-black">
                 {selectedDate}
               </span>
             </div>
@@ -1499,75 +1558,85 @@ const allBookingsMapped = getAllBookings().map(b => {
             {/* Slots Table */}
             <div className="flex-1 overflow-y-auto no-scrollbar">
               <table className="w-full text-left border-collapse">
-                <thead className="sticky top-0 bg-slate-50 border-b border-slate-100 text-[10px] font-black text-slate-400 uppercase tracking-wider z-10">
+                <thead className="sticky top-0 bg-slate-50 border-b border-slate-100 text-[9px] font-black text-slate-400 uppercase tracking-wider z-10">
                   <tr>
-                    <th className="py-3 px-3.5">Khung giờ</th>
-                    <th className="py-3 px-2 text-center">Tối đa</th>
-                    <th className="py-3 px-3">Tiến độ & Trạng thái</th>
-                    <th className="py-3 px-3.5 text-right">Trống</th>
+                    <th className="py-2 px-2.5">Khung giờ</th>
+                    <th className="py-2 px-1 text-center">Tối đa</th>
+                    <th className="py-2 px-2">Tiến độ & Trạng thái</th>
+                    <th className="py-2 px-2.5 text-right">Trống</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 text-xs font-bold text-slate-700">
-                  {getSlotsData().map(slot => {
-                    const lockKey = `${selectedDate}_${slot.id}`;
-
-                    // Match with real backend PostgreSQL occupancy data
-                    const apiItem = occupancyData.find(m => 
-                      String(m.slotId) === String(slot.id) || 
-                      String(m.slotId) === String(slot.timeSlotId || '') ||
-                      (m.startTime && slot.time.startsWith(m.startTime))
-                    );
-
-                    const booked = apiItem != null ? apiItem.bookedCount : getBookedCount(slot.time);
-                    const locked = apiItem != null ? (apiItem.isLocked ?? false) : (slotLocks[lockKey] === true);
-                    const capacity = apiItem != null ? (apiItem.maxCapacity ?? slot.maxCapacity) : (slot.isActive ? slot.maxCapacity : 0);
-                    const remaining = locked ? 0 : Math.max(0, capacity - booked);
-                    const formattedTime = slot.time.replace(/:00/g, '');
+                <tbody className="divide-y divide-slate-100 text-[11px] font-bold text-slate-700">
+                  {slotPerformanceData.map((item, idx) => {
+                    const timeSlot = item.timeSlot || '08:00 - 09:00';
+                    const configuredMaxCapacity = item.configuredMaxCapacity ?? 8;
+                    const actualBooked = item.actualBooked ?? 0;
+                    const occupancyRate = item.occupancyRate ?? 0;
+                    const isHighRisk = item.isHighRisk ?? false;
+                    const noShowRate = item.noShowRate ?? 0;
+                    const remaining = configuredMaxCapacity - actualBooked;
+                    const occupancyPct = occupancyRate > 1.0 ? occupancyRate : occupancyRate * 100;
+                    const occupancyPctStr = occupancyPct.toFixed(0) + '%';
+                    const noShowPct = noShowRate > 1.0 ? noShowRate : noShowRate * 100;
+                    const noShowPctStr = noShowPct.toFixed(0) + '% Hủy/Trễ';
+                    
+                    let formattedTime = timeSlot;
+                    if (timeSlot && !timeSlot.includes('-')) {
+                      const parts = timeSlot.split(':');
+                      if (parts.length >= 2) {
+                        const startHour = parseInt(parts[0], 10);
+                        const startMin = parts[1];
+                        const endHour = startHour + 1;
+                        const formattedStart = `${String(startHour).padStart(2, '0')}:${startMin}`;
+                        const formattedEnd = `${String(endHour).padStart(2, '0')}:${startMin}`;
+                        formattedTime = `${formattedStart} - ${formattedEnd}`;
+                      }
+                    }
 
                     return (
-                      <tr key={slot.id} className={`hover:bg-slate-50/70 transition-colors ${locked ? 'bg-rose-50/20' : ''}`}>
-                        <td className="py-3.5 px-3.5 font-outfit font-black text-slate-800 whitespace-nowrap">
-                          <div className="flex items-center gap-1.5">
-                            <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                            <span>{formattedTime}</span>
+                      <tr key={idx} className={`hover:bg-slate-50/70 transition-colors ${isHighRisk ? 'bg-rose-50/10' : ''}`}>
+                        <td className="py-2 px-2.5 font-outfit font-black text-slate-800 whitespace-nowrap">
+                          <div className="flex items-center gap-1">
+                            <Clock className="w-3 h-3 text-slate-400 shrink-0" />
+                            <span className="text-[10px]">{formattedTime}</span>
                           </div>
                         </td>
-                        <td className="py-3.5 px-2 text-center">
-                          {slot.isActive ? (
-                            <span className="font-extrabold text-slate-700">{slot.maxCapacity}</span>
-                          ) : (
-                            <span className="text-rose-500 font-bold text-[10px]">0</span>
-                          )}
+                        <td className="py-2 px-1 text-center">
+                          <span className="font-extrabold text-slate-700 text-[10px]">{configuredMaxCapacity}</span>
                         </td>
-                        <td className="py-3.5 px-3">
-                          <div className="flex flex-col gap-1">
-                            <div className="flex items-center justify-between">
-                              {locked ? (
-                                <span className="px-2 py-0.5 bg-rose-50 text-rose-700 border border-rose-100 rounded-lg text-[10px] font-black uppercase tracking-wider">
-                                  🔒 Đã khóa
-                                </span>
-                              ) : remaining === 0 ? (
-                                <span className="px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-100 rounded-lg text-[10px] font-black uppercase tracking-wider">
-                                  Đã đầy chỗ
-                                </span>
+                        <td className="py-2 px-2">
+                          <div className="flex flex-col gap-0.5">
+                            <div className="flex items-center justify-between gap-1 flex-wrap">
+                              {isHighRisk ? (
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="px-1.5 py-0.5 bg-rose-100 text-rose-700 border border-rose-200 rounded text-[8px] font-black uppercase tracking-wider">
+                                    RỦI RO CAO
+                                  </span>
+                                  <span className="text-[8px] font-bold text-rose-500 whitespace-nowrap">{noShowPctStr}</span>
+                                </div>
                               ) : (
-                                <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded-lg text-[10px] font-black uppercase tracking-wider">
-                                  Đang nhận ({booked}/{capacity})
+                                <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded text-[8px] font-black uppercase tracking-wider whitespace-nowrap">
+                                  ĐANG NHẬN ({actualBooked}/{configuredMaxCapacity})
                                 </span>
                               )}
+                              <span className={`text-[9px] font-bold ${isHighRisk ? 'text-rose-600' : 'text-slate-500'}`}>
+                                {occupancyPctStr}
+                              </span>
                             </div>
-                            {renderProgressBar(booked, locked, capacity)}
+                            
+                            <div className="w-full h-1.5 bg-slate-100 rounded-full overflow-hidden flex">
+                              <div 
+                                style={{ width: `${Math.min(100, occupancyPct)}%` }} 
+                                className={`h-full ${isHighRisk ? 'bg-rose-500' : 'bg-sky-600'} transition-all duration-300`} 
+                              />
+                            </div>
                           </div>
                         </td>
-                        <td className="py-3.5 px-3.5 text-right whitespace-nowrap">
-                          {locked ? (
-                            <span className="text-rose-500 font-black text-xs">🔒 0</span>
-                          ) : remaining === 0 ? (
-                            <span className="text-slate-400 font-bold text-xs">0</span>
-                          ) : remaining <= 2 ? (
-                            <span className="text-amber-600 font-black text-sm px-2 py-0.5 bg-amber-50 rounded-lg border border-amber-100">{remaining}</span>
+                        <td className="py-2 px-2.5 text-right whitespace-nowrap">
+                          {remaining <= 0 ? (
+                            <span className="text-slate-400 font-bold text-[10px]">0</span>
                           ) : (
-                            <span className="text-emerald-700 font-black text-sm px-2 py-0.5 bg-emerald-50 rounded-lg border border-emerald-100">{remaining}</span>
+                            <span className="text-indigo-650 font-black text-[10px]">{remaining}</span>
                           )}
                         </td>
                       </tr>
@@ -1627,13 +1696,13 @@ const allBookingsMapped = getAllBookings().map(b => {
                     </div>
                   ) : (() => {
                     const displayCustomer = bookingDetail?.customer || selectedBooking?.customer;
-                    // Fallbacks for 500 error protection
-                    const fullName = customerDetail?.fullName || bookingDetail?.customerName || displayCustomer?.fullName || displayCustomer?.name || 'Khách lẻ';
-                    const phoneNumber = customerDetail?.phoneNumber || bookingDetail?.customerPhone || displayCustomer?.phoneNumber || displayCustomer?.phone || '';
-                    const tierName = customerDetail?.tierName || bookingDetail?.customerTier || displayCustomer?.tier || 'N/A';
+                    const fullName = currentCustomerProfile?.fullName || displayCustomer?.name || 'Khách lẻ';
+                    const phoneNumber = currentCustomerProfile?.phoneNumber || displayCustomer?.phone || '';
+                    const tierName = currentCustomerProfile?.tierName || 'MEMBER';
                     const isSilverOrMember = ['member', 'hang member', 'silver', 'silver member', 'regular', 'n/a'].includes(String(tierName).toLowerCase());
-                    const points = customerDetail?.loyaltyPoints !== undefined ? customerDetail.loyaltyPoints : (displayCustomer?.points ?? 0);
-                    const pointsVal = customerDetail?.loyaltyPoints !== undefined ? customerDetail.loyaltyPoints * 1000 : 0;
+                    const points = currentCustomerProfile?.loyaltyPoints !== undefined ? currentCustomerProfile.loyaltyPoints : (displayCustomer?.points ?? 0);
+                    const pointsVal = points * 1000;
+                    const totalSpending = currentCustomerProfile?.totalSpending !== undefined ? Number(currentCustomerProfile.totalSpending) : 0;
 
                     return (
                       <div className="flex items-start gap-4">
@@ -1654,19 +1723,22 @@ const allBookingsMapped = getAllBookings().map(b => {
                                   : 'bg-[#57f287] text-slate-800'
                               }`}
                             >
-                              {customerDetail?.tierName || tierName}
+                              {tierName}
                             </span>
                           </div>
                           <p className="text-xs text-slate-500 font-semibold">
                             Số điện thoại: {phoneNumber}
                           </p>
                           
-                          <div className="flex items-center gap-4 text-xs font-bold text-slate-600 mt-2.5">
+                          <div className="flex items-center gap-4 text-xs font-bold text-slate-655 mt-2.5 flex-wrap">
                             <span className="text-amber-605 flex items-center gap-0.5 bg-amber-50 border border-amber-100/65 px-2.5 py-1 rounded-lg">
-                              <Coins className="w-4 h-4 text-amber-500" /> Ví hiện tại: {(customerDetail?.loyaltyPoints !== undefined ? customerDetail.loyaltyPoints : points)} Pts
+                              <Coins className="w-4 h-4 text-amber-500" /> Ví hiện tại: {points} Pts
                             </span>
-                            <span className="text-indigo-650">
-                              Trị giá quy đổi: {(customerDetail?.loyaltyPoints !== undefined ? customerDetail.loyaltyPoints * 1000 : pointsVal).toLocaleString('vi-VN')} d
+                            <span className="text-emerald-650 flex items-center gap-0.5 bg-emerald-50 border border-emerald-100/65 px-2.5 py-1 rounded-lg">
+                              Chi tiêu: {totalSpending.toLocaleString('vi-VN')} đ
+                            </span>
+                            <span className="text-indigo-650 py-1">
+                              Trị giá quy đổi: {pointsVal.toLocaleString('vi-VN')} đ
                             </span>
                           </div>
                         </div>
@@ -1818,7 +1890,10 @@ const allBookingsMapped = getAllBookings().map(b => {
 
                             <button
                               disabled={!windowInfo.isValid}
-                              onClick={handleConfirmPayment}
+                              onClick={() => {
+                                setShowConfirmModal(true);
+                                setShowSuccessModal(false);
+                              }}
                               className={`w-full text-white text-xs font-black py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md ${
                                 windowInfo.isValid
                                   ? 'bg-indigo-600 hover:bg-indigo-700 cursor-pointer font-outfit'
@@ -1852,7 +1927,7 @@ const allBookingsMapped = getAllBookings().map(b => {
                         </div>
                         <div className="flex justify-between text-emerald-600">
                           <span>Loyalty tích lũy:</span>
-                          <span>+{Math.floor(selectedBooking.finalAmount / baseSpendToEarnPoint) * basePointsToEarn * (tierMatrix.find(t=>t.key===selectedBooking.customer.tier)?.pointMultiplier || 1.0)} Pts</span>
+                          <span>+{Math.floor(selectedBooking.finalAmount / baseSpendToEarnPoint) * basePointsToEarn * (tierMatrix.find(t=>String(t.key).toUpperCase()===String(currentCustomerProfile?.tierName || selectedBooking.customer.tier).toUpperCase())?.pointMultiplier || 1.0)} Pts</span>
                         </div>
                       </div>
                     </div>

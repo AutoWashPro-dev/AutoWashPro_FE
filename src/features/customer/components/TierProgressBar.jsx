@@ -1,40 +1,47 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { customerApi } from '../services/customerApi';
 
-export default function TierProgressBar({ customer }) {
-  const totalSpending = Number(customer?.totalSpending) || 0;
+export default function TierProgressBar() {
+  const [profileData, setProfileData] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-  let targetLimit = 0;
-  let nextTierLabel = "";
-  let currentLimit = 0;
+  useEffect(() => {
+    const fetchCustomerInfo = async () => {
+      try {
+        setLoading(true);
+        const data = await customerApi.getCustomerProfile();
+        setProfileData(data);
+      } catch (error) {
+        console.error("Failed to fetch customer profile data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchCustomerInfo();
+  }, []);
 
-  if (totalSpending < 1000000) {
-    targetLimit = 1000000;
-    nextTierLabel = "SILVER";
-    currentLimit = 0;
-  } else if (totalSpending < 5000000) {
-    targetLimit = 5000000;
-    nextTierLabel = "GOLD";
-    currentLimit = 1000000;
-  } else if (totalSpending < 10000000) {
-    targetLimit = 10000000;
-    nextTierLabel = "PLATINUM";
-    currentLimit = 5000000;
-  } else {
-    targetLimit = totalSpending;
-    nextTierLabel = "MAX";
-    currentLimit = 10000000;
+  if (loading) {
+    return (
+      <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm animate-pulse">
+        <div className="h-4 bg-slate-200 rounded w-1/3 mb-4"></div>
+        <div className="h-3.5 bg-slate-200 rounded-full w-full mb-3"></div>
+        <div className="flex justify-between">
+          <div className="h-3 bg-slate-200 rounded w-1/4"></div>
+          <div className="h-3 bg-slate-200 rounded w-1/4"></div>
+        </div>
+      </div>
+    );
   }
 
-  const isMax = nextTierLabel === "MAX";
-  const amountNeeded = Math.max(0, targetLimit - totalSpending);
-  
-  let percentage = 100;
-  if (!isMax) {
-    percentage = ((totalSpending - currentLimit) / (targetLimit - currentLimit)) * 100;
-    percentage = Math.min(Math.max(percentage || 0, 0), 100);
-  }
+  const totalSpending = profileData?.totalSpending || 0;
+  const tierName = profileData?.tierName || 'MEMBER';
+  const progressPercentage = profileData?.progressPercentage || 0;
+  const spendNeededForNextTier = profileData?.spendNeededForNextTier || 0;
+  const nextTierName = profileData?.nextTierName || 'SILVER';
 
-  // Format tiền tệ Việt Nam
+  const isPlatinum = String(tierName).toUpperCase().includes('PLATINUM');
+
+  // Format currency
   const formatCurrency = (value) => {
     return Number(value || 0).toLocaleString('vi-VN') + ' đ';
   };
@@ -42,10 +49,12 @@ export default function TierProgressBar({ customer }) {
   return (
     <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm">
       <div className="flex justify-between items-center mb-2">
-        <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Tiến trình xét hạng VIP</span>
-        {!isMax && (
+        <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
+          Tiến trình xét hạng VIP ({tierName})
+        </span>
+        {!isPlatinum && nextTierName && (
           <span className="text-xs text-slate-500 font-medium">
-            Hạng tiếp theo: <span className="font-bold text-blue-600">{nextTierLabel}</span>
+            Hạng tiếp theo: <span className="font-bold text-blue-600">{nextTierName}</span>
           </span>
         )}
       </div>
@@ -54,20 +63,20 @@ export default function TierProgressBar({ customer }) {
       <div className="w-full bg-slate-100 rounded-full h-3.5 relative overflow-hidden mb-3">
         <div 
           className="bg-gradient-to-r from-blue-500 to-indigo-600 h-3.5 rounded-full transition-all duration-500" 
-          style={{ width: `${percentage}%` }}
+          style={{ width: `${progressPercentage}%` }}
         ></div>
       </div>
 
       {/* Chú thích thông tin chi tiết */}
       <div className="flex justify-between items-center text-xs">
         <span className="text-slate-500 font-medium">Tích lũy: {formatCurrency(totalSpending)}</span>
-        {!isMax ? (
+        {!isPlatinum ? (
           <span className="text-slate-600 font-semibold bg-blue-50 text-blue-700 px-2.5 py-1 rounded-lg">
-            Cần thêm {formatCurrency(amountNeeded)}
+            Chi tiêu thêm {formatCurrency(spendNeededForNextTier)} để thăng hạng {nextTierName}
           </span>
         ) : (
           <span className="text-emerald-600 font-bold bg-emerald-50 px-2.5 py-1 rounded-lg">
-            🏆 Đã đạt hạng Platinum cao nhất
+            🏆 Bạn đã đạt hạng hội viên cao nhất (PLATINUM)!
           </span>
         )}
       </div>

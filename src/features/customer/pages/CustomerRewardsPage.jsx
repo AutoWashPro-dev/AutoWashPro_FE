@@ -27,12 +27,12 @@ export default function CustomerRewardsPage() {
 
   const loadProfileData = async () => {
     try {
-      const data = await customerApi.getProfile();
+      const data = await customerApi.getCustomerProfile();
       const cId = data.customerId || 1;
       setProfile({
         fullName: data.fullName || 'Nguyễn Minh Anh',
         loyaltyPoints: data.loyaltyPoints || 0,
-        tierName: data.tierDisplayName || data.tierName || 'PLATINUM MEMBER',
+        tierName: data.tierName || 'MEMBER',
         customerId: cId
       });
       loadShopData(cId);
@@ -245,7 +245,7 @@ export default function CustomerRewardsPage() {
               : 'text-slate-500 hover:text-slate-800'
           }`}
         >
-          <Clock size={15} /> Lịch sử điểm ({pointHistory.length})
+          <Clock size={0} /> Lịch sử điểm ({pointHistory.length})
         </button>
       </div>
 
