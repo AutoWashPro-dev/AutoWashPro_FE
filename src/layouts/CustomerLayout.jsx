@@ -42,6 +42,15 @@ export default function CustomerLayout() {
 
     fetchData();
 
+    const fetchFreshProfile = async () => {
+      try {
+        const profileData = await customerApi.getProfile();
+        setCustomer(profileData);
+      } catch (err) {
+        console.error("Failed to fetch fresh profile in layout:", err);
+      }
+    };
+
     // Listen to local storage changes for cross-tab sync if needed
     const handleStorage = (e) => {
       if (e.key === 'autowash_cust_notifications') {
@@ -51,8 +60,13 @@ export default function CustomerLayout() {
     };
 
     window.addEventListener('storage', handleStorage);
+    window.addEventListener('loyaltyPointsUpdated', fetchFreshProfile);
+    window.addEventListener('focus', fetchFreshProfile);
+    
     return () => {
       window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('loyaltyPointsUpdated', fetchFreshProfile);
+      window.removeEventListener('focus', fetchFreshProfile);
     };
   }, [location.pathname]);
 

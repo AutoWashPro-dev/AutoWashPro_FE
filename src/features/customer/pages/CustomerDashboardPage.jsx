@@ -35,104 +35,112 @@ export default function CustomerDashboardPage() {
   const [recommendedServices, setRecommendedServices] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Fetch real data from backend API
-  React.useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        const [profile, bookings, vouchers, servicesData] = await Promise.all([
-          customerApi.getProfile(),
-          customerApi.getMyBookings(),
-          customerApi.getMyVouchers(null, 'ISSUED'),
-          customerApi.getActiveServices()
-        ]);
-        
-        // Add minimal defaults if profile is missing some fields
-        const customerData = {
-          ...profile,
-          tierSpending: profile.tierSpending || 0,
-          lifetimeSpend: profile.lifetimeSpend || 0,
-          loyaltyPoints: profile.loyaltyPoints || 0,
-          tier: profile.tier || { tierId: 1, tierName: profile.tierName || 'MEMBER' }
-        };
-        setCustomer(customerData);
+  const fetchDashboardData = async () => {
+    try {
+      const [profile, bookings, vouchers, servicesData] = await Promise.all([
+        customerApi.getProfile(),
+        customerApi.getMyBookings(),
+        customerApi.getMyVouchers(null, 'ISSUED'),
+        customerApi.getActiveServices()
+      ]);
+      
+      // Add minimal defaults if profile is missing some fields
+      const customerData = {
+        ...profile,
+        tierSpending: profile.tierSpending || 0,
+        lifetimeSpend: profile.lifetimeSpend || 0,
+        loyaltyPoints: profile.loyaltyPoints || 0,
+        tier: profile.tier || { tierId: 1, tierName: profile.tierName || 'MEMBER' }
+      };
+      setCustomer(customerData);
 
-        // Calculate visits and find upcoming booking
-        if (Array.isArray(bookings)) {
-          const completedBookings = bookings.filter(b => b.status === 'Completed' || b.status === 'COMPLETED');
-          setVisitCount(completedBookings.length);
-          
-          // Find first Pending/Confirmed booking for upcoming
-          const pending = bookings.find(b => ['Pending', 'PENDING', 'Confirmed', 'CONFIRMED'].includes(b.status));
-          if (pending) {
-            setUpcomingBooking({
-              bookingCode: pending.id || pending.bookingCode,
-              licensePlate: pending.vehicle?.plate || pending.vehicle?.licensePlate || 'Chưa có',
-              model: pending.vehicle?.model || 'Xe máy',
-              packageName: pending.service?.name || pending.serviceName || 'Rửa xe',
-              slotDate: pending.slotDate || pending.date || 'Sắp tới',
-              slotTime: pending.slotTime || pending.time || '',
-              status: pending.status?.toUpperCase()
-            });
-          }
+      // Calculate visits and find upcoming booking
+      if (Array.isArray(bookings)) {
+        const completedBookings = bookings.filter(b => b.status === 'Completed' || b.status === 'COMPLETED');
+        setVisitCount(completedBookings.length);
+        
+        // Find first Pending/Confirmed booking for upcoming
+        const pending = bookings.find(b => ['Pending', 'PENDING', 'Confirmed', 'CONFIRMED'].includes(b.status));
+        if (pending) {
+          setUpcomingBooking({
+            bookingCode: pending.id || pending.bookingCode,
+            licensePlate: pending.vehicle?.plate || pending.vehicle?.licensePlate || 'Chưa có',
+            model: pending.vehicle?.model || 'Xe máy',
+            packageName: pending.service?.name || pending.serviceName || 'Rửa xe',
+            slotDate: pending.slotDate || pending.date || 'Sắp tới',
+            slotTime: pending.slotTime || pending.time || '',
+            status: pending.status?.toUpperCase()
+          });
         } else {
-          // Flatten localStorage fallback for mock demo compatibility if no real array
-          const dates = Object.keys(bookings).sort();
-          let count = 0;
-          let foundPending = null;
+          setUpcomingBooking(null);
+        }
+      } else {
+        // Flatten localStorage fallback for mock demo compatibility if no real array
+        const dates = Object.keys(bookings).sort();
+        let count = 0;
+        let foundPending = null;
+        
+        for (const dateKey of dates) {
+          const dayList = bookings[dateKey] || [];
+          count += dayList.filter(b => b.status?.toLowerCase() === 'completed').length;
           
-          for (const dateKey of dates) {
-            const dayList = bookings[dateKey] || [];
-            count += dayList.filter(b => b.status?.toLowerCase() === 'completed').length;
-            
-            if (!foundPending) {
-              const p = dayList.find(b => b.status?.toLowerCase() === 'pending' || b.status?.toLowerCase() === 'confirmed');
-              if (p) {
-                foundPending = {
-                  bookingCode: p.id,
-                  licensePlate: p.vehicle?.plate || 'Chưa có',
-                  model: p.vehicle?.model || 'Xe máy',
-                  packageName: p.service?.name || 'Rửa xe',
-                  slotDate: dateKey,
-                  slotTime: p.slotTime,
-                  status: p.status?.toUpperCase()
-                };
-              }
+          if (!foundPending) {
+            const p = dayList.find(b => b.status?.toLowerCase() === 'pending' || b.status?.toLowerCase() === 'confirmed');
+            if (p) {
+              foundPending = {
+                bookingCode: p.id,
+                licensePlate: p.vehicle?.plate || 'Chưa có',
+                model: p.vehicle?.model || 'Xe máy',
+                packageName: p.service?.name || 'Rửa xe',
+                slotDate: dateKey,
+                slotTime: p.slotTime,
+                status: p.status?.toUpperCase()
+              };
             }
           }
-          setVisitCount(count);
-          setUpcomingBooking(foundPending);
         }
-
-        if (Array.isArray(vouchers)) {
-          setVouchersCount(vouchers.length);
-        }
-
-        if (Array.isArray(servicesData) && servicesData.length > 0) {
-          const mainPackages = servicesData.filter(s => s.serviceType === 'PACKAGE');
-          const sortedServices = [...mainPackages].sort((a, b) => Number(a.price || 0) - Number(b.price || 0));
-          setRecommendedServices(sortedServices.slice(0, 3).map(s => ({
-            id: s.serviceId || s.id,
-            title: s.serviceName || s.name,
-            price: s.price || 0,
-            description: s.description || 'Dịch vụ chăm sóc xe chuyên nghiệp.',
-            tag: s.tagLabel || s.tag || 'PHỔ BIẾN'
-          })));
-        } else {
-          setRecommendedServices([
-            { id: 1, title: "Rửa xe bọt tuyết Siêu Sạch (Basic)", price: 50000, description: "Rửa sườn, xịt gầm, làm sạch bánh xe và thổi khô gas-đầy đủ.", tag: "PHỔ BIẾN" },
-            { id: 2, title: "Phủ bóng Wax bóng bảo vệ sơn (Premium)", price: 90000, description: "Rửa xe cao cấp kết hợp phủ sáp siêu bóng bảo vệ dàn nhựa xe ga.", tag: "ƯU ĐÃI VIP" },
-            { id: 3, title: "Dọn rửa Chi tiết Côn tay / PKL (Deluxe)", price: 150000, description: "Tẩy ố lazang, vệ sinh sên đĩa xích, dưỡng bóng dàn áo xe phân khối lớn.", tag: "CHUYÊN SÂU" }
-          ]);
-        }
-
-      } catch (err) {
-        console.error("Lỗi đọc dữ liệu dashboard:", err);
-      } finally {
-        setIsLoading(false);
+        setVisitCount(count);
+        setUpcomingBooking(foundPending);
       }
-    };
-    
+
+      if (Array.isArray(vouchers)) {
+        setVouchersCount(vouchers.length);
+      }
+
+      if (Array.isArray(servicesData) && servicesData.length > 0) {
+        const mainPackages = servicesData.filter(s => s.serviceType === 'PACKAGE');
+        const sortedServices = [...mainPackages].sort((a, b) => Number(a.price || 0) - Number(b.price || 0));
+        setRecommendedServices(sortedServices.slice(0, 3).map(s => ({
+          id: s.serviceId || s.id,
+          title: s.serviceName || s.name,
+          price: s.price || 0,
+          description: s.description || 'Dịch vụ chăm sóc xe chuyên nghiệp.',
+          tag: s.tagLabel || s.tag || 'PHỔ BIẾN'
+        })));
+      } else {
+        setRecommendedServices([
+          { id: 1, title: "Rửa xe bọt tuyết Siêu Sạch (Basic)", price: 50000, description: "Rửa sườn, xịt gầm, làm sạch bánh xe và thổi khô gas-đầy đủ.", tag: "PHỔ BIẾN" },
+          { id: 2, title: "Phủ bóng Wax bóng bảo vệ sơn (Premium)", price: 90000, description: "Rửa xe cao cấp kết hợp phủ sáp siêu bóng bảo vệ dàn nhựa xe ga.", tag: "ƯU ĐÃI VIP" },
+          { id: 3, title: "Dọn rửa Chi tiết Côn tay / PKL (Deluxe)", price: 150000, description: "Tẩy ố lazang, vệ sinh sên đĩa xích, dưỡng bóng dàn áo xe phân khối lớn.", tag: "CHUYÊN SÂU" }
+        ]);
+      }
+
+    } catch (err) {
+      console.error("Lỗi đọc dữ liệu dashboard:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
     fetchDashboardData();
+
+    window.addEventListener('loyaltyPointsUpdated', fetchDashboardData);
+    window.addEventListener('focus', fetchDashboardData);
+    return () => {
+      window.removeEventListener('loyaltyPointsUpdated', fetchDashboardData);
+      window.removeEventListener('focus', fetchDashboardData);
+    };
   }, []);
 
   return (

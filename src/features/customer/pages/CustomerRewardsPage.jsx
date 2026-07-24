@@ -127,6 +127,7 @@ export default function CustomerRewardsPage() {
       
       // Tải lại thông tin sau khi đổi thành công
       await loadProfileData();
+      window.dispatchEvent(new Event('loyaltyPointsUpdated'));
     } catch (err) {
       console.error('Failed to redeem gift:', err);
       alert('Đổi quà thất bại: ' + (err.response?.data?.message || err.message));
