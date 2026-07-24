@@ -47,14 +47,7 @@ export default function LoginPage() {
         sessionStorage.setItem('user_roles', JSON.stringify(res.roles || res.user?.roles));
       }
 
-      // Keep localStorage as fallback/compatibility layer
-      localStorage.setItem('autowash_token', res.accessToken);
-      localStorage.setItem('autowash_user', JSON.stringify(res.user || res));
-      localStorage.setItem('token', res.accessToken);
-      localStorage.setItem('role', res.userType || res.user?.userType || 'CUSTOMER');
-      if (res.roles || res.user?.roles) {
-        localStorage.setItem('user_roles', JSON.stringify(res.roles || res.user?.roles));
-      }
+      
       
       if (res.redirectUrl) {
         navigate(res.redirectUrl, { replace: true });

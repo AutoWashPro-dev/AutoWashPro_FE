@@ -11,7 +11,7 @@ const api = axios.create({
 // Thêm interceptor để tự động gắn Bearer Token nếu có trong sessionStorage
 api.interceptors.request.use(
   (config) => {
-    const token = sessionStorage.getItem('autowash_token') || localStorage.getItem('autowash_token');
+    const token = sessionStorage.getItem('autowash_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -31,13 +31,6 @@ api.interceptors.response.use(
       sessionStorage.removeItem('role');
       sessionStorage.removeItem('user_roles');
       sessionStorage.removeItem('accessToken');
-
-      localStorage.removeItem('autowash_token');
-      localStorage.removeItem('autowash_user');
-      localStorage.removeItem('token');
-      localStorage.removeItem('role');
-      localStorage.removeItem('user_roles');
-      localStorage.removeItem('accessToken');
       sessionStorage.clear();
       window.dispatchEvent(new Event('auth_logout'));
       window.location.href = '/login';
@@ -189,7 +182,7 @@ export const authApi = {
       return response.data;
     } catch (error) {
       console.warn('Backend API getProfile error or offline, falling back to mock:', error.message);
-      const userStr = localStorage.getItem('autowash_user');
+      const userStr = sessionStorage.getItem('autowash_user');
       if (userStr) return JSON.parse(userStr);
       return {
         customerId: 15,
