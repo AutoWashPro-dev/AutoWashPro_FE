@@ -23,6 +23,7 @@ import RegisterPage from '../../features/auth/pages/RegisterPage';
 import VerifyEmailPage from '../../features/auth/pages/VerifyEmailPage';
 import ForgotPasswordPage from '../../features/auth/pages/ForgotPasswordPage';
 import ResetPasswordPage from '../../features/auth/pages/ResetPasswordPage';
+import HomePage from '../../features/public/pages/HomePage';
 
 // Placeholder layouts/routes for empty structure requirement
 const PublicLayout = () => <div className="p-4">Public UI</div>;
@@ -99,7 +100,7 @@ const AdminRoute = ({ children }) => {
 const router = createBrowserRouter([
   {
     path: '/',
-    element: <Navigate to="/login" replace />,
+    element: <HomePage />,
   },
   {
     path: '/login',

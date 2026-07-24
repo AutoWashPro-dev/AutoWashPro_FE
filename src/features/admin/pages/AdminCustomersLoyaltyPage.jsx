@@ -93,6 +93,13 @@ export default function AdminCustomersLoyaltyPage() {
   // 2. STATES WITH LOCALSTORAGE FOR E2E SYNCHRONIZATION
   const [customers, setCustomers] = useState([]);
   const [campaigns, setCampaigns] = useState([]);
+  const [alertConfig, setAlertConfig] = useState({
+    isOpen: false,
+    type: 'warning', // 'warning' | 'error' | 'success' | 'info'
+    title: '',
+    message: '',
+    details: null
+  });
   const [feedbacks, setFeedbacks] = useState([]);
   const [selectedCustBookings, setSelectedCustBookings] = useState([]);
   const [selectedCustVouchers, setSelectedCustVouchers] = useState([]);
@@ -358,8 +365,13 @@ export default function AdminCustomersLoyaltyPage() {
   // Action: Launch campaign / voucher rule
   const handleLaunchCampaign = async (e) => {
     e.preventDefault();
-    if (!campaignForm.code.trim() || !campaignForm.name.trim()) {
-      alert('Vui lòng nhập đầy đủ Mã và Tên voucher!');
+    if (!campaignForm.code.trim() || !campaignForm.name.trim() || !campaignForm.value.toString().trim()) {
+      setAlertConfig({
+        isOpen: true,
+        type: 'error',
+        title: "Thiếu Thông tin Bắt buộc",
+        message: "Vui lòng điền đầy đủ Mã Voucher, Tên chiến dịch và Giá trị giảm trước khi phát hành."
+      });
       return;
     }
 
@@ -367,14 +379,24 @@ export default function AdminCustomersLoyaltyPage() {
     if (campaignForm.discountType === 'cash') {
       const val = Number(campaignForm.value);
       if (!val || val <= 0) {
-        alert('Vui lòng nhập giá trị giảm giá tiền mặt lớn hơn 0đ!');
+        setAlertConfig({
+          isOpen: true,
+          type: 'error',
+          title: "Thiếu Thông tin Bắt buộc",
+          message: "Vui lòng nhập giá trị giảm giá tiền mặt lớn hơn 0đ!"
+        });
         return;
       }
       const points = Number(campaignForm.costPoints);
       if (points === 0) {
         const minOrder = Number(campaignForm.minOrderValue);
         if (!minOrder || minOrder < val) {
-          alert(`Vì đây là Voucher tiền mặt tặng miễn phí (Điểm = 0), bạn bắt buộc phải nhập "Giá trị đơn hàng tối thiểu" lớn hơn hoặc bằng giá trị giảm (${val.toLocaleString('vi-VN')} đ) để tránh phát sinh hóa đơn 0đ/âm.`);
+          setAlertConfig({
+            isOpen: true,
+            type: 'warning',
+            title: "Ràng buộc Đơn hàng Tối thiểu",
+            message: "Vì đây là Voucher tiền mặt tặng miễn phí (Điểm = 0), bạn bắt buộc phải nhập 'Giá trị đơn hàng tối thiểu' lớn hơn hoặc bằng giá trị giảm (" + Number(val).toLocaleString('vi-VN') + " đ) để tránh phát sinh hóa đơn 0đ/âm."
+          });
           return;
         }
       }
@@ -384,12 +406,22 @@ export default function AdminCustomersLoyaltyPage() {
     if (campaignForm.discountType === 'percent') {
       const val = Number(campaignForm.value);
       if (!val || val <= 0 || val > 100) {
-        alert('Giá trị giảm phần trăm phải nằm trong khoảng từ 1% đến 100%!');
+        setAlertConfig({
+          isOpen: true,
+          type: 'error',
+          title: "Thông tin không hợp lệ",
+          message: "Giá trị giảm phần trăm phải nằm trong khoảng từ 1% đến 100%!"
+        });
         return;
       }
       const maxDiscount = Number(campaignForm.maxDiscountAmount);
       if (!maxDiscount || maxDiscount <= 0) {
-        alert('Chiết khấu phần trăm bắt buộc phải nhập "Mức giảm tối đa (Trần giảm)" để bảo vệ doanh thu!');
+        setAlertConfig({
+          isOpen: true,
+          type: 'error',
+          title: "Yêu cầu Mức giảm Tối đa",
+          message: "Chiết khấu phần trăm bắt buộc phải nhập 'Mức giảm tối đa (Trần giảm)' để bảo vệ doanh thu!"
+        });
         return;
       }
     }
@@ -397,7 +429,12 @@ export default function AdminCustomersLoyaltyPage() {
     // 3. Ràng buộc đối với kiểu Rửa miễn phí (Giảm 100%) (free_wash)
     if (campaignForm.discountType === 'free_wash') {
       if (!campaignForm.applicableServiceCode) {
-        alert('Chiết khấu rửa miễn phí (Giảm 100%) bắt buộc phải chọn "Gói dịch vụ chính áp dụng" cụ thể!');
+        setAlertConfig({
+          isOpen: true,
+          type: 'error',
+          title: "Yêu cầu Gói dịch vụ",
+          message: "Chiết khấu rửa miễn phí (Giảm 100%) bắt buộc phải chọn 'Gói dịch vụ chính áp dụng' cụ thể!"
+        });
         return;
       }
     }
@@ -434,16 +471,12 @@ export default function AdminCustomersLoyaltyPage() {
     };
 
     try {
-      // 1. Tạo chiến dịch ở Backend
       const createdPromo = await promotionApi.createPromotion(newCampaignData);
 
-      // Tải lại danh sách promotions từ API
       await loadPromotionsFromApi();
       await loadPromotionKpi();
 
-      // 2. Nếu là Campaign Marketing (Cost Points = 0), phát hành trực tiếp
       if (pointsRequired === 0) {
-        // Fetch target count and customers dynamically
         const targetList = customers.filter(c => {
           const customerLevel = tierLevels[c.tier] ?? 0;
           const targetLevel = tierLevels[campaignForm.minTier] ?? 0;
@@ -461,36 +494,23 @@ export default function AdminCustomersLoyaltyPage() {
             });
           }
         }
-
-        alert(`Đã phát hành chiến dịch Voucher tiếp thị ${campaignForm.code}!\nVoucher đã bay trực tiếp vào ví của ${targetList.length} khách hàng thỏa mãn điều kiện ở Backend.`);
-      } else {
-        alert(`Đã khởi tạo quy định đổi điểm cho Voucher ${campaignForm.code}!\nVoucher trị giá ${discountLabel} (cần ${pointsRequired} Pts) đã xuất hiện tại Shop quy đổi.`);
       }
 
-      // Reset Form
-      setCampaignForm({
-        code: '',
-        name: '',
-        description: '',
-        discountType: 'cash',
-        value: '',
-        costPoints: '0',
-        minTier: 'Member',
-        minRecencyDays: '0',
-        totalBudget: '100',
-        maxClaimPerUser: '1',
-        startDate: new Date().toISOString().split('T')[0],
-        endDate: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString().split('T')[0],
-        applicableServiceCode: '',
-        applicableDays: [],
-        maxDiscountAmount: '',
-        minOrderValue: ''
+      setAlertConfig({
+        isOpen: true,
+        type: 'success',
+        title: "Tạo Chiến dịch Thành công!",
+        message: "Voucher " + campaignForm.code.toUpperCase() + " đã được kích hoạt và phát hành thành công trên hệ thống."
       });
-      setIsCreateModalOpen(false);
 
     } catch (err) {
       console.error('Failed to create promotion campaign:', err);
-      alert('Đã xảy ra lỗi khi tạo chiến dịch khuyến mãi: ' + (err.response?.data?.message || err.message));
+      setAlertConfig({
+        isOpen: true,
+        type: 'error',
+        title: "Lỗi Tạo Chiến dịch",
+        message: 'Đã xảy ra lỗi khi tạo chiến dịch khuyến mãi: ' + (err.response?.data?.message || err.message)
+      });
     }
   };
 
@@ -1935,6 +1955,79 @@ export default function AdminCustomersLoyaltyPage() {
               </div>
 
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* CUSTOM NOTIFICATION ALERT DIALOG */}
+      {alertConfig.isOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl max-w-sm w-full shadow-2xl p-6 flex flex-col items-center text-center space-y-4 border border-slate-100 animate-in fade-in zoom-in-95 duration-150">
+            {alertConfig.type === 'warning' && (
+              <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center">
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                </svg>
+              </div>
+            )}
+            {alertConfig.type === 'error' && (
+              <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center">
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+              </div>
+            )}
+            {alertConfig.type === 'success' && (
+              <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center">
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7"></path>
+                </svg>
+              </div>
+            )}
+            {alertConfig.type === 'info' && (
+              <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center">
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+              </div>
+            )}
+            
+            <div className="space-y-1">
+              <h3 className="text-base font-black text-slate-800 font-outfit">{alertConfig.title}</h3>
+              <p className="text-xs text-slate-500 font-medium leading-relaxed">
+                {alertConfig.message}
+              </p>
+            </div>
+            
+            <button
+              onClick={() => {
+                setAlertConfig(prev => ({ ...prev, isOpen: false }));
+                if (alertConfig.type === 'success') {
+                  setIsCreateModalOpen(false);
+                  setCampaignForm({
+                    code: '',
+                    name: '',
+                    description: '',
+                    discountType: 'cash',
+                    value: '',
+                    costPoints: '0',
+                    minTier: 'Member',
+                    minRecencyDays: '0',
+                    totalBudget: '100',
+                    maxClaimPerUser: '1',
+                    startDate: new Date().toISOString().split('T')[0],
+                    endDate: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString().split('T')[0],
+                    applicableServiceCode: '',
+                    applicableDays: [],
+                    maxDiscountAmount: '',
+                    minOrderValue: ''
+                  });
+                }
+              }}
+              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg px-6 py-2.5 font-bold text-xs transition-colors cursor-pointer"
+            >
+              Xác nhận
+            </button>
           </div>
         </div>
       )}

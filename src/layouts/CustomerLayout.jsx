@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
+import NavBrandLogo from '../components/NavBrandLogo';
 import { 
   LayoutDashboard, 
   Calendar, 
@@ -123,13 +124,7 @@ export default function CustomerLayout() {
       <aside className="hidden lg:flex flex-col w-[280px] bg-white border-r border-slate-200 shrink-0 h-full">
         {/* Logo trạm */}
         <div className="p-6 border-b border-slate-100 flex items-center gap-3">
-          <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-md shadow-blue-200">
-            A
-          </div>
-          <div>
-            <h1 className="font-bold text-slate-800 text-base leading-tight">AutoWash Pro</h1>
-            <span className="text-[10px] text-slate-400 font-semibold tracking-wider uppercase">Cổng Khách Hàng</span>
-          </div>
+          <NavBrandLogo subtitle="Cổng Khách Hàng" />
         </div>
 
         {/* Khối Profile người dùng thu nhỏ */}
