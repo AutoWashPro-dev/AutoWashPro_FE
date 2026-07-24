@@ -28,10 +28,16 @@ export default function CustomerLayout() {
     const fetchData = async () => {
       try {
         const [profileData, notifsData] = await Promise.all([
-          customerApi.getProfile(),
+          customerApi.getCustomerProfile(),
           customerApi.getNotifications()
         ]);
-        setCustomer(profileData);
+        setCustomer({
+          ...profileData,
+          fullName: profileData.fullName,
+          loyaltyPoints: profileData.loyaltyPoints,
+          tierName: profileData.tierName,
+          tier: { tierName: profileData.tierName }
+        });
         setNotifications(notifsData);
       } catch (err) {
         console.error("Failed to fetch layout data:", err);
@@ -44,8 +50,14 @@ export default function CustomerLayout() {
 
     const fetchFreshProfile = async () => {
       try {
-        const profileData = await customerApi.getProfile();
-        setCustomer(profileData);
+        const profileData = await customerApi.getCustomerProfile();
+        setCustomer({
+          ...profileData,
+          fullName: profileData.fullName,
+          loyaltyPoints: profileData.loyaltyPoints,
+          tierName: profileData.tierName,
+          tier: { tierName: profileData.tierName }
+        });
       } catch (err) {
         console.error("Failed to fetch fresh profile in layout:", err);
       }
@@ -60,12 +72,12 @@ export default function CustomerLayout() {
     };
 
     window.addEventListener('storage', handleStorage);
-    window.addEventListener('loyaltyPointsUpdated', fetchFreshProfile);
+    window.addEventListener('profileUpdated', fetchFreshProfile);
     window.addEventListener('focus', fetchFreshProfile);
     
     return () => {
       window.removeEventListener('storage', handleStorage);
-      window.removeEventListener('loyaltyPointsUpdated', fetchFreshProfile);
+      window.removeEventListener('profileUpdated', fetchFreshProfile);
       window.removeEventListener('focus', fetchFreshProfile);
     };
   }, [location.pathname]);
@@ -209,9 +221,12 @@ export default function CustomerLayout() {
           <h2 className="font-bold text-slate-800 text-lg">{getPageTitle()}</h2>
           <div className="flex items-center gap-4 relative">
             {/* Điểm thưởng hiển thị nhanh trên Header máy tính */}
-            <div className="hidden lg:flex items-center gap-1.5 bg-blue-50 text-blue-700 px-3 py-1.5 rounded-xl text-xs font-bold border border-blue-100">
-              <Gift size={14} />
-              <span>{isLoading || !customer ? 'N/A' : (customer.loyaltyPoints ?? 'N/A')} Pts</span>
+            <div className="hidden lg:flex items-center gap-1.5 bg-slate-900 text-white px-3 py-1.5 rounded-xl text-xs font-bold border border-slate-700">
+              <Gift size={14} className="text-blue-500 animate-pulse" />
+              <span className="text-base font-black text-white font-mono">
+                {(customer?.loyaltyPoints ?? 0).toLocaleString('vi-VN')}{' '}
+                <span className="text-xs font-bold text-slate-400">Pts</span>
+              </span>
             </div>
             
             {/* Chuông thông báo */}

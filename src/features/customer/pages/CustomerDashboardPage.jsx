@@ -38,7 +38,7 @@ export default function CustomerDashboardPage() {
   const fetchDashboardData = async () => {
     try {
       const [profile, bookings, vouchers, servicesData] = await Promise.all([
-        customerApi.getProfile(),
+        customerApi.getCustomerProfile(),
         customerApi.getMyBookings(),
         customerApi.getMyVouchers(null, 'ISSUED'),
         customerApi.getActiveServices()
@@ -47,10 +47,12 @@ export default function CustomerDashboardPage() {
       // Add minimal defaults if profile is missing some fields
       const customerData = {
         ...profile,
+        fullName: profile.fullName || 'Nguyễn Minh Anh',
+        loyaltyPoints: profile.loyaltyPoints || 0,
+        tierName: profile.tierName || 'MEMBER',
         tierSpending: profile.tierSpending || 0,
         lifetimeSpend: profile.lifetimeSpend || 0,
-        loyaltyPoints: profile.loyaltyPoints || 0,
-        tier: profile.tier || { tierId: 1, tierName: profile.tierName || 'MEMBER' }
+        tier: { tierId: 1, tierName: profile.tierName || 'MEMBER' }
       };
       setCustomer(customerData);
 
@@ -135,10 +137,10 @@ export default function CustomerDashboardPage() {
   React.useEffect(() => {
     fetchDashboardData();
 
-    window.addEventListener('loyaltyPointsUpdated', fetchDashboardData);
+    window.addEventListener('profileUpdated', fetchDashboardData);
     window.addEventListener('focus', fetchDashboardData);
     return () => {
-      window.removeEventListener('loyaltyPointsUpdated', fetchDashboardData);
+      window.removeEventListener('profileUpdated', fetchDashboardData);
       window.removeEventListener('focus', fetchDashboardData);
     };
   }, []);
