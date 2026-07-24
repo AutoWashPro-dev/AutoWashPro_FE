@@ -17,7 +17,6 @@ import {
   Check, 
   Sparkles,
   ArrowLeft,
-  QrCode,
   Layers,
   Activity,
   MapPin,
@@ -235,9 +234,6 @@ export default function AdminBookingsPage() {
   const [queueSubFilter, setQueueSubFilter] = useState('ALL_QUEUE'); // 'ALL_QUEUE', 'Pending', 'Paid'
   const [historySubFilter, setHistorySubFilter] = useState('ALL_HISTORY'); // 'ALL_HISTORY', 'Completed', 'Canceled'
   const [selectedTimeFilter, setSelectedTimeFilter] = useState('');
-  const [qrCodeModalBooking, setQrCodeModalBooking] = useState(null);
-  const [momoQrUrl, setMomoQrUrl] = useState(null);
-  const [momoActiveBookingId, setMomoActiveBookingId] = useState(null);
   const [adminAlert, setAdminAlert] = useState({
     isOpen: false,
     type: 'info', // 'success' | 'warning' | 'error' | 'info'
@@ -1479,13 +1475,6 @@ const allBookingsMapped = getAllBookings().map(b => {
                           <td className="py-3 px-3 font-black text-slate-800">
                             <div className="flex items-center gap-1">
                               <span>{b.id}</span>
-                              <button 
-                                onClick={(e) => { e.stopPropagation(); setQrCodeModalBooking(b); }}
-                                className="p-1 hover:bg-slate-100 rounded text-indigo-650"
-                                title="Xem mã QR quét check-in"
-                              >
-                                <QrCode className="w-3.5 h-3.5" />
-                              </button>
                             </div>
                           </td>
                           <td className="py-3 px-2">
@@ -2072,86 +2061,6 @@ const allBookingsMapped = getAllBookings().map(b => {
 
               </div>
 
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* QR MODAL */}
-      {qrCodeModalBooking && (
-        <div className="fixed inset-0 bg-black/55 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-sm w-full text-center space-y-4 shadow-2xl relative">
-            <h3 className="font-extrabold text-slate-800">Quét mã check-in</h3>
-            <p className="text-xs text-slate-400">Dùng thiết bị quét mã QR của khách để check-in.</p>
-            <div className="w-48 h-48 bg-slate-105 border border-slate-200 rounded-xl mx-auto flex items-center justify-center relative overflow-hidden">
-              <QrCode className="w-36 h-36 text-slate-800" />
-              <div className="absolute inset-0 border-2 border-indigo-650/30 animate-pulse rounded-xl" />
-            </div>
-            <div className="text-xs font-mono font-black text-indigo-700 bg-indigo-50 py-1.5 px-3 rounded-lg inline-block">
-              {qrCodeModalBooking.id} • {qrCodeModalBooking.vehicle.plate}
-            </div>
-            <button onClick={() => setQrCodeModalBooking(null)} className="w-full bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold py-2.5 rounded-xl cursor-pointer">Đóng</button>
-          </div>
-        </div>
-      )}
-
-      {/* MOMO QR MODAL */}
-      {momoQrUrl && (
-        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl p-8 max-w-sm w-full border border-slate-100 shadow-2xl flex flex-col items-center text-center space-y-6">
-            <div className="w-16 h-16 bg-pink-100 rounded-2xl flex items-center justify-center">
-              <QrCode className="w-8 h-8 text-pink-600" />
-            </div>
-            <div>
-              <h3 className="text-xl font-black text-slate-800 tracking-tight font-outfit">Thanh toán qua MoMo</h3>
-              <p className="text-xs font-semibold text-slate-400 mt-1">Yêu cầu khách hàng quét mã QR dưới đây</p>
-            </div>
-            
-            <div className="border-4 border-pink-50 p-2.5 rounded-2xl bg-white shadow-inner animate-fade-in">
-              <img 
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(momoQrUrl)}`} 
-                alt="MoMo QR Code" 
-                className="w-48 h-48 rounded-lg"
-              />
-            </div>
-
-            <div className="w-full space-y-2.5">
-              <button 
-                onClick={async () => {
-                  try {
-                    await bookingAdminApi.updateStatus(momoActiveBookingId, 'Completed');
-                    setAdminAlert({
-                      isOpen: true,
-                      type: 'success',
-                      title: 'Xác Nhận Thanh Toán Thành Công',
-                      message: 'Đã xác nhận thanh toán thành công qua MoMo QR!'
-                    });
-                  } catch (err) {
-                    setAdminAlert({
-                      isOpen: true,
-                      type: 'error',
-                      title: 'Lỗi Cập Nhật Trạng Thái',
-                      message: 'Không thể cập nhật trạng thái thanh toán MoMo: ' + err.message
-                    });
-                  }
-                  setMomoQrUrl(null);
-                  setMomoActiveBookingId(null);
-                  setSelectedDate(selectedDate);
-                  setViewMode('list');
-                }}
-                className="w-full py-2.5 bg-pink-650 hover:bg-pink-700 active:scale-[0.98] text-white font-black text-xs rounded-xl shadow-lg shadow-pink-500/20 transition-all font-outfit"
-              >
-                Xác nhận Đã Thanh toán
-              </button>
-              <button 
-                onClick={() => {
-                  setMomoQrUrl(null);
-                  setMomoActiveBookingId(null);
-                }}
-                className="w-full py-2 bg-slate-100 hover:bg-slate-200 active:scale-[0.98] text-slate-500 font-bold text-xs rounded-xl transition-all"
-              >
-                Hủy giao dịch
-              </button>
             </div>
           </div>
         </div>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Gift, Award, Wallet, ArrowRight, CheckCircle2, AlertCircle, Crown, Sparkles, Clock, Lock, Coins, QrCode, Tag } from 'lucide-react';
+import { Gift, Award, Wallet, ArrowRight, CheckCircle2, AlertCircle, Crown, Sparkles, Clock, Lock, Coins, Tag } from 'lucide-react';
 import { customerApi } from '../services/customerApi';
 
 export default function CustomerRewardsPage() {
@@ -12,7 +12,6 @@ export default function CustomerRewardsPage() {
     customerId: 1
   });
   const [activeTab, setActiveTab] = useState('shop'); // 'shop' hoặc 'wallet'
-  const [isQrOpen, setIsQrOpen] = useState(false);
   const [selectedVoucherCode, setSelectedVoucherCode] = useState('');
   const [selectedVoucherTitle, setSelectedVoucherTitle] = useState('');
 
@@ -582,7 +581,7 @@ export default function CustomerRewardsPage() {
           <div className="absolute bottom-0 right-0 w-3 h-3 bg-slate-50 rounded-tl-full pointer-events-none"></div>
           
           <div className="bg-white/15 p-2 rounded-full border border-white/20 mb-1.5">
-            <QrCode className="w-5 h-5 text-white" />
+            <Wallet className="w-5 h-5 text-white" />
           </div>
           <span className="text-[10px] uppercase font-extrabold text-white/80 tracking-widest">SỞ HỮU</span>
           {(() => {

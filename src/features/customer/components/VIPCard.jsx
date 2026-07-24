@@ -1,7 +1,6 @@
 import React from 'react';
-import { QrCode } from 'lucide-react';
 
-export default function VIPCard({ customer, onShowQr }) {
+export default function VIPCard({ customer }) {
   // Cấu hình màu sắc thẻ động theo hạng VIP
   const getTierStyles = (tierName) => {
     switch (tierName?.toUpperCase()) {

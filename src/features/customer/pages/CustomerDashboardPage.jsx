@@ -13,12 +13,10 @@ import {
 } from 'lucide-react';
 import VIPCard from '../components/VIPCard';
 import TierProgressBar from '../components/TierProgressBar';
-import QRModal from '../components/QRModal';
 import { customerApi } from '../services/customerApi';
 
 export default function CustomerDashboardPage() {
   const navigate = useNavigate();
-  const [isQrOpen, setIsQrOpen] = useState(false);
 
   // Mẫu danh sách các hạng VIP lấy từ Database Config để tính tiến trình thăng hạng
   const tiers = [
@@ -229,12 +227,6 @@ export default function CustomerDashboardPage() {
                 
                 <div className="flex gap-2 w-full md:w-auto">
                   <button 
-                    onClick={() => setIsQrOpen(true)}
-                    className="flex-1 md:flex-none px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-sm"
-                  >
-                    Xem mã QR
-                  </button>
-                  <button 
                     onClick={() => alert("Yêu cầu hủy lịch đã gửi. Vui lòng chờ đối soát.")}
                     className="flex-1 md:flex-none px-4 py-2 bg-white border border-slate-200 text-slate-500 hover:bg-slate-50 rounded-lg text-xs font-bold"
                   >
@@ -308,17 +300,7 @@ export default function CustomerDashboardPage() {
               </button>
             </div>
           ))}
-        </div>
       </div>
-
-      {/* POPUP MODAL PHÓNG TO QR CODE CHECK-IN */}
-      <QRModal 
-        isOpen={isQrOpen} 
-        onClose={() => setIsQrOpen(false)} 
-        title="Mã QR Check-in của bạn"
-        qrValue="CUS-SARAH-GOLD-98"
-        description="Đưa mã QR này cho thu ngân tại quầy quét để nhận diện hạng VIP và thực hiện dọn xe."
-      />
 
     </div>
   );
