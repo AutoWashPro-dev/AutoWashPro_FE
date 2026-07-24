@@ -300,6 +300,7 @@ export default function CustomerDashboardPage() {
               </button>
             </div>
           ))}
+        </div>
       </div>
 
     </div>
