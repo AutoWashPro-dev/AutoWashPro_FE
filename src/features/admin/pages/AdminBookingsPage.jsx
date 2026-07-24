@@ -1746,12 +1746,6 @@ const allBookingsMapped = getAllBookings().map(b => {
                           </p>
                           
                           <div className="flex items-center gap-4 text-xs font-bold text-slate-600 mt-2.5">
-                            <span className="text-amber-605 flex items-center gap-0.5 bg-amber-50 border border-amber-100/65 px-2.5 py-1 rounded-lg">
-                              <Coins className="w-4 h-4 text-amber-500" /> Ví hiện tại: {(customerDetail?.loyaltyPoints !== undefined ? customerDetail.loyaltyPoints : points)} Pts
-                            </span>
-                            <span className="text-indigo-650">
-                              Trị giá quy đổi: {(customerDetail?.loyaltyPoints !== undefined ? customerDetail.loyaltyPoints * 1000 : pointsVal).toLocaleString('vi-VN')} d
-                            </span>
                           </div>
                         </div>
                       </div>

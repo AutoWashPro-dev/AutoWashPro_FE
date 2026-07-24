@@ -341,6 +341,12 @@ export const customerApi = {
     return res.data;
   },
 
+  // Delete vehicle
+  deleteVehicle: async (vehicleId) => {
+    const res = await api.delete(`/customer/vehicles/${vehicleId}`);
+    return res.data;
+  },
+
   // Get customer's points ledger / transaction history
   getMyPointHistory: async () => {
     try {

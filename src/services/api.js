@@ -10,7 +10,7 @@ const api = axios.create({
 
 api.interceptors.request.use(
   (config) => {
-    const token = sessionStorage.getItem('autowash_token');
+    const token = sessionStorage.getItem('autowash_token') || localStorage.getItem('autowash_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -33,6 +33,13 @@ api.interceptors.response.use(
       sessionStorage.removeItem('role');
       sessionStorage.removeItem('user_roles');
       sessionStorage.removeItem('accessToken');
+
+      localStorage.removeItem('autowash_token');
+      localStorage.removeItem('autowash_user');
+      localStorage.removeItem('token');
+      localStorage.removeItem('role');
+      localStorage.removeItem('user_roles');
+      localStorage.removeItem('accessToken');
       sessionStorage.clear();
 
       // 2. Clear global React Context auth states if applicable by dispatching a custom logout event

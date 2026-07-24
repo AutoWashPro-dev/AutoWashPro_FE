@@ -6,33 +6,41 @@ import { customerApi } from '../services/customerApi';
 export default function CustomerGaragePage() {
   const [vehicles, setVehicles] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [deleteTargetVehicle, setDeleteTargetVehicle] = useState(null);
+  const [garageAlert, setGarageAlert] = useState({ isOpen: false, type: 'success', title: '', message: '' });
+
+  const fetchVehicles = async () => {
+    try {
+      const data = await customerApi.getMyVehicles();
+      if (Array.isArray(data)) {
+        // Enforce strict data fallback logic
+        const mappedVehicles = data.map(v => ({
+          ...v,
+          vehicleId: v.vehicleId || v.id,
+          brand: v.brand || 'N/A',
+          model: v.model || 'N/A',
+          licensePlate: v.licensePlate || v.plate || 'N/A',
+          color: v.color || 'N/A',
+          year: v.year || 'N/A',
+          vehicleType: v.vehicleType || v.type || 'N/A',
+          isDefault: v.isDefault ?? false
+        }));
+        setVehicles(mappedVehicles);
+      }
+    } catch (err) {
+      console.error("Failed to fetch vehicles:", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   React.useEffect(() => {
-    const fetchVehicles = async () => {
-      try {
-        const data = await customerApi.getMyVehicles();
-        if (Array.isArray(data)) {
-          // Enforce strict data fallback logic
-          const mappedVehicles = data.map(v => ({
-            ...v,
-            vehicleId: v.vehicleId || v.id,
-            brand: v.brand || 'N/A',
-            model: v.model || 'N/A',
-            licensePlate: v.licensePlate || v.plate || 'N/A',
-            color: v.color || 'N/A',
-            year: v.year || 'N/A',
-            vehicleType: v.vehicleType || v.type || 'N/A',
-            isDefault: v.isDefault ?? false
-          }));
-          setVehicles(mappedVehicles);
-        }
-      } catch (err) {
-        console.error("Failed to fetch vehicles:", err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
     fetchVehicles();
+  }, []);
+
+  React.useEffect(() => {
+    window.addEventListener('vehicleListUpdated', fetchVehicles);
+    return () => window.removeEventListener('vehicleListUpdated', fetchVehicles);
   }, []);
 
   // States quản lý Form Thêm/Sửa xe máy
@@ -120,14 +128,42 @@ export default function CustomerGaragePage() {
   // Xóa xe máy khỏi ga-ra
   const handleDeleteVehicle = (veh) => {
     if (veh.isDefault && vehicles.length > 1) {
-      alert("Bạn không thể xóa xe mặc định. Vui lòng đặt xe khác làm mặc định trước.");
+      setGarageAlert({
+        isOpen: true,
+        type: 'error',
+        title: 'Không thể xóa',
+        message: 'Bạn không thể xóa xe mặc định. Vui lòng đặt xe khác làm mặc định trước.'
+      });
       return;
     }
+    setDeleteTargetVehicle(veh);
+  };
 
-    const confirmDelete = window.confirm(`Bạn có chắc chắn muốn xóa xe "${veh.model} (${veh.licensePlate})" khỏi Ga-ra không?`);
-    if (!confirmDelete) return;
-
-    setVehicles(vehicles.filter(v => v.vehicleId !== veh.vehicleId));
+  const executeDeleteVehicle = async () => {
+    if (!deleteTargetVehicle) return;
+    const vehicleId = deleteTargetVehicle.vehicleId || deleteTargetVehicle.id;
+    try {
+      await customerApi.deleteVehicle(vehicleId);
+      setVehicles(prev => prev.filter(v => (v.vehicleId || v.id) !== vehicleId));
+      setGarageAlert({
+        isOpen: true,
+        type: 'success',
+        title: 'Xóa thành công',
+        message: 'Đã xóa phương tiện thành công!'
+      });
+      window.dispatchEvent(new Event('vehicleListUpdated'));
+    } catch (err) {
+      console.error(err);
+      const errMsg = err.response?.data?.message || 'Không thể xóa phương tiện đang có lịch hẹn hoạt động.';
+      setGarageAlert({
+        isOpen: true,
+        type: 'error',
+        title: 'Lỗi xóa phương tiện',
+        message: errMsg
+      });
+    } finally {
+      setDeleteTargetVehicle(null);
+    }
   };
 
   // Click nhanh để đổi xe mặc định
@@ -298,6 +334,63 @@ export default function CustomerGaragePage() {
               </div>
 
             </form>
+          </div>
+        </div>
+      )}
+      {/* CONFIRM DELETE MODAL */}
+      {deleteTargetVehicle && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl p-6 space-y-4 text-center">
+            <h3 className="font-extrabold text-slate-800 text-lg">Xác nhận xóa phương tiện</h3>
+            <p className="text-xs text-slate-500 leading-relaxed font-medium">
+              Bạn có chắc chắn muốn xóa phương tiện <strong className="text-slate-850 font-black">{deleteTargetVehicle.model} ({deleteTargetVehicle.licensePlate})</strong> khỏi danh sách garage của bạn? Hành động này không thể hoàn tác.
+            </p>
+            <div className="flex gap-2 justify-center pt-2">
+              <button
+                type="button"
+                onClick={() => setDeleteTargetVehicle(null)}
+                className="px-4 py-2 border border-slate-200 hover:bg-slate-50 rounded-xl text-xs font-bold text-slate-500 cursor-pointer"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                onClick={executeDeleteVehicle}
+                className="px-5 py-2 bg-red-650 hover:bg-red-700 text-white rounded-xl text-xs font-bold shadow-sm cursor-pointer"
+              >
+                Xác nhận xóa
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CUSTOM ALERT DIALOG */}
+      {garageAlert.isOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl p-6 space-y-4 text-center">
+            <div className="flex justify-center">
+              {garageAlert.type === 'success' ? (
+                <div className="w-12 h-12 bg-emerald-50 text-emerald-600 border border-emerald-200 rounded-full flex items-center justify-center">
+                  <ShieldCheck size={24} />
+                </div>
+              ) : (
+                <div className="w-12 h-12 bg-red-50 text-red-600 border border-red-200 rounded-full flex items-center justify-center">
+                  <AlertCircle size={24} />
+                </div>
+              )}
+            </div>
+            <h3 className="font-extrabold text-slate-800 text-base">{garageAlert.title}</h3>
+            <p className="text-xs text-slate-500 leading-relaxed font-medium">{garageAlert.message}</p>
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => setGarageAlert({ isOpen: false, type: 'success', title: '', message: '' })}
+                className="w-full py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl cursor-pointer"
+              >
+                Đóng
+              </button>
+            </div>
           </div>
         </div>
       )}

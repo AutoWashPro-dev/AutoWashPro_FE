@@ -65,6 +65,7 @@ export default function CustomerBookingPage() {
   const [selectedVoucher, setSelectedVoucher] = useState(null);
   const [selectedTimeSlotId, setSelectedTimeSlotId] = useState(null);
   const [slotRefreshTrigger, setSlotRefreshTrigger] = useState(0);
+  const [deleteTargetVehicle, setDeleteTargetVehicle] = useState(null);
 
   const isSlotInPast = (slotDateStr, slotTimeStr) => {
     if (!slotDateStr || !slotTimeStr) return false;
@@ -109,17 +110,22 @@ export default function CustomerBookingPage() {
     message: ''
   });
 
+  const selectedVehicleRef = React.useRef(selectedVehicle);
+  React.useEffect(() => {
+    selectedVehicleRef.current = selectedVehicle;
+  }, [selectedVehicle]);
+
   const loadUserProfile = async () => {
     try {
       const [profileData, vehiclesData] = await Promise.all([
-        customerApi.getProfile(),
+        customerApi.getCustomerProfile(),
         customerApi.getMyVehicles()
       ]);
       setCustomerProfile(profileData);
       if (profileData && profileData.bookingWindowDays) {
         setBookingWindowDays(profileData.bookingWindowDays);
       }
-      if (Array.isArray(vehiclesData) && vehiclesData.length > 0) {
+      if (Array.isArray(vehiclesData)) {
         const mappedVehicles = vehiclesData.map(v => ({
           ...v,
           vehicleId: v.vehicleId || v.id,
@@ -129,13 +135,27 @@ export default function CustomerBookingPage() {
           isDefault: v.isDefault ?? false
         }));
         setVehicles(mappedVehicles);
-        const defaultVeh = mappedVehicles.find(v => v.isDefault) || mappedVehicles[0];
-        setSelectedVehicle(defaultVeh);
+        
+        const currentSel = selectedVehicleRef.current;
+        if (currentSel) {
+          const stillExists = mappedVehicles.some(v => v.vehicleId === currentSel.vehicleId);
+          if (!stillExists) {
+            setSelectedVehicle(null);
+          }
+        } else if (mappedVehicles.length > 0) {
+          const defaultVeh = mappedVehicles.find(v => v.isDefault) || mappedVehicles[0];
+          setSelectedVehicle(defaultVeh);
+        }
       }
     } catch (err) {
       console.error('Failed to load user profile:', err);
     }
   };
+
+  React.useEffect(() => {
+    window.addEventListener('vehicleListUpdated', loadUserProfile);
+    return () => window.removeEventListener('vehicleListUpdated', loadUserProfile);
+  }, []);
 
   const loadCustomerVouchers = async () => {
     try {
@@ -414,6 +434,49 @@ export default function CustomerBookingPage() {
     }
   };
 
+  const handleDeleteVehicle = (veh) => {
+    if (veh.isDefault && vehicles.length > 1) {
+      setVehicleAlert({
+        isOpen: true,
+        type: 'error',
+        title: 'Không thể xóa',
+        message: 'Bạn không thể xóa xe mặc định. Vui lòng đặt xe khác làm mặc định trước.'
+      });
+      return;
+    }
+    setDeleteTargetVehicle(veh);
+  };
+
+  const executeDeleteVehicle = async () => {
+    if (!deleteTargetVehicle) return;
+    const vehicleId = deleteTargetVehicle.vehicleId || deleteTargetVehicle.id;
+    try {
+      await customerApi.deleteVehicle(vehicleId);
+      setVehicles(prev => prev.filter(v => (v.vehicleId || v.id) !== vehicleId));
+      if (selectedVehicle && (selectedVehicle.vehicleId === vehicleId || selectedVehicle.id === vehicleId)) {
+        setSelectedVehicle(null);
+      }
+      setVehicleAlert({
+        isOpen: true,
+        type: 'success',
+        title: 'Xóa thành công',
+        message: 'Đã xóa phương tiện thành công!'
+      });
+      window.dispatchEvent(new Event('vehicleListUpdated'));
+    } catch (err) {
+      console.error(err);
+      const errMsg = err.response?.data?.message || 'Không thể xóa phương tiện đang có lịch hẹn hoạt động.';
+      setVehicleAlert({
+        isOpen: true,
+        type: 'error',
+        title: 'Lỗi xóa phương tiện',
+        message: errMsg
+      });
+    } finally {
+      setDeleteTargetVehicle(null);
+    }
+  };
+
   const handleSaveVehicle = async (e) => {
     e.preventDefault();
 
@@ -641,7 +704,7 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
                       isSelectable={true}
                       onSelect={(v) => setSelectedVehicle(v)}
                       onEdit={() => openEditVehicleModal(veh)}
-                      onDelete={() => {}}
+                      onDelete={() => handleDeleteVehicle(veh)}
                       onSetDefault={handleSetDefaultVehicle}
                     />
                   ))}
@@ -1118,6 +1181,33 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
             >
               Đồng ý
             </button>
+          </div>
+        </div>
+      )}
+      {/* CONFIRM DELETE MODAL */}
+      {deleteTargetVehicle && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl p-6 space-y-4 text-center">
+            <h3 className="font-extrabold text-slate-800 text-lg">Xác nhận xóa phương tiện</h3>
+            <p className="text-xs text-slate-500 leading-relaxed font-medium">
+              Bạn có chắc chắn muốn xóa phương tiện <strong className="text-slate-850 font-black">{deleteTargetVehicle.model} ({deleteTargetVehicle.licensePlate})</strong> khỏi danh sách garage của bạn? Hành động này không thể hoàn tác.
+            </p>
+            <div className="flex gap-2 justify-center pt-2">
+              <button
+                type="button"
+                onClick={() => setDeleteTargetVehicle(null)}
+                className="px-4 py-2 border border-slate-200 hover:bg-slate-50 rounded-xl text-xs font-bold text-slate-500 cursor-pointer"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                onClick={executeDeleteVehicle}
+                className="px-5 py-2 bg-red-650 hover:bg-red-700 text-white rounded-xl text-xs font-bold shadow-sm cursor-pointer"
+              >
+                Xác nhận xóa
+              </button>
+            </div>
           </div>
         </div>
       )}
