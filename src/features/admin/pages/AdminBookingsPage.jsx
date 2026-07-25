@@ -929,18 +929,14 @@ const allBookingsMapped = getAllBookings().map(b => {
     // Check overlapping slot
     const overlapping = dayBookings.find(b => 
       b.custId === walkInCustomerId && 
-      ['Pending', 'Confirmed', 'In_progress', 'Completed'].includes(b.status) &&
+      ['Pending', 'Confirmed', 'Paid', 'In_progress', 'Completed', 'Checked_in'].some(st => st.toLowerCase() === (b.status || '').toLowerCase()) &&
       b.slotTime === walkInSlotTime
     );
     
     if (overlapping) {
-      const endTimeHour = parseInt(walkInSlotTime.split(':')[0]) + 1;
-      const endTimeFormatted = `${String(endTimeHour).padStart(2, '0')}:${walkInSlotTime.split(':')[1]}`;
-      const timeRangeStr = `${walkInSlotTime} - ${endTimeFormatted}`;
-      
       setWalkInErrorModal({
         isOpen: true,
-        message: `Khách hàng này đã có đơn đặt ở khung giờ ${timeRangeStr} ngày ${walkInDate}. Không thể tạo thêm đơn trùng khung giờ!`
+        message: "Khách hàng đã có đơn hàng (Trạng thái: Đã thanh toán/Xác nhận) trong khung giờ này. Không thể tạo thêm đơn trùng!"
       });
       return;
     }

@@ -237,7 +237,7 @@ export default function CustomerBookingPage() {
           customerApi.getMyBookings()
         ]);
         const activeBookings = (bookings || []).filter(b => 
-          ['PENDING', 'CONFIRMED', 'IN_PROGRESS'].includes(b.status)
+          ['PENDING', 'CONFIRMED', 'PAID', 'IN_PROGRESS', 'CHECKED_IN', 'COMPLETED'].includes(b.status)
         );
         const mapped = slots.map(s => {
           const timeFormatted = s.startTime ? s.startTime.substring(0, 5) : "";
@@ -876,7 +876,7 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
                                 isOpen: true,
                                 type: 'warning',
                                 title: 'Khung giờ đã đặt',
-                                message: 'Bạn đã có đơn đặt rửa xe ở khung giờ này. Vui lòng chọn khung giờ khác.'
+                                message: 'Bạn đã có đơn hàng (đã thanh toán/xác nhận) trong khung giờ này. Mỗi khách hàng chỉ được đặt 1 lượt/khung giờ.'
                               });
                               return;
                             }
@@ -889,7 +889,7 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
                             isPast 
                               ? 'opacity-40 bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed pointer-events-none'
                               : isOverlap
-                                ? 'bg-orange-50 text-orange-500 border-orange-200 cursor-pointer'
+                                ? 'bg-orange-50 text-orange-500 border-orange-200 cursor-pointer opacity-70'
                                 : selectedTime === slot.time
                                   ? 'bg-blue-600 text-white border-blue-600'
                                   : isFull
@@ -908,7 +908,7 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
                             </span>
                           ) : isOverlap ? (
                             <span className="text-[8px] font-extrabold uppercase mt-0.5 text-orange-650">
-                              Bạn đã đặt khung này
+                              Đã đặt & Thanh toán
                             </span>
                           ) : null}
                         </button>
