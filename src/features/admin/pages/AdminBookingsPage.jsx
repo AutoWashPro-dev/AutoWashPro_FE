@@ -899,6 +899,100 @@ const allBookingsMapped = getAllBookings().map(b => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [slotPerformanceData, setSlotPerformanceData] = useState([]);
 
+  // Walk-In Booking Creation States
+  const [showWalkInModal, setShowWalkInModal] = useState(false);
+  const [walkInCustomerId, setWalkInCustomerId] = useState('C-01');
+  const [walkInDate, setWalkInDate] = useState(selectedDate || new Date().toISOString().split('T')[0]);
+  const [walkInSlotId, setWalkInSlotId] = useState(1);
+  const [walkInSlotTime, setWalkInSlotTime] = useState('07:30');
+  const [walkInService, setWalkInService] = useState('Basic Wash');
+  const [walkInPrice, setWalkInPrice] = useState(70000);
+  const [walkInVehiclePlate, setWalkInVehiclePlate] = useState('29-D1 555.55');
+  const [walkInVehicleModel, setWalkInVehicleModel] = useState('Yamaha Grande');
+  const [walkInErrorModal, setWalkInErrorModal] = useState({ isOpen: false, message: '' });
+
+  // Update Walk-In Date dynamically if selectedDate changes
+  useEffect(() => {
+    if (selectedDate) {
+      setWalkInDate(selectedDate);
+    }
+  }, [selectedDate]);
+
+  const handleCreateWalkIn = async (e) => {
+    e.preventDefault();
+    
+    // Check locally in localStorage
+    const savedBookings = JSON.parse(localStorage.getItem('autowash_bookings') || '{}');
+    const dayBookings = savedBookings[walkInDate] || [];
+    
+    // Check overlapping slot
+    const overlapping = dayBookings.find(b => 
+      b.custId === walkInCustomerId && 
+      ['Pending', 'Confirmed', 'In_progress', 'Completed'].includes(b.status) &&
+      b.slotTime === walkInSlotTime
+    );
+    
+    if (overlapping) {
+      const endTimeHour = parseInt(walkInSlotTime.split(':')[0]) + 1;
+      const endTimeFormatted = `${String(endTimeHour).padStart(2, '0')}:${walkInSlotTime.split(':')[1]}`;
+      const timeRangeStr = `${walkInSlotTime} - ${endTimeFormatted}`;
+      
+      setWalkInErrorModal({
+        isOpen: true,
+        message: `Khách hàng này đã có đơn đặt ở khung giờ ${timeRangeStr} ngày ${walkInDate}. Không thể tạo thêm đơn trùng khung giờ!`
+      });
+      return;
+    }
+    
+    try {
+      const payload = {
+        customerId: walkInCustomerId,
+        bookingDate: walkInDate,
+        timeSlotId: walkInSlotId,
+        serviceName: walkInService,
+        price: walkInPrice,
+        licensePlate: walkInVehiclePlate,
+        model: walkInVehicleModel
+      };
+      
+      await bookingAdminApi.createWalkInBooking(payload);
+      
+      const newId = `AW-${Date.now().toString().slice(-4)}`;
+      const newBookingObj = {
+        id: newId,
+        slotTime: walkInSlotTime,
+        custId: walkInCustomerId,
+        vehicle: { type: 'Xe máy', model: walkInVehicleModel, plate: walkInVehiclePlate },
+        service: { name: walkInService, price: walkInPrice },
+        status: 'Pending',
+        createdTime: 'Hôm nay, vừa xong via POS Admin Walk-in',
+        paymentMethod: null,
+        pointsRedeemed: 0,
+        discount: 0,
+        finalAmount: walkInPrice,
+        estimatedDuration: 30,
+        source: 'POS',
+        paymentStatus: 'UNPAID',
+        bookingDate: walkInDate
+      };
+      
+      const nextBookings = { ...savedBookings };
+      if (!nextBookings[walkInDate]) {
+        nextBookings[walkInDate] = [];
+      }
+      nextBookings[walkInDate].push(newBookingObj);
+      localStorage.setItem('autowash_bookings', JSON.stringify(nextBookings));
+      
+      setRefreshTrigger(prev => prev + 1);
+      setShowWalkInModal(false);
+      
+      alert('Tạo đơn đặt Walk-in thành công!');
+    } catch (err) {
+      console.error(err);
+      alert(err.message || 'Lỗi khi tạo đơn đặt lịch.');
+    }
+  };
+
   // Load dynamic rates from Settings
   const baseSpendToEarnPoint = loyaltySettings.baseSpend || 10000;
   const basePointsToEarn = loyaltySettings.basePoints || 1;
@@ -1329,9 +1423,16 @@ const allBookingsMapped = getAllBookings().map(b => {
               </div>
               <button
                 onClick={handleNextDate}
-                className="p-1.5 hover:bg-slate-100 rounded-lg border border-slate-200 text-slate-650 transition-colors cursor-pointer"
+                className="p-1.5 hover:bg-slate-100 rounded-lg border border-slate-200 text-slate-650 transition-colors cursor-pointer mr-2"
               >
                 <ChevronRight className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => setShowWalkInModal(true)}
+                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-black shadow-sm flex items-center gap-1 transition-all cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Tạo đơn Walk-in</span>
               </button>
             </div>
             
@@ -2165,6 +2266,152 @@ const allBookingsMapped = getAllBookings().map(b => {
     </div>
   </div>
 </div>
+      )}
+
+      {/* WALK-IN CREATION MODAL */}
+      {showWalkInModal && (
+        <div className="fixed inset-0 bg-black/55 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden border border-slate-100 p-6 space-y-4">
+            <div className="flex justify-between items-center border-b pb-3">
+              <h3 className="text-base font-black text-slate-800 font-outfit">Tạo đơn đặt Walk-in (POS)</h3>
+              <button onClick={() => setShowWalkInModal(false)} className="text-slate-400 hover:text-slate-600 cursor-pointer">
+                <AlertTriangle className="w-5 h-5 rotate-180" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleCreateWalkIn} className="space-y-3.5">
+              <div>
+                <label className="block text-[10px] font-bold text-slate-450 uppercase mb-1">Khách hàng</label>
+                <select
+                  value={walkInCustomerId}
+                  onChange={e => setWalkInCustomerId(e.target.value)}
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 focus:outline-none focus:border-indigo-500"
+                >
+                  {JSON.parse(localStorage.getItem('autowash_customers') || '[]').map(c => (
+                    <option key={c.id} value={c.id}>{c.name} ({c.phone})</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-450 uppercase mb-1">Ngày đặt</label>
+                  <input
+                    type="date"
+                    value={walkInDate}
+                    onChange={e => setWalkInDate(e.target.value)}
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 focus:outline-none focus:border-indigo-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-450 uppercase mb-1">Khung giờ</label>
+                  <select
+                    value={walkInSlotTime}
+                    onChange={e => {
+                      const mapping = {
+                        '07:30': 1, '08:30': 2, '09:30': 3, '10:30': 4,
+                        '13:00': 5, '14:00': 6, '15:00': 7, '16:00': 8
+                      };
+                      setWalkInSlotTime(e.target.value);
+                      setWalkInSlotId(mapping[e.target.value] || 1);
+                    }}
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 focus:outline-none focus:border-indigo-500"
+                  >
+                    <option value="07:30">07:30 - 08:30</option>
+                    <option value="08:30">08:30 - 09:30</option>
+                    <option value="09:30">09:30 - 10:30</option>
+                    <option value="10:30">10:30 - 11:30</option>
+                    <option value="13:00">13:00 - 14:00</option>
+                    <option value="14:00">14:00 - 15:00</option>
+                    <option value="15:00">15:00 - 16:00</option>
+                    <option value="16:00">16:00 - 17:00</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-450 uppercase mb-1">Biển số xe</label>
+                  <input
+                    type="text"
+                    value={walkInVehiclePlate}
+                    onChange={e => setWalkInVehiclePlate(e.target.value.toUpperCase())}
+                    placeholder="29-D1 555.55"
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 focus:outline-none focus:border-indigo-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-slate-450 uppercase mb-1">Dòng xe</label>
+                  <input
+                    type="text"
+                    value={walkInVehicleModel}
+                    onChange={e => setWalkInVehicleModel(e.target.value)}
+                    placeholder="Yamaha Grande"
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 focus:outline-none focus:border-indigo-500"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold text-slate-450 uppercase mb-1">Dịch vụ</label>
+                <select
+                  value={walkInService}
+                  onChange={e => {
+                    const priceMap = { 'Basic Wash': 70000, 'Premium Wash + Wax': 150000, 'Engine Clean': 200000, 'Full Detail': 450000 };
+                    setWalkInService(e.target.value);
+                    setWalkInPrice(priceMap[e.target.value] || 70000);
+                  }}
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 focus:outline-none focus:border-indigo-500"
+                >
+                  <option value="Basic Wash">Basic Wash (70.000 đ)</option>
+                  <option value="Premium Wash + Wax">Premium Wash + Wax (150.000 đ)</option>
+                  <option value="Engine Clean">Engine Clean (200.000 đ)</option>
+                  <option value="Full Detail">Full Detail (450.000 đ)</option>
+                </select>
+              </div>
+
+              <div className="flex gap-2 pt-4 justify-end border-t">
+                <button
+                  type="button"
+                  onClick={() => setShowWalkInModal(false)}
+                  className="px-4 py-2 border border-slate-200 rounded-xl text-xs font-bold text-slate-500 hover:bg-slate-50 cursor-pointer"
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-sm cursor-pointer"
+                >
+                  Xác nhận tạo đơn
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* WALK-IN ERROR CONFLICT MODAL */}
+      {walkInErrorModal.isOpen && (
+        <div className="fixed inset-0 bg-black/55 backdrop-blur-sm flex items-center justify-center z-[100] p-4">
+          <div className="bg-white rounded-3xl max-w-sm w-full shadow-2xl p-6 flex flex-col items-center text-center space-y-4">
+            <div className="w-14 h-14 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center">
+              <AlertTriangle className="w-7 h-7" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-base font-black text-slate-800 font-outfit">Lỗi Trùng Lịch Đặt</h3>
+              <p className="text-xs text-slate-500 leading-relaxed font-medium">{walkInErrorModal.message}</p>
+            </div>
+            <button
+              onClick={() => setWalkInErrorModal({ isOpen: false, message: '' })}
+              className="w-full py-3 bg-slate-900 hover:bg-slate-800 active:scale-[0.98] text-white text-xs font-bold rounded-xl transition-all cursor-pointer font-outfit"
+            >
+              Đóng
+            </button>
+          </div>
+        </div>
       )}
 
       {adminAlert.isOpen && (

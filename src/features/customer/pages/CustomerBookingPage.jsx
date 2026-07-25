@@ -232,18 +232,29 @@ export default function CustomerBookingPage() {
     }
     const fetchSlots = async () => {
       try {
-        const slots = await customerApi.getAvailableSlots(selectedDate);
+        const [slots, bookings] = await Promise.all([
+          customerApi.getAvailableSlots(selectedDate),
+          customerApi.getMyBookings()
+        ]);
+        const activeBookings = (bookings || []).filter(b => 
+          ['PENDING', 'CONFIRMED', 'IN_PROGRESS'].includes(b.status)
+        );
         const mapped = slots.map(s => {
           const timeFormatted = s.startTime ? s.startTime.substring(0, 5) : "";
           const isPast = s.disabledReason === "PAST_TIME" || (s.startTime ? isSlotInPast(selectedDate, s.startTime) : false);
+          const isOverlap = activeBookings.some(b => 
+            String(b.bookingDate) === selectedDate && 
+            (b.startTime?.substring(0, 5) === s.startTime?.substring(0, 5))
+          );
           return {
             slotId: s.slotId,
             time: timeFormatted,
-            available: isPast ? false : s.isAvailable,
+            available: (isPast || isOverlap) ? false : s.isAvailable,
             bookedCount: s.bookedCount ?? 0,
             maxCapacity: s.maxCapacity ?? 0,
             availableCapacity: s.availableCapacity ?? 0,
             isPast: isPast,
+            isOverlap: isOverlap,
             startTime: s.startTime,
             reason: isPast ? "ĐÃ QUA" : (s.disabledReason === "FULL" ? "ĐẦY" : s.disabledReason ? "T.DỪNG" : "")
           };
@@ -851,6 +862,7 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
                     {timeSlots.map(slot => {
                       const isPast = slot.isPast === true;
                       const isFull = slot.bookedCount >= slot.maxCapacity || slot.availableCapacity <= 0;
+                      const isOverlap = slot.isOverlap === true;
                       const isDisabled = isPast || isFull;
 
                       return (
@@ -859,6 +871,15 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
                           type="button"
                           disabled={isDisabled}
                           onClick={() => {
+                            if (isOverlap) {
+                              setVehicleAlert({
+                                isOpen: true,
+                                type: 'warning',
+                                title: 'Khung giờ đã đặt',
+                                message: 'Bạn đã có đơn đặt rửa xe ở khung giờ này. Vui lòng chọn khung giờ khác.'
+                              });
+                              return;
+                            }
                             if (!isDisabled) {
                               setSelectedTime(slot.time);
                               setSelectedTimeSlotId(slot.slotId);
@@ -867,11 +888,13 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
                           className={`py-2 px-1 text-[11px] font-bold rounded-xl border transition-all flex flex-col items-center justify-center min-h-[50px] ${
                             isPast 
                               ? 'opacity-40 bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed pointer-events-none'
-                              : selectedTime === slot.time
-                                ? 'bg-blue-600 text-white border-blue-600'
-                                : isFull
-                                  ? 'bg-slate-100 text-slate-300 border-slate-150 cursor-not-allowed'
-                                  : 'bg-white text-slate-700 border-slate-200 hover:border-blue-500 hover:text-blue-600'
+                              : isOverlap
+                                ? 'bg-orange-50 text-orange-500 border-orange-200 cursor-pointer'
+                                : selectedTime === slot.time
+                                  ? 'bg-blue-600 text-white border-blue-600'
+                                  : isFull
+                                    ? 'bg-slate-100 text-slate-300 border-slate-150 cursor-not-allowed'
+                                    : 'bg-white text-slate-700 border-slate-200 hover:border-blue-500 hover:text-blue-600'
                           }`}
                         >
                           <span>{slot.time}</span>
@@ -882,6 +905,10 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
                           ) : isFull ? (
                             <span className="text-[8px] font-extrabold uppercase mt-0.5 text-red-500">
                               ĐẦY
+                            </span>
+                          ) : isOverlap ? (
+                            <span className="text-[8px] font-extrabold uppercase mt-0.5 text-orange-650">
+                              Bạn đã đặt khung này
                             </span>
                           ) : null}
                         </button>
