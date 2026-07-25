@@ -23,7 +23,8 @@ import {
   ChevronRight,
   ChevronLeft,
   History,
-  ClipboardList
+  ClipboardList,
+  Plus
 } from 'lucide-react';
 import { useParams } from 'react-router-dom';
 import { bookingAdminApi } from '../services/bookingAdminApi';
