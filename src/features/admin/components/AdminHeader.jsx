@@ -151,16 +151,6 @@ export default function AdminHeader() {
           )}
         </div>
 
-        {/* User avatar dropdown */}
-        <div className="flex items-center gap-2 p-1.5 bg-slate-50 hover:bg-slate-100 border border-slate-200/60 rounded-full pr-3.5 cursor-pointer shadow-sm transition-colors">
-          <img 
-            src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=100" 
-            alt="Avatar" 
-            className="w-7 h-7 rounded-full object-cover"
-          />
-          <span className="text-xs font-bold text-slate-700">Admin User</span>
-          <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-        </div>
       </div>
     </header>
   );

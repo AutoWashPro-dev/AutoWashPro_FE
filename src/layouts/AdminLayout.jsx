@@ -39,11 +39,22 @@ export default function AdminLayout() {
     const roles = getRoles();
     const isAdmin = roles.includes('ROLE_ADMIN');
     const isManager = roles.includes('ROLE_MANAGER');
-    const isCashier = roles.includes('ROLE_CASHIER');
-    const isFallbackCashier = !isAdmin && !isManager;
+    const isCashier = roles.includes('ROLE_CASHIER') || (!isAdmin && !isManager);
 
-    if (isCashier || isFallbackCashier) {
-      if (location.pathname.startsWith('/admin') && location.pathname !== '/admin/bookings') {
+    if (isCashier) {
+      const allowedPaths = [
+        '/admin/bookings',
+        '/admin/services-slots',
+        '/admin/services',
+        '/admin/customers-loyalty',
+        '/admin/customers',
+        '/admin/promotions',
+        '/admin/feedbacks'
+      ];
+      // Normalize location path (lowercase and strip trailing slash)
+      const currentPath = location.pathname.replace(/\/$/, '').toLowerCase();
+      const isAllowed = allowedPaths.some(p => p.toLowerCase() === currentPath);
+      if (location.pathname.startsWith('/admin') && !isAllowed) {
         navigate('/admin/bookings', { replace: true });
       }
     } else if (isManager) {

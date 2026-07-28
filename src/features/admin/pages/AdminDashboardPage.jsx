@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   Banknote, 
   Calendar, 
@@ -36,6 +37,37 @@ const createAreaPath = (pts, bottomY = 1000) => {
 };
 
 const AdminDashboardPage = () => {
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const getRoles = () => {
+      try {
+        const userRolesRaw = localStorage.getItem('user_roles');
+        if (userRolesRaw) {
+          const parsed = JSON.parse(userRolesRaw);
+          if (Array.isArray(parsed)) return parsed;
+          if (typeof parsed === 'string') return [parsed];
+        }
+      } catch (e) {}
+      try {
+        const autowashUserRaw = localStorage.getItem('autowash_user');
+        if (autowashUserRaw) {
+          const user = JSON.parse(autowashUserRaw);
+          const roles = user.roles || user.user?.roles || user.user_roles;
+          if (Array.isArray(roles)) return roles;
+          if (typeof roles === 'string') return [roles];
+        }
+      } catch (e) {}
+      return [];
+    };
+
+    const roles = getRoles();
+    const isCashier = roles.includes('ROLE_CASHIER') || (!roles.includes('ROLE_ADMIN') && !roles.includes('ROLE_MANAGER'));
+    if (isCashier) {
+      navigate('/admin/bookings', { replace: true });
+    }
+  }, [navigate]);
+
   const [period, setPeriod] = useState('today'); // 'today', 'week', 'month', 'year'
   const [liveData, setLiveData] = useState(null);
   const [loading, setLoading] = useState(false);

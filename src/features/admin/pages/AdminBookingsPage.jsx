@@ -60,7 +60,7 @@ export default function AdminBookingsPage() {
     // Customers CRM Database
     if (!localStorage.getItem('autowash_customers')) {
       localStorage.setItem('autowash_customers', JSON.stringify([
-        { id: 'C-01', name: 'Nguyễn Minh Anh', phone: '0912***456', tier: 'VIP', points: 1240, totalSpend: 15400000, visits: 24, avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=100', lastVisitDays: 5, status: 'Active' },
+        { id: 'C-01', name: 'Nguyễn Minh Anh', phone: '0912***456', tier: 'Platinum', points: 1240, totalSpend: 15400000, visits: 24, avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=100', lastVisitDays: 5, status: 'Active' },
         { id: 'C-02', name: 'Lê Hoàng Long', phone: '0903***888', tier: 'Silver', points: 320, totalSpend: 3800000, visits: 8, avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=100', lastVisitDays: 14, status: 'Active' },
         { id: 'C-03', name: 'Hoàng Linh', phone: '0977***444', tier: 'Gold', points: 750, totalSpend: 8200000, visits: 14, avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=100', lastVisitDays: 8, status: 'Active' },
         { id: 'C-04', name: 'Trần Đức Bo', phone: '0988***123', tier: 'Member', points: 80, totalSpend: 950000, visits: 2, avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=100', lastVisitDays: 45, status: 'Active' },
@@ -333,6 +333,35 @@ export default function AdminBookingsPage() {
     isCurrentRequest = false;
   };
 }, [selectedDate, searchQuery, refreshTrigger]);
+
+  // Helper to resolve Tailwind badge classes for customer tiers
+  const getTierBadgeStyle = (tier) => {
+    const t = String(tier || '').toUpperCase();
+    if (t.includes('PLATINUM') || t === 'VIP') {
+      return 'bg-purple-100 text-purple-800 border-purple-200/50';
+    }
+    if (t.includes('GOLD')) {
+      return 'bg-amber-100 text-amber-800 border-amber-200/50';
+    }
+    if (t.includes('SILVER')) {
+      return 'bg-blue-100 text-blue-800 border-blue-200/50';
+    }
+    return 'bg-slate-100 text-slate-600 border-slate-200/50'; // MEMBER
+  };
+
+  useEffect(() => {
+    const fetchCustomers = async () => {
+      try {
+        const list = await loyaltyApi.getCustomers();
+        if (list && Array.isArray(list)) {
+          setCustomersDb(list);
+        }
+      } catch (err) {
+        console.warn('Failed to fetch customers in Bookings page:', err);
+      }
+    };
+    fetchCustomers();
+  }, [selectedDate, refreshTrigger]);
 
   useEffect(() => {
     const fetchSlotPerformance = async () => {
@@ -812,9 +841,27 @@ const getAllBookings = () => {
     const custObj = b.customer || {};
     const custName = b.customerName || custObj.fullName || custObj.name || 'Khách hàng vãng lai';
     const custPhone = b.customerPhone || custObj.phoneNumber || custObj.phone || '';
-    const rawTier = b.customerTier || (typeof custObj.tier === 'object' ? custObj.tier?.tierName : custObj.tier) || 'Member';
+
+    // Build a quick lookup map inside getAllBookings
+    const customerMap = {};
+    customersDb.forEach(c => {
+      if (c.customerId) customerMap[String(c.customerId)] = c;
+      if (c.id) customerMap[String(c.id).toUpperCase()] = c;
+    });
+
+    const lookupId = b.customerId || b.custId || custObj.customerId || custObj.id || '';
+    const matchedCustomer = customerMap[String(lookupId).toUpperCase()] || customerMap[String(lookupId)] || {};
+
+    const rawTier = b.customerTier || 
+                    b.customer?.tierDisplayName || 
+                    b.customer?.tierName || 
+                    (typeof custObj.tier === 'object' ? custObj.tier?.tierName : custObj.tier) || 
+                    matchedCustomer.tierDisplayName ||
+                    matchedCustomer.tierName || 
+                    matchedCustomer.tier || 
+                    'Member';
     const custTier = String(rawTier).toUpperCase();
-    const custAvatar = custObj.avatarUrl || custObj.avatar || (`https://api.dicebear.com/7.x/avataaars/svg?seed=${custPhone || 'guest'}`);
+    const custAvatar = custObj.avatarUrl || custObj.avatar || matchedCustomer.avatar || (`https://api.dicebear.com/7.x/avataaars/svg?seed=${custPhone || 'guest'}`);
     const amount = Number(b.finalAmount ?? b.totalEstimatedAmount ?? (b.service?.price || 0));
 
     const normalizedBooking = {
@@ -826,7 +873,7 @@ const getAllBookings = () => {
         name: custName,
         phone: custPhone,
         tier: custTier,
-        points: custObj.loyaltyPoints !== undefined ? custObj.loyaltyPoints : (b.customerPoints || 0),
+        points: custObj.loyaltyPoints !== undefined ? custObj.loyaltyPoints : (b.customerPoints || matchedCustomer.points || 0),
         avatar: custAvatar
       },
       vehicle: {
@@ -861,7 +908,10 @@ const getAllBookings = () => {
 
 // Giữ nguyên đoạn này để đồng bộ map với CRM Local của bạn
 const allBookingsMapped = getAllBookings().map(b => {
-  const customer = customersDb.find(c => String(c.id) === String(b.custId)) || {
+  const customer = customersDb.find(c => 
+    (c.id && String(c.id).toUpperCase() === String(b.custId || b.customerId || '').toUpperCase()) || 
+    (c.customerId && String(c.customerId) === String(b.custId || b.customerId || ''))
+  ) || {
     name: b.customer.name,
     phone: b.customer.phone,
     tier: b.customer.tier,
@@ -875,7 +925,7 @@ const allBookingsMapped = getAllBookings().map(b => {
       ...customer, 
       name: b.customer.name,
       phone: b.customer.phone,
-      tier: b.customer.tier || customer.tier || 'Member',
+      tier: b.customer.tier || customer.tierName || customer.tier || 'Member',
       points: b.customer.points !== undefined ? b.customer.points : (customer.points || 0),
       avatar: b.customer.avatar || customer.avatar,
       displayPhone: b.customer.phone || customer.phone || ''
@@ -1424,13 +1474,6 @@ const allBookingsMapped = getAllBookings().map(b => {
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
-              <button
-                onClick={() => setShowWalkInModal(true)}
-                className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[11px] font-black shadow-sm flex items-center gap-1 transition-all cursor-pointer"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>Tạo đơn Walk-in</span>
-              </button>
             </div>
             
             {/* Date selector */}
@@ -1587,16 +1630,11 @@ const allBookingsMapped = getAllBookings().map(b => {
                           </td>
                           <td className="py-3 px-2">
                             <div className="flex items-center gap-1.5">
-                              <img 
-                                src={b.customer?.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=guest'} 
-                                alt="Avatar" 
-                                className="w-6.5 h-6.5 rounded-full object-cover ring-1 ring-slate-200" 
-                              />
                               <div className="flex flex-col">
                                 <span className="font-extrabold text-slate-800 flex items-center gap-1">
                                   {b.customer?.name || b.customerName || 'Khách hàng vãng lai'}
-                                  <span className="px-1 py-0.2 bg-[#57f287] text-slate-800 text-[7px] font-black rounded uppercase">
-                                    {b.customer?.tier || 'Member'}
+                                  <span className={`px-1.5 py-0.5 text-[8.5px] font-black rounded uppercase border ${getTierBadgeStyle(b.customer?.tier)}`}>
+                                    {b.customer?.tier || 'MEMBER'}
                                   </span>
                                 </span>
                                 <span className="text-[9px] text-slate-400 font-semibold">
@@ -1813,31 +1851,21 @@ const allBookingsMapped = getAllBookings().map(b => {
                     const fullName = customerDetail?.fullName || bookingDetail?.customerName || displayCustomer?.fullName || displayCustomer?.name || 'Khách lẻ';
                     const phoneNumber = customerDetail?.phoneNumber || bookingDetail?.customerPhone || displayCustomer?.phoneNumber || displayCustomer?.phone || '';
                     const tierName = customerDetail?.tierName || bookingDetail?.customerTier || displayCustomer?.tier || 'N/A';
-                    const isSilverOrMember = ['member', 'hang member', 'silver', 'silver member', 'regular', 'n/a'].includes(String(tierName).toLowerCase());
                     const points = customerDetail?.loyaltyPoints !== undefined ? customerDetail.loyaltyPoints : (displayCustomer?.points ?? 0);
                     const pointsVal = customerDetail?.loyaltyPoints !== undefined ? customerDetail.loyaltyPoints * 1000 : 0;
 
                     return (
                       <div className="flex items-start gap-4">
-                        <img 
-                          src={displayCustomer?.avatarUrl || displayCustomer?.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=guest'} 
-                          alt="Customer" 
-                          className="w-14 h-14 rounded-full object-cover ring-2 ring-indigo-50" 
-                        />
                         <div className="flex-1 space-y-1 text-left">
                           <div className="flex items-center gap-2">
                             <span className="font-extrabold text-base text-slate-800">
                               {fullName}
                             </span>
-                            <span 
-                              className={`px-2.5 py-0.5 text-[10px] font-black rounded-lg ${
-                                isSilverOrMember
-                                  ? 'bg-emerald-100 text-emerald-800'
-                                  : 'bg-[#57f287] text-slate-800'
-                              }`}
-                            >
-                              {customerDetail?.tierName || tierName}
-                            </span>
+                             <span 
+                               className={`px-2.5 py-0.5 text-[10px] font-black rounded-lg border uppercase ${getTierBadgeStyle(customerDetail?.tierName || tierName)}`}
+                             >
+                               {customerDetail?.tierName || tierName}
+                             </span>
                           </div>
                           <p className="text-xs text-slate-500 font-semibold">
                             Số điện thoại: {phoneNumber}

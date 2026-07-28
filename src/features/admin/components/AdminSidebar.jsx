@@ -95,8 +95,14 @@ export default function AdminSidebar() {
       { to: '/admin/services-slots', label: 'Services & Slots', icon: Wrench },
       { to: '/admin/customers-loyalty', label: 'Customers', icon: UsersRound }
     );
+  } else if (roles.includes('ROLE_CASHIER')) {
+    filteredMenuItems.push(
+      { to: '/admin/bookings', label: 'Bookings & Slots', icon: Calendar },
+      { to: '/admin/services-slots', label: 'Services & Slots', icon: Wrench },
+      { to: '/admin/customers-loyalty', label: 'Customers', icon: UsersRound }
+    );
   } else {
-    // CASHIER or Fallback immediately to the strictest CASHIER configuration
+    // Fallback immediately to the strictest configuration
     filteredMenuItems.push(
       { to: '/admin/bookings', label: 'Bookings & Slots', icon: Calendar }
     );

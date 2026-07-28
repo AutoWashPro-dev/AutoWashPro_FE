@@ -24,7 +24,7 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     const status = error.response ? error.response.status : null;
-    if (status === 401 || status === 403) {
+    if (status === 401) {
       sessionStorage.removeItem('autowash_token');
       sessionStorage.removeItem('autowash_user');
       sessionStorage.removeItem('token');

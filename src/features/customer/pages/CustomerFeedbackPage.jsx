@@ -20,10 +20,13 @@ export default function CustomerFeedbackPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isFeedbackSuccessModalOpen, setIsFeedbackSuccessModalOpen] = useState(false);
 
-  // Clear existing error/success alerts when changing selection or upon initial page load
+  // Clear existing error/success alerts and reset form when changing selection
   useEffect(() => {
     setErrorMessage('');
     setSuccessMessage('');
+    // Reset form state when switching booking selection
+    setRating(5);
+    setComment('');
   }, [selectedBookingId]);
 
   const fetchCompletedBookings = async () => {
@@ -40,19 +43,23 @@ export default function CustomerFeedbackPage() {
       // 2. Fetch existing feedbacks to perform unreviewed filtering
       const feedbacksData = await customerApi.getMyFeedbacks();
       
-      // Build a set of already reviewed booking codes.
-      // Since bookingId field in feedback represents the bookingCode string (e.g. "NV-XXXX"), 
-      // we check both f.bookingId and f.bookingCode.
-      const reviewedBookingCodes = new Set();
+      // Build a comprehensive set of already reviewed booking identifiers.
+      // Include both bookingCode (string, e.g. "NV-1002") and numeric bookingId/id
+      // to guarantee no already-reviewed booking slips through.
+      const reviewedCodes = new Set();
       feedbacksData.forEach(f => {
-        if (f.bookingId) reviewedBookingCodes.add(String(f.bookingId).trim());
-        if (f.bookingCode) reviewedBookingCodes.add(String(f.bookingCode).trim());
+        if (f.bookingCode) reviewedCodes.add(String(f.bookingCode).trim());
+        if (f.bookingId) reviewedCodes.add(String(f.bookingId).trim());
+        if (f.id) reviewedCodes.add(String(f.id).trim());
       });
 
-      // 3. Filter Rule: keep ONLY bookings not yet reviewed (exclude already reviewed bookingCode)
+      // 3. Filter Rule: keep ONLY bookings not yet reviewed.
+      // Check BOTH bookingCode (string key) AND numeric id against the reviewed set.
       const unreviewed = eligible.filter(b => {
-        const codeMatch = b.bookingCode && reviewedBookingCodes.has(String(b.bookingCode).trim());
-        return !codeMatch;
+        const codeReviewed = b.bookingCode && reviewedCodes.has(String(b.bookingCode).trim());
+        const idReviewed = b.id && reviewedCodes.has(String(b.id).trim());
+        const bookingIdReviewed = b.bookingId && reviewedCodes.has(String(b.bookingId).trim());
+        return !codeReviewed && !idReviewed && !bookingIdReviewed;
       });
 
       const completed = unreviewed.map(b => ({
@@ -73,7 +80,7 @@ export default function CustomerFeedbackPage() {
       
       if (queryBookingCode) {
         // Only select from URL if it hasn't been reviewed yet
-        const isAlreadyReviewed = reviewedBookingCodes.has(String(queryBookingCode).trim());
+        const isAlreadyReviewed = reviewedCodes.has(String(queryBookingCode).trim());
         if (!isAlreadyReviewed) {
           const exists = completed.find(b => b.bookingCode === queryBookingCode);
           if (!exists) {

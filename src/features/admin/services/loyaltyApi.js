@@ -23,7 +23,7 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     const status = error.response ? error.response.status : null;
-    if (status === 401 || status === 403) {
+    if (status === 401) {
       localStorage.removeItem('autowash_token');
       localStorage.removeItem('autowash_user');
       localStorage.removeItem('token');
@@ -151,11 +151,21 @@ export const loyaltyApi = {
    */
   updateCustomerStatus: async (customerId, status) => {
     try {
-      const res = await api.patch(`/admin/customers/${customerId}/status`, { status });
+      const payload = { 
+        status: status, 
+        active: status === 'ACTIVE' || status === 'Active' 
+      };
+      const res = await api.patch(`/admin/customers/${customerId}/status`, payload);
       return res.data;
     } catch (err) {
-      console.error('API updateCustomerStatus failed:', err.message);
-      throw err;
+      console.warn('API updateCustomerStatus failed, trying reactivate PUT endpoint:', err.message);
+      try {
+        const res = await api.put(`/admin/customers/${customerId}/reactivate`, { active: status === 'ACTIVE' || status === 'Active' });
+        return res.data;
+      } catch (err2) {
+        console.error('Reactivation failed:', err2.message);
+        throw err;
+      }
     }
   },
 

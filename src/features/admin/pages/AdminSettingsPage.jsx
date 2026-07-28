@@ -59,6 +59,18 @@ export default function AdminSettingsPage() {
     bookingWindow: ''
   });
 
+  // ── Custom Toast & Confirmation Dialog States ──
+  const [toast, setToast] = useState(null);
+  const [confirmDialog, setConfirmDialog] = useState(null);
+  const [notificationModal, setNotificationModal] = useState(null);
+
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => {
+      setToast(prev => prev?.message === message ? null : prev);
+    }, 4500);
+  };
+
   // Load all configurations & customers from backend
   const loadAllSettings = async () => {
     setIsLoading(true);
@@ -97,18 +109,36 @@ export default function AdminSettingsPage() {
   }, []);
 
   // Save configurations handler
-  const handleSaveConfigs = async () => {
-    setIsLoading(true);
-    try {
-      await loyaltyApi.updateLoyaltyConfig(loyaltySettings);
-      alert('Đã lưu cấu hình Loyalty Engine Strategy và cập nhật giá trị toàn hệ thống thành công!');
-      await loadAllSettings();
-    } catch (err) {
-      console.error('Failed to save config:', err);
-      alert('Lỗi khi lưu cấu hình: ' + err.message);
-    } finally {
-      setIsLoading(false);
-    }
+  const handleSaveConfigs = () => {
+    setConfirmDialog({
+      title: 'Xác nhận lưu cấu hình hệ thống',
+      confirmLabel: 'Xác nhận lưu',
+      cancelLabel: 'Hủy bỏ',
+      summary: [
+        { label: 'Điểm cơ bản', value: `${loyaltySettings.basePoints} điểm / ${Number(loyaltySettings.basePointRate).toLocaleString('vi-VN')} đ` },
+        { label: 'Hiệu lực điểm', value: `${loyaltySettings.pointValidityMonths} tháng` },
+        { label: 'Vắng mặt hạ hạng', value: `${loyaltySettings.inactivityDowngradeMonths} tháng` },
+        { label: 'Vắng mặt khóa TK', value: `${loyaltySettings.inactivityLockoutMonths} tháng` }
+      ],
+      onConfirm: async () => {
+        setIsLoading(true);
+        try {
+          await loyaltyApi.updateLoyaltyConfig(loyaltySettings);
+          showToast('Đã lưu cấu hình Loyalty Engine Strategy thành công!');
+          setNotificationModal({
+            title: 'Cập nhật cấu hình thành công!',
+            content: 'Cấu hình Loyalty Engine Strategy đã được cập nhật và áp dụng toàn hệ thống thành công.',
+            type: 'success'
+          });
+          await loadAllSettings();
+        } catch (err) {
+          console.error('Failed to save config:', err);
+          showToast('Lỗi khi lưu cấu hình: ' + err.message, 'error');
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    });
   };
 
   // Open edit tier modal
@@ -122,79 +152,147 @@ export default function AdminSettingsPage() {
   };
 
   // Save tier edit
-  const handleSaveTierEdit = async (e) => {
+  const handleSaveTierEdit = (e) => {
     e.preventDefault();
-    setIsLoading(true);
-    try {
-      const tierId = editingTier.tierId || editingTier.id;
-      await loyaltyApi.updateTierConfig(tierId, {
-        ...editingTier,
-        minSpend: Number(editTierForm.minSpend),
-        pointMultiplier: Number(editTierForm.pointMultiplier),
-        bookingWindow: Number(editTierForm.bookingWindow)
-      });
-      setEditingTier(null);
-      alert(`Đã cập nhật quy định cho hạng ${editingTier.key} thành công!`);
-      await loadAllSettings();
-    } catch (err) {
-      console.error('Failed to update tier:', err);
-      alert('Lỗi cập nhật hạng thành viên: ' + err.message);
-    } finally {
-      setIsLoading(false);
-    }
+    setConfirmDialog({
+      title: `Xác nhận cập nhật hạng ${editingTier.key}`,
+      confirmLabel: 'Xác nhận lưu',
+      cancelLabel: 'Hủy bỏ',
+      summary: [
+        { label: 'Hạng thành viên', value: editingTier.key },
+        { label: 'Chi tiêu tối thiểu', value: `${Number(editTierForm.minSpend).toLocaleString('vi-VN')} đ` },
+        { label: 'Hệ số nhân điểm', value: `x${editTierForm.pointMultiplier}` },
+        { label: 'Cửa sổ đặt lịch', value: `${editTierForm.bookingWindow} ngày` }
+      ],
+      onConfirm: async () => {
+        setIsLoading(true);
+        try {
+          const tierId = editingTier.tierId || editingTier.id;
+          await loyaltyApi.updateTierConfig(tierId, {
+            ...editingTier,
+            minSpend: Number(editTierForm.minSpend),
+            pointMultiplier: Number(editTierForm.pointMultiplier),
+            bookingWindow: Number(editTierForm.bookingWindow)
+          });
+          setEditingTier(null);
+          showToast(`Đã cập nhật quy định cho hạng ${editingTier.key} thành công!`);
+          setNotificationModal({
+            title: 'Cập nhật hạng thành công!',
+            content: `Quy định cho hạng thành viên ${editingTier.key} đã được cập nhật thành công.`,
+            type: 'success'
+          });
+          await loadAllSettings();
+        } catch (err) {
+          console.error('Failed to update tier:', err);
+          showToast('Lỗi cập nhật hạng thành viên: ' + err.message, 'error');
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    });
   };
 
   // Rerun Jobs (manual scheduler scan)
-  const handleRerunJobs = async () => {
-    setIsLoading(true);
-    try {
-      const res = await loyaltyApi.runSimulationJobs();
-      alert(res || 'Đã chạy quét rà soát toàn bộ hệ thống Loyalty thành công!');
-      await loadAllSettings();
-    } catch (err) {
-      console.error('Failed to rerun jobs:', err);
-      alert('Lỗi chạy quét hệ thống: ' + err.message);
-    } finally {
-      setIsLoading(false);
-    }
+  const handleRerunJobs = () => {
+    setConfirmDialog({
+      title: 'Xác nhận quét rà soát hệ thống',
+      confirmLabel: 'Xác nhận chạy',
+      cancelLabel: 'Hủy bỏ',
+      summary: [
+        { label: 'Hành động', value: 'Chạy quét rà soát toàn bộ hệ thống Loyalty' },
+        { label: 'Mục đích', value: 'Cập nhật hạng, xử lý điểm hết hạn, và phát hiện tài khoản không hoạt động' }
+      ],
+      onConfirm: async () => {
+        setIsLoading(true);
+        try {
+          const res = await loyaltyApi.runSimulationJobs();
+          showToast(res || 'Đã chạy quét rà soát toàn bộ hệ thống Loyalty thành công!');
+          setNotificationModal({
+            title: 'Quét hệ thống thành công!',
+            content: res || 'Đã chạy quét rà soát toàn bộ hệ thống Loyalty thành công.',
+            type: 'success'
+          });
+          await loadAllSettings();
+        } catch (err) {
+          console.error('Failed to rerun jobs:', err);
+          showToast('Lỗi chạy quét hệ thống: ' + err.message, 'error');
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    });
   };
 
   // Simulation: Set Inactivity
-  const handleSimulateInactivity = async () => {
+  const handleSimulateInactivity = () => {
     if (!selectedCustomerId) {
-      alert('Vui lòng chọn khách hàng.');
+      showToast('Vui lòng chọn khách hàng.', 'warning');
       return;
     }
-    setIsLoading(true);
-    try {
-      const res = await loyaltyApi.simulateSetInactivity(selectedCustomerId, sandboxMonths);
-      alert(res || `Giả lập vắng mặt ${sandboxMonths} tháng thành công cho khách hàng!`);
-      await loadAllSettings();
-    } catch (err) {
-      console.error(err);
-      alert('Lỗi giả lập vắng mặt: ' + err.message);
-    } finally {
-      setIsLoading(false);
-    }
+    const cust = customers.find(c => (c.customerId || c.id) === selectedCustomerId);
+    setConfirmDialog({
+      title: 'Xác nhận giả lập vắng mặt',
+      confirmLabel: 'Xác nhận giả lập',
+      cancelLabel: 'Hủy bỏ',
+      summary: [
+        { label: 'Khách hàng', value: cust?.name || selectedCustomerId },
+        { label: 'Số tháng vắng mặt', value: `${sandboxMonths} tháng` }
+      ],
+      onConfirm: async () => {
+        setIsLoading(true);
+        try {
+          const res = await loyaltyApi.simulateSetInactivity(selectedCustomerId, sandboxMonths);
+          showToast(res || `Giả lập vắng mặt ${sandboxMonths} tháng thành công!`);
+          setNotificationModal({
+            title: 'Giả lập thành công!',
+            content: res || `Giả lập vắng mặt ${sandboxMonths} tháng thành công cho khách hàng ${cust?.name || ''}.`,
+            type: 'success'
+          });
+          await loadAllSettings();
+        } catch (err) {
+          console.error(err);
+          showToast('Lỗi giả lập vắng mặt: ' + err.message, 'error');
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    });
   };
 
   // Simulation: Set Points Expired
-  const handleSimulatePointsExpired = async () => {
+  const handleSimulatePointsExpired = () => {
     if (!selectedCustomerId) {
-      alert('Vui lòng chọn khách hàng.');
+      showToast('Vui lòng chọn khách hàng.', 'warning');
       return;
     }
-    setIsLoading(true);
-    try {
-      const res = await loyaltyApi.simulateSetPointsExpired(selectedCustomerId, sandboxMonths);
-      alert(res || `Giả lập tích điểm quá hạn ${sandboxMonths} tháng thành công cho khách hàng!`);
-      await loadAllSettings();
-    } catch (err) {
-      console.error(err);
-      alert('Lỗi giả lập điểm quá hạn: ' + err.message);
-    } finally {
-      setIsLoading(false);
-    }
+    const cust = customers.find(c => (c.customerId || c.id) === selectedCustomerId);
+    setConfirmDialog({
+      title: 'Xác nhận giả lập điểm quá hạn',
+      confirmLabel: 'Xác nhận giả lập',
+      cancelLabel: 'Hủy bỏ',
+      summary: [
+        { label: 'Khách hàng', value: cust?.name || selectedCustomerId },
+        { label: 'Số tháng quá hạn', value: `${sandboxMonths} tháng` }
+      ],
+      onConfirm: async () => {
+        setIsLoading(true);
+        try {
+          const res = await loyaltyApi.simulateSetPointsExpired(selectedCustomerId, sandboxMonths);
+          showToast(res || `Giả lập tích điểm quá hạn ${sandboxMonths} tháng thành công!`);
+          setNotificationModal({
+            title: 'Giả lập thành công!',
+            content: res || `Giả lập tích điểm quá hạn ${sandboxMonths} tháng thành công cho khách hàng ${cust?.name || ''}.`,
+            type: 'success'
+          });
+          await loadAllSettings();
+        } catch (err) {
+          console.error(err);
+          showToast('Lỗi giả lập điểm quá hạn: ' + err.message, 'error');
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    });
   };
 
   return (
@@ -269,7 +367,16 @@ export default function AdminSettingsPage() {
             <tbody className="divide-y divide-slate-100 text-slate-655 font-semibold">
               {tiers.map(t => (
                 <tr key={t.key} className="hover:bg-slate-50/40 transition-colors">
-                  <td className="py-3.5 px-4 font-black text-slate-800">{t.name}</td>
+                  <td className="py-3.5 px-4">
+                    <span className={`inline-block px-2.5 py-0.5 font-black rounded-lg border text-[10px] uppercase ${
+                      String(t.name || t.key).toUpperCase().includes('PLATINUM') ? 'bg-purple-100 text-purple-800 border-purple-300' :
+                      String(t.name || t.key).toUpperCase().includes('GOLD') ? 'bg-amber-100 text-amber-800 border-amber-300' :
+                      String(t.name || t.key).toUpperCase().includes('SILVER') ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                      'bg-slate-100 text-slate-700 border-slate-300'
+                    }`}>
+                      {t.name}
+                    </span>
+                  </td>
                   <td className="py-3.5 px-3 font-bold text-slate-750">{(t.minSpend || 0).toLocaleString('vi-VN')} đ</td>
                   <td className="py-3.5 px-3 font-black text-indigo-700">{(t.pointMultiplier || 1.0)}x hệ số</td>
                   <td className="py-3.5 px-3 text-slate-550">Đặt trước {(t.bookingWindow || 7)} ngày</td>
@@ -607,6 +714,116 @@ export default function AdminSettingsPage() {
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {/* DYNAMIC CONFIRMATION MODAL */}
+      {confirmDialog && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[150] p-4 backdrop-blur-[1px] animate-fade-in">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl space-y-4 border border-slate-100 animate-scale-up">
+            <div className="pb-2 border-b border-slate-150 flex items-center justify-between">
+              <h3 className="font-extrabold text-slate-800 text-sm">{confirmDialog.title}</h3>
+              <button 
+                type="button" 
+                onClick={() => {
+                  if (confirmDialog.onCancel) confirmDialog.onCancel();
+                  setConfirmDialog(null);
+                }}
+                className="p-1 text-slate-400 hover:text-slate-700 rounded-lg cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            
+            <div className="space-y-2.5 text-xs text-slate-600 font-semibold max-h-[40vh] overflow-y-auto pr-1">
+              {confirmDialog.summary.map((item, idx) => (
+                <div key={idx} className="flex justify-between py-1 border-b border-slate-50 gap-2">
+                  <span className="text-slate-450 font-bold uppercase text-[9px] shrink-0">{item.label}</span>
+                  <span className="text-slate-800 font-extrabold text-right break-words">{item.value}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex gap-2 justify-end pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => {
+                  if (confirmDialog.onCancel) confirmDialog.onCancel();
+                  setConfirmDialog(null);
+                }}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-xl text-xs transition-colors cursor-pointer"
+              >
+                {confirmDialog.cancelLabel || 'Hủy'}
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  setConfirmDialog(prev => ({ ...prev, isSubmitting: true }));
+                  try {
+                    await confirmDialog.onConfirm();
+                  } finally {
+                    setConfirmDialog(null);
+                  }
+                }}
+                disabled={confirmDialog.isSubmitting}
+                className={`px-4.5 py-2 font-black rounded-xl text-xs transition-all shadow-md flex items-center gap-1.5 cursor-pointer disabled:opacity-75 disabled:cursor-not-allowed ${
+                  confirmDialog.isDestructive
+                    ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-rose-950/10'
+                    : 'bg-[#0047AB] hover:bg-[#003c94] text-white shadow-[#0047AB]/10'
+                }`}
+              >
+                {confirmDialog.isSubmitting ? (
+                  <>
+                    <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                    Đang xử lý...
+                  </>
+                ) : (
+                  confirmDialog.confirmLabel || 'Xác nhận'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SUCCESS NOTIFICATION MODAL */}
+      {notificationModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[160] p-4 backdrop-blur-[1px] animate-fade-in">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl space-y-4 border border-slate-100 text-center animate-scale-up">
+            <div className="flex justify-center">
+              <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center text-xl font-bold border border-emerald-100">
+                ✓
+              </div>
+            </div>
+            <h3 className="font-extrabold text-slate-800 text-base">{notificationModal.title}</h3>
+            <p className="text-xs text-slate-500 font-semibold leading-relaxed">{notificationModal.content}</p>
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => setNotificationModal(null)}
+                className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl text-xs transition-colors cursor-pointer"
+              >
+                Đồng ý
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DYNAMIC FLOATING TOAST */}
+      {toast && (
+        <div className={`fixed bottom-5 right-5 z-[200] flex items-center gap-2.5 px-4 py-3 rounded-2xl border text-xs font-black shadow-xl animate-fade-in transition-all ${
+          toast.type === 'success' ? 'bg-emerald-50 text-emerald-850 border-emerald-200' :
+          toast.type === 'warning' ? 'bg-amber-50 text-amber-855 border-amber-250' :
+          'bg-rose-50 text-rose-850 border-rose-200'
+        }`}>
+          <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+            toast.type === 'success' ? 'bg-emerald-500' :
+            toast.type === 'warning' ? 'bg-amber-500' :
+            'bg-rose-500'
+          }`} />
+          <span>{toast.message}</span>
+          <button onClick={() => setToast(null)} className="ml-2 text-slate-400 hover:text-slate-700 font-extrabold cursor-pointer">✕</button>
         </div>
       )}
 

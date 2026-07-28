@@ -23,7 +23,7 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     const status = error.response ? error.response.status : null;
-    if (status === 401 || status === 403) {
+    if (status === 401) {
       localStorage.removeItem('autowash_token');
       localStorage.removeItem('autowash_user');
       localStorage.removeItem('token');
@@ -124,6 +124,17 @@ export const serviceCatalogApi = {
       return true;
     } catch (err) {
       console.warn('API toggleServiceStatus fallback:', err.message);
+      return true;
+    }
+  },
+
+  deleteService: async (id, serviceId) => {
+    try {
+      const actualId = serviceId || id;
+      await api.delete(`/admin/services/${actualId}`);
+      return true;
+    } catch (err) {
+      console.warn('API deleteService fallback:', err.message);
       return true;
     }
   },

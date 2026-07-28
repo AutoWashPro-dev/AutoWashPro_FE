@@ -96,17 +96,6 @@ export default function LoginPage() {
         <div className="w-full lg:w-7/12 flex flex-col justify-center space-y-5">
           
           {/* Top Badge */}
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/90 border border-blue-200/80 shadow-sm backdrop-blur-md w-fit">
-            <span className="flex h-2 w-2 relative">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75" />
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-600" />
-            </span>
-            <span className="text-xs font-bold text-blue-700 tracking-wide flex items-center gap-1.5">
-              <span>CỔNG ĐĂNG NHẬP CHUNG</span>
-              <span className="text-slate-300">|</span>
-              <span className="text-sky-600 font-medium">Khách Hàng & Quản Trị</span>
-            </span>
-          </div>
 
           {/* Heading */}
           <div className="space-y-2.5">
@@ -123,41 +112,7 @@ export default function LoginPage() {
           </div>
 
           {/* Compact Role Explanations (2 columns side-by-side) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 pt-1 max-w-xl">
-            
-            {/* Customer Card */}
-            <div className="p-4 rounded-2xl bg-white/80 border border-blue-100/80 shadow-md shadow-blue-500/5 backdrop-blur-md flex flex-col gap-1.5 hover:border-blue-400/50 hover:shadow-lg transition-all duration-300">
-              <div className="flex items-center justify-between">
-                <div className="w-8 h-8 rounded-xl bg-sky-500/10 border border-sky-200 flex items-center justify-center text-sky-600">
-                  <Car className="w-4 h-4" />
-                </div>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-100 text-sky-800 uppercase tracking-wider">
-                  Khách Hàng
-                </span>
-              </div>
-              <h3 className="font-bold text-sm text-slate-900 mt-1">Đặt Lịch & Tích Điểm</h3>
-              <p className="text-[11px] text-slate-600 leading-normal">
-                Nhập <strong className="text-blue-600 font-semibold">Số Điện Thoại</strong> để đặt lịch rửa xe siêu tốc, tích điểm VIP và theo dõi xe real-time.
-              </p>
-            </div>
 
-            {/* Admin/Staff Card */}
-            <div className="p-4 rounded-2xl bg-white/80 border border-indigo-100/80 shadow-md shadow-indigo-500/5 backdrop-blur-md flex flex-col gap-1.5 hover:border-indigo-400/50 hover:shadow-lg transition-all duration-300">
-              <div className="flex items-center justify-between">
-                <div className="w-8 h-8 rounded-xl bg-indigo-500/10 border border-indigo-200 flex items-center justify-center text-indigo-600">
-                  <Wrench className="w-4 h-4" />
-                </div>
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-800 uppercase tracking-wider">
-                  Quản Trị / POS
-                </span>
-              </div>
-              <h3 className="font-bold text-sm text-slate-900 mt-1">Điều Hành & Vận Hành</h3>
-              <p className="text-[11px] text-slate-600 leading-normal">
-                Nhập <strong className="text-indigo-600 font-semibold">Username</strong> để quản lý hàng chờ, check-in, cấu hình dịch vụ và xem doanh thu.
-              </p>
-            </div>
-
-          </div>
 
           {/* Compact Highlights Bar */}
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2 pt-1 text-xs font-medium text-slate-600">
@@ -192,9 +147,6 @@ export default function LoginPage() {
               <h2 className="text-xl font-black text-slate-900 tracking-tight">
                 Đăng Nhập Tài Khoản
               </h2>
-              <div className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-bold text-blue-700 bg-blue-50/80 border border-blue-200/80 px-2.5 py-0.5 rounded-full">
-                <span>⚡ Omni-Login: Nhận diện tự động</span>
-              </div>
             </div>
 
             {/* Form */}

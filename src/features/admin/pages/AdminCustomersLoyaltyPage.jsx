@@ -67,12 +67,26 @@ export default function AdminCustomersLoyaltyPage() {
 
   const userRoles = getRoles();
   const isManager = userRoles.includes('ROLE_MANAGER');
+  const isCashier = userRoles.includes('ROLE_CASHIER');
+
+  
+  // ── Custom Toast & Confirmation Dialog States ──
+  const [toast, setToast] = useState(null); // { type: 'success'|'warning'|'error', message: '...' }
+  const [confirmDialog, setConfirmDialog] = useState(null); // { title, confirmLabel, cancelLabel, summary, onConfirm, onCancel, isSubmitting, isDestructive }
+  const [notificationModal, setNotificationModal] = useState(null); // { title, content, type }
+
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => {
+      setToast(prev => prev?.message === message ? null : prev);
+    }, 4500);
+  };
 
   useEffect(() => {
-    if (isManager && activeTab === 'campaigns') {
+    if ((isManager || isCashier) && activeTab === 'campaigns') {
       setActiveTab('crm');
     }
-  }, [activeTab, isManager]);
+  }, [activeTab, isManager, isCashier]);
 
   // Check permission for status change
   const userStr = localStorage.getItem('autowash_user');
@@ -157,28 +171,46 @@ export default function AdminCustomersLoyaltyPage() {
     }
   };
 
-  const handleToggleCustomerStatus = async (customer) => {
+  const handleToggleCustomerStatus = (customer) => {
     if (!hasManageStatusPermission) {
-      alert('Bạn không có quyền MANAGE_CUSTOMER_STATUS để thực hiện hành động này!');
+      showToast('Bạn không có quyền MANAGE_CUSTOMER_STATUS để thực hiện hành động này!', 'error');
       return;
     }
 
     const isSuspended = customer.status === 'INACTIVE' || customer.status === 'Suspended';
     const nextStatus = isSuspended ? 'ACTIVE' : 'INACTIVE';
+    const confirmTitle = isSuspended ? 'Xác nhận mở khóa tài khoản' : 'Xác nhận khóa tài khoản';
     const confirmMsg = isSuspended
       ? `Bạn có chắc muốn khôi phục và mở khóa tài khoản cho khách hàng ${customer.name}?`
       : `Bạn có chắc muốn khóa tạm thời tài khoản của khách hàng ${customer.name}?`;
     
-    if (!window.confirm(confirmMsg)) return;
-
-    try {
-      await loyaltyApi.updateCustomerStatus(customer.customerId, nextStatus);
-      alert(`Đã cập nhật trạng thái khách hàng thành công!`);
-      await loadCustomersFromApi();
-    } catch (err) {
-      console.error('Failed to toggle customer status:', err);
-      alert('Cập nhật trạng thái thất bại: ' + (err.response?.data?.message || err.message));
-    }
+    setConfirmDialog({
+      title: confirmTitle,
+      confirmLabel: 'Xác nhận',
+      cancelLabel: 'Hủy bỏ',
+      isDestructive: !isSuspended,
+      summary: [
+        { label: 'Khách hàng', value: customer.name },
+        { label: 'SĐT / ID', value: `${customer.phone} / ${customer.id}` },
+        { label: 'Trạng thái mới', value: nextStatus },
+        { label: 'Hành động', value: confirmMsg }
+      ],
+      onConfirm: async () => {
+        try {
+          await loyaltyApi.updateCustomerStatus(customer.customerId, nextStatus);
+          showToast(`Đã cập nhật trạng thái khách hàng thành công!`);
+          setNotificationModal({
+            title: 'Cập nhật trạng thái thành công!',
+            content: `Tài khoản khách hàng ${customer.name} đã được cập nhật sang trạng thái ${nextStatus === 'ACTIVE' ? 'Đang hoạt động (ACTIVE)' : 'Tạm khóa (INACTIVE)'}.`,
+            type: 'success'
+          });
+          await loadCustomersFromApi();
+        } catch (err) {
+          console.error('Failed to toggle customer status:', err);
+          showToast('Cập nhật trạng thái thất bại: ' + (err.response?.data?.message || err.message), 'error');
+        }
+      }
+    });
   };
 
   const loadFromApi = async () => {
@@ -356,10 +388,10 @@ export default function AdminCustomersLoyaltyPage() {
   };
 
   // Action: Launch campaign / voucher rule
-  const handleLaunchCampaign = async (e) => {
+  const handleLaunchCampaign = (e) => {
     e.preventDefault();
     if (!campaignForm.code.trim() || !campaignForm.name.trim()) {
-      alert('Vui lòng nhập đầy đủ Mã và Tên voucher!');
+      showToast('Vui lòng nhập đầy đủ Mã và Tên voucher!', 'warning');
       return;
     }
 
@@ -367,14 +399,14 @@ export default function AdminCustomersLoyaltyPage() {
     if (campaignForm.discountType === 'cash') {
       const val = Number(campaignForm.value);
       if (!val || val <= 0) {
-        alert('Vui lòng nhập giá trị giảm giá tiền mặt lớn hơn 0đ!');
+        showToast('Vui lòng nhập giá trị giảm giá tiền mặt lớn hơn 0đ!', 'warning');
         return;
       }
       const points = Number(campaignForm.costPoints);
       if (points === 0) {
         const minOrder = Number(campaignForm.minOrderValue);
         if (!minOrder || minOrder < val) {
-          alert(`Vì đây là Voucher tiền mặt tặng miễn phí (Điểm = 0), bạn bắt buộc phải nhập "Giá trị đơn hàng tối thiểu" lớn hơn hoặc bằng giá trị giảm (${val.toLocaleString('vi-VN')} đ) để tránh phát sinh hóa đơn 0đ/âm.`);
+          showToast(`Vì đây là Voucher tiền mặt tặng miễn phí (Điểm = 0), bạn bắt buộc phải nhập "Giá trị đơn hàng tối thiểu" lớn hơn hoặc bằng giá trị giảm (${val.toLocaleString('vi-VN')} đ) để tránh phát sinh hóa đơn 0đ/âm.`, 'warning');
           return;
         }
       }
@@ -384,12 +416,12 @@ export default function AdminCustomersLoyaltyPage() {
     if (campaignForm.discountType === 'percent') {
       const val = Number(campaignForm.value);
       if (!val || val <= 0 || val > 100) {
-        alert('Giá trị giảm phần trăm phải nằm trong khoảng từ 1% đến 100%!');
+        showToast('Giá trị giảm phần trăm phải nằm trong khoảng từ 1% đến 100%!', 'warning');
         return;
       }
       const maxDiscount = Number(campaignForm.maxDiscountAmount);
       if (!maxDiscount || maxDiscount <= 0) {
-        alert('Chiết khấu phần trăm bắt buộc phải nhập "Mức giảm tối đa (Trần giảm)" để bảo vệ doanh thu!');
+        showToast('Chiết khấu phần trăm bắt buộc phải nhập "Mức giảm tối đa (Trần giảm)" để bảo vệ doanh thu!', 'warning');
         return;
       }
     }
@@ -397,7 +429,7 @@ export default function AdminCustomersLoyaltyPage() {
     // 3. Ràng buộc đối với kiểu Rửa miễn phí (Giảm 100%) (free_wash)
     if (campaignForm.discountType === 'free_wash') {
       if (!campaignForm.applicableServiceCode) {
-        alert('Chiết khấu rửa miễn phí (Giảm 100%) bắt buộc phải chọn "Gói dịch vụ chính áp dụng" cụ thể!');
+        showToast('Chiết khấu rửa miễn phí (Giảm 100%) bắt buộc phải chọn "Gói dịch vụ chính áp dụng" cụ thể!', 'warning');
         return;
       }
     }
@@ -433,65 +465,90 @@ export default function AdminCustomersLoyaltyPage() {
       minOrderValue: campaignForm.minOrderValue ? Number(campaignForm.minOrderValue) : null
     };
 
-    try {
-      // 1. Tạo chiến dịch ở Backend
-      const createdPromo = await promotionApi.createPromotion(newCampaignData);
+    setConfirmDialog({
+      title: 'Xác nhận tạo chiến dịch khuyến mãi',
+      confirmLabel: 'Xác nhận tạo',
+      cancelLabel: 'Kiểm tra lại',
+      summary: [
+        { label: 'Mã voucher', value: campaignForm.code.toUpperCase() },
+        { label: 'Tên voucher', value: campaignForm.name },
+        { label: 'Mức giảm', value: discountLabel },
+        { label: 'Điểm yêu cầu', value: pointsRequired > 0 ? `${pointsRequired} Pts` : 'Miễn phí' },
+        { label: 'Hạng tối thiểu', value: campaignForm.minTier },
+        { label: 'Số ngày chưa ghé trạm', value: `${campaignForm.minRecencyDays} ngày` }
+      ],
+      onConfirm: async () => {
+        try {
+          // 1. Tạo chiến dịch ở Backend
+          const createdPromo = await promotionApi.createPromotion(newCampaignData);
 
-      // Tải lại danh sách promotions từ API
-      await loadPromotionsFromApi();
-      await loadPromotionKpi();
+          // Tải lại danh sách promotions từ API
+          await loadPromotionsFromApi();
+          await loadPromotionKpi();
 
-      // 2. Nếu là Campaign Marketing (Cost Points = 0), phát hành trực tiếp
-      if (pointsRequired === 0) {
-        // Fetch target count and customers dynamically
-        const targetList = customers.filter(c => {
-          const customerLevel = tierLevels[c.tier] ?? 0;
-          const targetLevel = tierLevels[campaignForm.minTier] ?? 0;
-          const matchRank = customerLevel >= targetLevel;
-          const matchRecency = c.lastVisitDays >= Number(campaignForm.minRecencyDays);
-          return matchRank && matchRecency;
-        });
+          let promoTargetCount = 0;
 
-        if (targetList.length > 0) {
-          const customerIds = targetList.map(c => c.customerId).filter(Boolean);
-          if (customerIds.length > 0) {
-            await promotionApi.grantDirect({
-              promotionId: createdPromo.id,
-              customerIds: customerIds
+          // 2. Nếu là Campaign Marketing (Cost Points = 0), phát hành trực tiếp
+          if (pointsRequired === 0) {
+            // Fetch target count and customers dynamically
+            const targetList = customers.filter(c => {
+              const customerLevel = tierLevels[c.tier] ?? 0;
+              const targetLevel = tierLevels[campaignForm.minTier] ?? 0;
+              const matchRank = customerLevel >= targetLevel;
+              const matchRecency = c.lastVisitDays >= Number(campaignForm.minRecencyDays);
+              return matchRank && matchRecency;
             });
+
+            promoTargetCount = targetList.length;
+
+            if (targetList.length > 0) {
+              const customerIds = targetList.map(c => c.customerId).filter(Boolean);
+              if (customerIds.length > 0) {
+                await promotionApi.grantDirect({
+                  promotionId: createdPromo.id,
+                  customerIds: customerIds
+                });
+              }
+            }
           }
+
+          showToast('Tạo chiến dịch khuyến mãi thành công!');
+
+          setNotificationModal({
+            title: 'Tạo mới thành công!',
+            content: pointsRequired === 0
+              ? `Đã phát hành chiến dịch Voucher tiếp thị ${campaignForm.code.toUpperCase()}! Voucher đã được tặng trực tiếp vào ví của ${promoTargetCount} khách hàng thỏa mãn điều kiện.`
+              : `Đã khởi tạo quy định đổi điểm cho Voucher ${campaignForm.code.toUpperCase()}! Voucher trị giá ${discountLabel} (cần ${pointsRequired} Pts) đã xuất hiện tại Shop quy đổi.`,
+            type: 'success'
+          });
+
+          // Reset Form
+          setCampaignForm({
+            code: '',
+            name: '',
+            description: '',
+            discountType: 'cash',
+            value: '',
+            costPoints: '0',
+            minTier: 'Member',
+            minRecencyDays: '0',
+            totalBudget: '100',
+            maxClaimPerUser: '1',
+            startDate: new Date().toISOString().split('T')[0],
+            endDate: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString().split('T')[0],
+            applicableServiceCode: '',
+            applicableDays: [],
+            maxDiscountAmount: '',
+            minOrderValue: ''
+          });
+          setIsCreateModalOpen(false);
+
+        } catch (err) {
+          console.error('Failed to create promotion campaign:', err);
+          showToast('Đã xảy ra lỗi khi tạo chiến dịch khuyến mãi: ' + (err.response?.data?.message || err.message), 'error');
         }
-
-        alert(`Đã phát hành chiến dịch Voucher tiếp thị ${campaignForm.code}!\nVoucher đã bay trực tiếp vào ví của ${targetList.length} khách hàng thỏa mãn điều kiện ở Backend.`);
-      } else {
-        alert(`Đã khởi tạo quy định đổi điểm cho Voucher ${campaignForm.code}!\nVoucher trị giá ${discountLabel} (cần ${pointsRequired} Pts) đã xuất hiện tại Shop quy đổi.`);
       }
-
-      // Reset Form
-      setCampaignForm({
-        code: '',
-        name: '',
-        description: '',
-        discountType: 'cash',
-        value: '',
-        costPoints: '0',
-        minTier: 'Member',
-        minRecencyDays: '0',
-        totalBudget: '100',
-        maxClaimPerUser: '1',
-        startDate: new Date().toISOString().split('T')[0],
-        endDate: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString().split('T')[0],
-        applicableServiceCode: '',
-        applicableDays: [],
-        maxDiscountAmount: '',
-        minOrderValue: ''
-      });
-      setIsCreateModalOpen(false);
-
-    } catch (err) {
-      console.error('Failed to create promotion campaign:', err);
-      alert('Đã xảy ra lỗi khi tạo chiến dịch khuyến mãi: ' + (err.response?.data?.message || err.message));
-    }
+    });
   };
 
   // Toggle active campaign
@@ -500,14 +557,14 @@ export default function AdminCustomersLoyaltyPage() {
       if (id) {
         const nextStatus = currentActive ? 'PAUSED' : 'ACTIVE';
         await promotionApi.updateStatus(id, nextStatus);
-        alert(`Đã ${!currentActive ? 'Kích hoạt' : 'Tạm dừng'} chiến dịch ${code}`);
+        showToast(`Đã ${!currentActive ? 'Kích hoạt' : 'Tạm dừng'} chiến dịch ${code}`);
         await loadPromotionsFromApi();
         await loadPromotionKpi();
       } else {
         const updated = campaigns.map(c => {
           if (c.code === code) {
             const nextState = !c.isActive;
-            alert(`Đã ${nextState ? 'Kích hoạt' : 'Tạm dừng'} chiến dịch ${code}`);
+            showToast(`Đã ${nextState ? 'Kích hoạt' : 'Tạm dừng'} chiến dịch ${code}`);
             return { ...c, isActive: nextState };
           }
           return c;
@@ -517,66 +574,95 @@ export default function AdminCustomersLoyaltyPage() {
       }
     } catch (err) {
       console.error('Failed to toggle campaign status:', err);
-      alert('Không thể cập nhật trạng thái chiến dịch: ' + err.message);
+      showToast('Không thể cập nhật trạng thái chiến dịch: ' + err.message, 'error');
     }
     window.dispatchEvent(new Event('storage'));
   };
 
   // Delete a campaign
-  const handleDeleteCampaign = async (id, code) => {
-    if (confirm(`Bạn có chắc chắn muốn xóa chiến dịch/luật đổi voucher ${code} không?`)) {
-      try {
-        if (id) {
-          await promotionApi.deletePromotion(id);
-          alert(`Đã xóa hoàn toàn chiến dịch ${code}.`);
-          await loadPromotionsFromApi();
-          await loadPromotionKpi();
-        } else {
-          const updated = campaigns.filter(c => c.code !== code);
-          setCampaigns(updated);
-          localStorage.setItem('autowash_campaigns', JSON.stringify(updated));
-          alert(`Đã xóa hoàn toàn chiến dịch ${code}.`);
+  const handleDeleteCampaign = (id, code) => {
+    setConfirmDialog({
+      title: 'Xác nhận xóa chiến dịch',
+      confirmLabel: 'Xác nhận xóa',
+      cancelLabel: 'Hủy bỏ',
+      isDestructive: true,
+      summary: [
+        { label: 'Mã chiến dịch', value: code },
+        { label: 'Cảnh báo', value: `Bạn có chắc chắn muốn xóa chiến dịch/luật đổi voucher ${code} không? Hành động này không thể hoàn tác.` }
+      ],
+      onConfirm: async () => {
+        try {
+          if (id) {
+            await promotionApi.deletePromotion(id);
+            await loadPromotionsFromApi();
+            await loadPromotionKpi();
+          } else {
+            const updated = campaigns.filter(c => c.code !== code);
+            setCampaigns(updated);
+            localStorage.setItem('autowash_campaigns', JSON.stringify(updated));
+          }
+          showToast(`Đã xóa hoàn toàn chiến dịch ${code}.`);
+          setNotificationModal({
+            title: 'Xóa thành công!',
+            content: `Đã xóa chiến dịch/luật đổi voucher ${code} khỏi hệ thống thành công.`,
+            type: 'success'
+          });
+        } catch (err) {
+          console.error('Failed to delete campaign:', err);
+          showToast('Không thể xóa chiến dịch: ' + err.message, 'error');
         }
-      } catch (err) {
-        console.error('Failed to delete campaign:', err);
-        alert('Không thể xóa chiến dịch: ' + err.message);
+        window.dispatchEvent(new Event('storage'));
       }
-      window.dispatchEvent(new Event('storage'));
-    }
+    });
   };
 
   // Action: Direct gift a voucher to customer's wallet (No points cost)
-  const handleGiftVoucher = async (camp) => {
+  const handleGiftVoucher = (camp) => {
     const activeCustomer = customers.find(c => c.customerId === selectedCustomerId);
     if (!activeCustomer) return;
 
-    const confirmGift = window.confirm(`Bạn có chắc chắn muốn TẶNG voucher "${camp.name}" trực tiếp cho khách hàng ${activeCustomer.name} không? (Thao tác này hoàn toàn miễn phí và không tốn điểm ví của khách).`);
-    if (!confirmGift) return;
+    setConfirmDialog({
+      title: 'Xác nhận phát hành quà tặng',
+      confirmLabel: 'Xác nhận',
+      cancelLabel: 'Hủy bỏ',
+      summary: [
+        { label: 'Khách hàng nhận', value: activeCustomer.name },
+        { label: 'Tên voucher', value: camp.name },
+        { label: 'Hạng áp dụng tối thiểu', value: camp.minTier || 'Member' },
+        { label: 'Hành động', value: `Bạn có chắc chắn muốn TẶNG voucher "${camp.name}" trực tiếp cho khách hàng ${activeCustomer.name} không? (Thao tác này hoàn toàn miễn phí và không tốn điểm ví của khách).` }
+      ],
+      onConfirm: async () => {
+        try {
+          setLoadingDetail(true);
+          await promotionApi.grantDirect({
+            promotionId: camp.id || camp.promotionId,
+            customerIds: [activeCustomer.customerId]
+          });
+          showToast('Phát hành quà tặng thành công!');
+          setNotificationModal({
+            title: 'Phát hành quà tặng thành công!',
+            content: `Voucher "${camp.name}" đã được phát trực tiếp vào ví của khách hàng ${activeCustomer.name} thành công.`,
+            type: 'success'
+          });
 
-    try {
-      setLoadingDetail(true);
-      await promotionApi.grantDirect({
-        promotionId: camp.id || camp.promotionId,
-        customerIds: [activeCustomer.customerId]
-      });
-      alert(`Tặng quà thành công! Voucher "${camp.name}" đã được phát trực tiếp vào ví của khách hàng ${activeCustomer.name}.`);
-
-      // Reload customer profile detail vouchers
-      const vouchers = await customerApi.getMyVouchers(activeCustomer.customerId, 'ISSUED');
-      const formattedVouchers = vouchers.map(v => ({
-        code: v.voucherCode,
-        name: v.title || v.description || 'Ưu đãi VIP',
-        value: v.discountType === 'FREE_SERVICE' ? 'Rửa miễn phí' :
-               v.discountType === 'PERCENTAGE' ? `${v.discountValue}%` : `${Number(v.discountValue).toLocaleString('vi-VN')} đ`,
-        status: v.status || 'ISSUED'
-      }));
-      setSelectedCustVouchers(formattedVouchers);
-    } catch (err) {
-      console.error('Failed to gift voucher:', err);
-      alert('Tặng voucher thất bại: ' + (err.response?.data?.message || err.message));
-    } finally {
-      setLoadingDetail(false);
-    }
+          // Reload customer profile detail vouchers
+          const vouchers = await customerApi.getMyVouchers(activeCustomer.customerId, 'ISSUED');
+          const formattedVouchers = vouchers.map(v => ({
+            code: v.voucherCode,
+            name: v.title || v.description || 'Ưu đãi VIP',
+            value: v.discountType === 'FREE_SERVICE' ? 'Rửa miễn phí' :
+                   v.discountType === 'PERCENTAGE' ? `${v.discountValue}%` : `${Number(v.discountValue).toLocaleString('vi-VN')} đ`,
+            status: v.status || 'ISSUED'
+          }));
+          setSelectedCustVouchers(formattedVouchers);
+        } catch (err) {
+          console.error('Failed to gift voucher:', err);
+          showToast('Tặng voucher thất bại: ' + (err.response?.data?.message || err.message), 'error');
+        } finally {
+          setLoadingDetail(false);
+        }
+      }
+    });
   };
 
   // Action: Open Feedback Resolution Form
@@ -588,39 +674,55 @@ export default function AdminCustomersLoyaltyPage() {
   };
 
   // Action: Resolve Customer Complaint
-  const handleResolveFeedback = async (e) => {
+  const handleResolveFeedback = (e) => {
     e.preventDefault();
     if (!internalNote.trim()) {
-      alert('Vui lòng viết ghi chú xử lý khiếu nại!');
+      showToast('Vui lòng viết ghi chú xử lý khiếu nại!', 'warning');
       return;
     }
 
     const currentFeedback = feedbacks.find(f => f.id === selectedFeedbackId);
     if (!currentFeedback) return;
 
-    try {
-      // Gọi API Resolve khiếu nại ở backend
-      await feedbackAdminApi.resolveFeedback(selectedFeedbackId, {
-        resolutionNotes: internalNote,
-        grantCompensationVoucher: issueCompensation,
-        voucherCode: issueCompensation ? 'COMPENSATE50' : null,
-        discountValue: issueCompensation ? 50000 : null
-      });
+    setConfirmDialog({
+      title: 'Xác nhận xử lý khiếu nại',
+      confirmLabel: 'Xác nhận',
+      cancelLabel: 'Hủy bỏ',
+      summary: [
+        { label: 'Khách hàng', value: currentFeedback.customer?.name || '' },
+        { label: 'Ghi chú xử lý', value: internalNote.trim() },
+        { label: 'Voucher đền bù', value: issueCompensation ? 'Có (Voucher COMPENSATE50 trị giá 50.000đ)' : 'Không' }
+      ],
+      onConfirm: async () => {
+        try {
+          // Gọi API Resolve khiếu nại ở backend
+          await feedbackAdminApi.resolveFeedback(selectedFeedbackId, {
+            resolutionNotes: internalNote,
+            grantCompensationVoucher: issueCompensation,
+            voucherCode: issueCompensation ? 'COMPENSATE50' : null,
+            discountValue: issueCompensation ? 50000 : null
+          });
 
-      // Tải lại danh sách phản hồi và KPI khuyến mãi từ API
-      await loadFeedbacksFromApi();
-      await loadPromotionKpi();
+          // Tải lại danh sách phản hồi và KPI khuyến mãi từ API
+          await loadFeedbacksFromApi();
+          await loadPromotionKpi();
 
-      alert(issueCompensation 
-        ? `Đã xử lý khiếu nại thành công!\nĐã gửi tặng Voucher đền bù (COMPENSATE50 trị giá 50k) trực tiếp vào ví voucher của khách hàng ${currentFeedback.customer.name} ở Backend.`
-        : 'Đã cập nhật trạng thái xử lý khiếu nại thành công.'
-      );
+          showToast('Đã xử lý khiếu nại thành công!');
+          setNotificationModal({
+            title: 'Xử lý khiếu nại thành công!',
+            content: issueCompensation
+              ? `Đã gửi tặng Voucher đền bù (COMPENSATE50 trị giá 50k) trực tiếp vào ví voucher của khách hàng ${currentFeedback.customer.name} thành công.`
+              : 'Đã cập nhật trạng thái xử lý khiếu nại thành công.',
+            type: 'success'
+          });
 
-      setFeedbackModalOpen(false);
-    } catch (err) {
-      console.error('Failed to resolve feedback:', err);
-      alert('Không thể xử lý khiếu nại: ' + (err.response?.data?.message || err.message));
-    }
+          setFeedbackModalOpen(false);
+        } catch (err) {
+          console.error('Failed to resolve feedback:', err);
+          showToast('Không thể xử lý khiếu nại: ' + (err.response?.data?.message || err.message), 'error');
+        }
+      }
+    });
   };
 
   // Filter & Sort CRM Customers (Active first, Inactive pushed to bottom)
@@ -690,7 +792,7 @@ export default function AdminCustomersLoyaltyPage() {
             <Users className="w-4 h-4" />
             Khách hàng & Ví Voucher
           </button>
-          {!isManager && (
+          {!isManager && !isCashier && (
             <button
               onClick={() => setActiveTab('campaigns')}
               className={`px-4.5 py-2 rounded-lg font-black transition-all flex items-center gap-1.5 cursor-pointer ${
@@ -793,15 +895,16 @@ export default function AdminCustomersLoyaltyPage() {
                       <td className="py-3.5 px-5 font-black text-slate-800">{c.id}</td>
                       <td className="py-3.5 px-4 font-bold text-slate-850">
                         <div className="flex items-center gap-2">
-                          <img src={c.avatar} alt="Avatar" className="w-7 h-7 rounded-full object-cover ring-1 ring-slate-200" />
+                          
                           <span>{c.name}</span>
                         </div>
                       </td>
                       <td className="py-3.5 px-4">
-                        <span className={`inline-block px-2.5 py-0.5 font-bold rounded-lg text-[10px] ${
-                          c.tier === 'Platinum' || c.tier === 'VIP' ? 'bg-[#57f287] text-slate-800' :
-                          c.tier === 'Gold' ? 'bg-amber-100 text-amber-800 border border-amber-200/50' :
-                          c.tier === 'Silver' ? 'bg-slate-100 text-slate-700 border border-slate-200/50' : 'bg-slate-50 text-slate-500'
+                        <span className={`inline-block px-2.5 py-0.5 font-bold rounded-lg text-[10px] border ${
+                          String(c.tier).toUpperCase() === 'PLATINUM' ? 'bg-purple-100 text-purple-800 border-purple-300' :
+                          String(c.tier).toUpperCase() === 'GOLD' ? 'bg-amber-100 text-amber-800 border-amber-300' :
+                          String(c.tier).toUpperCase() === 'SILVER' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                          'bg-slate-100 text-slate-700 border-slate-300'
                         }`}>
                           {c.tier}
                         </span>
@@ -1101,7 +1204,6 @@ export default function AdminCustomersLoyaltyPage() {
                         <td className="py-3.5 px-5 font-bold text-slate-500">{f.date}</td>
                         <td className="py-3.5 px-4 font-bold text-slate-855">
                           <div className="flex items-center gap-2">
-                            <img src={f.customer.avatar} alt="Avatar" className="w-6.5 h-6.5 rounded-full object-cover ring-1 ring-slate-200" />
                             <div className="flex flex-col">
                               <span>{f.customer.name}</span>
                               <span className="text-[8px] text-slate-400 font-semibold">{f.customer.phone}</span>
@@ -1160,11 +1262,15 @@ export default function AdminCustomersLoyaltyPage() {
             {/* Header */}
             <div className="flex items-start justify-between pb-4 border-b border-slate-150">
               <div className="flex items-center gap-3.5">
-                <img src={activeCustomer.avatar} alt="Customer" className="w-14 h-14 rounded-full object-cover ring-2 ring-indigo-50" />
                 <div>
                   <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="font-extrabold text-base text-slate-800">{activeCustomer.name}</h3>
-                    <span className="px-2.5 py-0.5 bg-[#57f287] text-slate-800 text-[10px] font-black rounded-lg">
+                    <span className={`px-2.5 py-0.5 text-[10px] font-black rounded-lg border uppercase ${
+                      String(activeCustomer.tier).toUpperCase() === 'PLATINUM' ? 'bg-purple-100 text-purple-800 border-purple-300' :
+                      String(activeCustomer.tier).toUpperCase() === 'GOLD' ? 'bg-amber-100 text-amber-800 border-amber-300' :
+                      String(activeCustomer.tier).toUpperCase() === 'SILVER' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                      'bg-slate-100 text-slate-700 border-slate-300'
+                    }`}>
                       Hạng {activeCustomer.tier}
                     </span>
                     <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold ${
@@ -1179,28 +1285,30 @@ export default function AdminCustomersLoyaltyPage() {
 
               {/* Controls on the right: Toggle switch + Close button */}
               <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2.5 bg-slate-50 border border-slate-200/60 px-3.5 py-1.5 rounded-xl shadow-sm">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Tài khoản:</span>
-                  <button
-                    disabled={!hasManageStatusPermission}
-                    onClick={() => handleToggleCustomerStatus(activeCustomer)}
-                    className={`relative inline-flex h-5.5 w-10 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-250 ease-in-out focus:outline-none shadow-inner ${
-                      activeCustomer.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-slate-300'
-                    } ${!hasManageStatusPermission ? 'opacity-50 cursor-not-allowed' : ''}`}
-                    title={!hasManageStatusPermission ? 'Bạn không có quyền quản lý trạng thái khách hàng' : ''}
-                  >
-                    <span
-                      className={`pointer-events-none inline-block h-4.5 w-4.5 transform rounded-full bg-white shadow ring-0 transition duration-250 ease-in-out ${
-                        activeCustomer.status === 'ACTIVE' ? 'translate-x-4.5' : 'translate-x-0'
-                      }`}
-                    />
-                  </button>
-                  <span className={`text-[10px] font-black uppercase tracking-wide transition-colors ${
-                    activeCustomer.status === 'ACTIVE' ? 'text-emerald-600' : 'text-slate-500'
-                  }`}>
-                    {activeCustomer.status === 'ACTIVE' ? 'Hoạt động' : 'Đang khóa'}
-                  </span>
-                </div>
+                {!isCashier && (
+                  <div className="flex items-center gap-2.5 bg-slate-50 border border-slate-200/60 px-3.5 py-1.5 rounded-xl shadow-sm">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">Tài khoản:</span>
+                    <button
+                      disabled={!hasManageStatusPermission}
+                      onClick={() => handleToggleCustomerStatus(activeCustomer)}
+                      className={`relative inline-flex h-5.5 w-10 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-250 ease-in-out focus:outline-none shadow-inner ${
+                        activeCustomer.status === 'ACTIVE' ? 'bg-emerald-500' : 'bg-slate-300'
+                      } ${!hasManageStatusPermission ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      title={!hasManageStatusPermission ? 'Bạn không có quyền quản lý trạng thái khách hàng' : ''}
+                    >
+                      <span
+                        className={`pointer-events-none inline-block h-4.5 w-4.5 transform rounded-full bg-white shadow ring-0 transition duration-250 ease-in-out ${
+                          activeCustomer.status === 'ACTIVE' ? 'translate-x-4.5' : 'translate-x-0'
+                        }`}
+                      />
+                    </button>
+                    <span className={`text-[10px] font-black uppercase tracking-wide transition-colors ${
+                      activeCustomer.status === 'ACTIVE' ? 'text-emerald-600' : 'text-slate-500'
+                    }`}>
+                      {activeCustomer.status === 'ACTIVE' ? 'Hoạt động' : 'Đang khóa'}
+                    </span>
+                  </div>
+                )}
 
                 <button 
                   onClick={() => setProfileModalOpen(false)}
@@ -1328,7 +1436,7 @@ export default function AdminCustomersLoyaltyPage() {
                     <div className="space-y-5">
                       
                       {/* Direct Gifting Shop */}
-                      {!isManager && (
+                      {!isManager && !isCashier && (
                         <div className="bg-indigo-50/30 border border-indigo-200/50 p-4 rounded-xl space-y-3">
                           <div className="flex items-center justify-between">
                             <span className="font-black text-indigo-900 flex items-center gap-1.5 text-[11px] uppercase tracking-wide">
@@ -1490,7 +1598,7 @@ export default function AdminCustomersLoyaltyPage() {
                         />
                       </div>
 
-                      {fb.sentiment === 'Negative' && !isManager && (
+                      {fb.sentiment === 'Negative' && !isCashier && (
                         <div className="bg-rose-50/30 border border-rose-100/60 p-3.5 rounded-xl flex items-start gap-2.5">
                           <input
                             type="checkbox"
@@ -1936,6 +2044,116 @@ export default function AdminCustomersLoyaltyPage() {
 
             </form>
           </div>
+        </div>
+      )}
+
+      {/* DYNAMIC CONFIRMATION MODAL */}
+      {confirmDialog && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[150] p-4 backdrop-blur-[1px] animate-fade-in text-left">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl space-y-4 border border-slate-100 animate-scale-up">
+            <div className="pb-2 border-b border-slate-150 flex items-center justify-between">
+              <h3 className="font-extrabold text-slate-800 text-sm">{confirmDialog.title}</h3>
+              <button 
+                type="button" 
+                onClick={() => {
+                  if (confirmDialog.onCancel) confirmDialog.onCancel();
+                  setConfirmDialog(null);
+                }}
+                className="p-1 text-slate-400 hover:text-slate-700 rounded-lg cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            
+            <div className="space-y-2.5 text-xs text-slate-600 font-semibold max-h-[40vh] overflow-y-auto pr-1">
+              {confirmDialog.summary.map((item, idx) => (
+                <div key={idx} className="flex justify-between py-1 border-b border-slate-50 gap-2">
+                  <span className="text-slate-450 font-bold uppercase text-[9px] shrink-0">{item.label}</span>
+                  <span className="text-slate-800 font-extrabold text-right break-words">{item.value}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex gap-2 justify-end pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => {
+                  if (confirmDialog.onCancel) confirmDialog.onCancel();
+                  setConfirmDialog(null);
+                }}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-655 font-bold rounded-xl text-xs transition-colors cursor-pointer"
+              >
+                {confirmDialog.cancelLabel || 'Hủy'}
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  setConfirmDialog(prev => ({ ...prev, isSubmitting: true }));
+                  try {
+                    await confirmDialog.onConfirm();
+                  } finally {
+                    setConfirmDialog(null);
+                  }
+                }}
+                disabled={confirmDialog.isSubmitting}
+                className={`px-4.5 py-2 font-black rounded-xl text-xs transition-all shadow-md flex items-center gap-1.5 cursor-pointer disabled:opacity-75 disabled:cursor-not-allowed ${
+                  confirmDialog.isDestructive
+                    ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-rose-950/10'
+                    : 'bg-[#0047AB] hover:bg-[#003c94] text-white shadow-[#0047AB]/10'
+                }`}
+              >
+                {confirmDialog.isSubmitting ? (
+                  <>
+                    <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                    Đang xử lý...
+                  </>
+                ) : (
+                  confirmDialog.confirmLabel || 'Xác nhận'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SUCCESS NOTIFICATION MODAL */}
+      {notificationModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[160] p-4 backdrop-blur-[1px] animate-fade-in text-center">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl space-y-4 border border-slate-100 animate-scale-up">
+            <div className="flex justify-center">
+              <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center text-xl font-bold border border-emerald-100">
+                ✓
+              </div>
+            </div>
+            <h3 className="font-extrabold text-slate-800 text-base">{notificationModal.title}</h3>
+            <p className="text-xs text-slate-500 font-semibold leading-relaxed">{notificationModal.content}</p>
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => setNotificationModal(null)}
+                className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl text-xs transition-colors cursor-pointer"
+              >
+                Đồng ý
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DYNAMIC FLOATING TOAST */}
+      {toast && (
+        <div className={`fixed bottom-5 right-5 z-[200] flex items-center gap-2.5 px-4 py-3 rounded-2xl border text-xs font-black shadow-xl animate-fade-in transition-all text-left ${
+          toast.type === 'success' ? 'bg-emerald-50 text-emerald-850 border-emerald-200' :
+          toast.type === 'warning' ? 'bg-amber-50 text-amber-855 border-amber-250' :
+          'bg-rose-50 text-rose-850 border-rose-200'
+        }`}>
+          <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+            toast.type === 'success' ? 'bg-emerald-500' :
+            toast.type === 'warning' ? 'bg-amber-500' :
+            'bg-rose-500'
+          }`} />
+          <span>{toast.message}</span>
+          <button onClick={() => setToast(null)} className="ml-2 text-slate-400 hover:text-slate-700 font-extrabold cursor-pointer">✕</button>
         </div>
       )}
 

@@ -23,7 +23,7 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     const status = error.response ? error.response.status : null;
-    if (status === 401 || status === 403) {
+    if (status === 401) {
       localStorage.removeItem('autowash_token');
       localStorage.removeItem('autowash_user');
       localStorage.removeItem('token');
@@ -83,33 +83,45 @@ export const customerApi = {
     }
   },
 
-  // Get customer profile (points, tier, name)
+  // Get customer profile via GET /api/v1/customer/auth/me
   getProfile: async () => {
     try {
-      const res = await api.get('/customer/profile');
+      const res = await api.get('/customer/auth/me');
       return res.data;
     } catch (err) {
-      console.warn('API getProfile error, using fallback:', err.message);
+      console.warn('API getProfile (/customer/auth/me) error, using fallback:', err.message);
+      // Re-throw 401/403 so the caller can redirect to login
+      if (err.response && (err.response.status === 401 || err.response.status === 403)) {
+        throw err;
+      }
       const userRaw = localStorage.getItem('autowash_user');
       if (userRaw) {
         try {
           const user = JSON.parse(userRaw);
           return {
             customerId: user.customerId || user.id || 1,
-            fullName: user.fullName || user.name || 'Nguyen Van An',
-            loyaltyPoints: user.loyaltyPoints !== undefined ? user.loyaltyPoints : 850,
-            tierName: user.tierName || user.tier || 'MEMBER',
-            bookingWindowDays: 7,
-            vehicles: []
+            phoneNumber: user.phoneNumber || '',
+            fullName: user.fullName || user.name || 'Khách hàng',
+            tierName: user.tierName || 'MEMBER',
+            tierDisplayName: user.tierDisplayName || user.tierName || 'Member',
+            bookingWindowDays: user.bookingWindowDays ?? 7,
+            visitCount: user.visitCount ?? 0,
+            totalSpending: user.totalSpending ?? 0,
+            loyaltyPoints: user.loyaltyPoints ?? 0,
+            vehicles: user.vehicles || []
           };
         } catch (e) {}
       }
       return {
         customerId: 1,
-        fullName: 'Nguyen Van An',
-        loyaltyPoints: 850,
+        phoneNumber: '',
+        fullName: 'Khách hàng',
         tierName: 'MEMBER',
+        tierDisplayName: 'Member',
         bookingWindowDays: 7,
+        visitCount: 0,
+        totalSpending: 0,
+        loyaltyPoints: 0,
         vehicles: []
       };
     }
@@ -126,7 +138,14 @@ export const customerApi = {
   },
 
   changePassword: async (passwordData) => {
-    const res = await api.post('/customer/profile/change-password', passwordData);
+    // API spec: POST /customer/auth/email/reset-password
+    // Payload: { token: string, newPassword: string, confirmPassword: string }
+    const token = localStorage.getItem('autowash_token') || sessionStorage.getItem('autowash_token');
+    const res = await api.post('/customer/auth/email/reset-password', {
+      token: token,
+      newPassword: passwordData.newPassword,
+      confirmPassword: passwordData.confirmPassword,
+    });
     return res.data;
   },
 
@@ -323,7 +342,12 @@ export const customerApi = {
   // Submit feedback
   createFeedback: async (customerId, feedbackData) => {
     const url = customerId ? `/customer/feedbacks?customerId=${customerId}` : '/customer/feedbacks';
-    const res = await api.post(url, feedbackData);
+    // Ensure bookingCode is explicitly a string to match backend's expected key type
+    const payload = {
+      ...feedbackData,
+      bookingCode: String(feedbackData.bookingCode || '').trim(),
+    };
+    const res = await api.post(url, payload);
     return res.data;
   },
 

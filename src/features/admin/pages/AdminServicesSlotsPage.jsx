@@ -65,8 +65,22 @@ export default function AdminServicesSlotsPage() {
 
   const roles = getRoles();
   const isManager = roles.includes('ROLE_MANAGER');
+  const isAdmin = roles.includes('ROLE_ADMIN');
   const currentUser = {
-    roleName: isManager ? 'ROLE_MANAGER' : (roles.includes('ROLE_ADMIN') ? 'ROLE_ADMIN' : 'ROLE_CASHIER')
+    roleName: isAdmin ? 'ROLE_ADMIN' : (isManager ? 'ROLE_MANAGER' : 'ROLE_CASHIER'),
+    role: isAdmin ? 'ADMIN' : (isManager ? 'MANAGER' : 'CASHIER')
+  };
+  
+  // ── Custom Toast & Confirmation Dialog States ──
+  const [toast, setToast] = useState(null); // { type: 'success'|'warning'|'error', message: '...' }
+  const [confirmDialog, setConfirmDialog] = useState(null); // { title, confirmLabel, cancelLabel, summary, onConfirm, onCancel, isSubmitting, isDestructive }
+  const [notificationModal, setNotificationModal] = useState(null); // { title, content, type }
+
+  const showToast = (message, type = 'success') => {
+    setToast({ message, type });
+    setTimeout(() => {
+      setToast(prev => prev?.message === message ? null : prev);
+    }, 4500);
   };
 
   // 1. Navigation Active Tab
@@ -174,90 +188,143 @@ const [availableSlots, setAvailableSlots] = useState([]);
   const [newSlotDayOfWeek, setNewSlotDayOfWeek] = useState('ALL');
 
   useEffect(() => {
-  if (isSpecificSlotBlockEnabled && closureForm.closureDate) {
-    const fetchSlots = async () => {
-      try {
-        const data = await serviceCatalogApi.getAllSlots();
-        setAvailableSlots(data.filter(s => s.isActive !== false));
-      } catch {
-        setAvailableSlots([...slots].filter(s => s.isActive));
-      }
-    };
-    fetchSlots();
-  }
-}, [isSpecificSlotBlockEnabled, closureForm.closureDate, slots]);
+    if (isSpecificSlotBlockEnabled && closureForm.closureDate) {
+      const fetchSlots = async () => {
+        try {
+          const data = await serviceCatalogApi.getAllSlots();
+          setAvailableSlots(data.filter(s => s.isActive !== false));
+        } catch {
+          setAvailableSlots([...slots].filter(s => s.isActive));
+        }
+      };
+      fetchSlots();
+    }
+  }, [isSpecificSlotBlockEnabled, closureForm.closureDate, slots]);
 
 // Handlers for Closures
-const handleLockSlot = async (e) => {
+const handleLockSlot = (e) => {
   if (e) e.preventDefault();
   if (!closureForm.closureDate) {
-    alert('Vui lòng chọn ngày nghỉ!');
+    showToast('Vui lòng chọn ngày nghỉ!', 'warning');
     return;
   }
   if (!selectedSlotId) {
-    alert('Vui lòng chọn khung giờ cần khóa!');
+    showToast('Vui lòng chọn khung giờ cần khóa!', 'warning');
     return;
   }
-  try {
-    await serviceCatalogApi.lockSingleSlot({
-      date: closureForm.closureDate,
-      slotId: Number(selectedSlotId),
-      lock: true
-    });
-    alert('Khóa thành công khung giờ được chọn cho ngày nghỉ trạm!');
-    
-    // Nạp lại toàn bộ cấu hình closures từ API để có dữ liệu thực tế và chuẩn ID từ DB
-    const closuresData = await serviceCatalogApi.getAllClosures();
-    setClosures(closuresData);
 
-    setClosureModalOpen(false);
-    setClosureForm({ closureDate: '', reason: '', isFullDay: true });
-    setIsSpecificSlotBlockEnabled(false);
-    setSelectedSlotId('');
-    setAvailableSlots([]);
-  } catch (err) {
-    const errMsg = err.response?.data?.message || err.message || 'Lỗi khi khóa khung giờ!';
-    alert(errMsg);
-  }
+  const selectedSlot = slots.find(sl => sl.timeSlotId === Number(selectedSlotId) || sl.id === selectedSlotId);
+  const slotTime = selectedSlot ? selectedSlot.time : `ID: ${selectedSlotId}`;
+
+  setConfirmDialog({
+    title: 'Xác nhận thêm ngày nghỉ trạm',
+    confirmLabel: 'Xác nhận lưu lịch nghỉ',
+    cancelLabel: 'Kiểm tra lại',
+    summary: [
+      { label: 'Ngày nghỉ lễ', value: closureForm.closureDate },
+      { label: 'Lý do nghỉ', value: 'Khóa khung giờ lẻ' },
+      { label: 'Khung giờ bị ảnh hưởng', value: slotTime }
+    ],
+    onConfirm: async () => {
+      try {
+        await serviceCatalogApi.lockSingleSlot({
+          date: closureForm.closureDate,
+          slotId: Number(selectedSlotId),
+          lock: true
+        });
+        showToast('Khóa thành công khung giờ được chọn cho ngày nghỉ trạm!');
+        setNotificationModal({
+          title: 'Tạo mới thành công!',
+          content: `Lịch nghỉ trạm ngày ${closureForm.closureDate} (Khung giờ ${slotTime}) đã được thêm thành công vào hệ thống.`,
+          type: 'success'
+        });
+        
+        // Nạp lại toàn bộ cấu hình closures từ API để có dữ liệu thực tế và chuẩn ID từ DB
+        const closuresData = await serviceCatalogApi.getAllClosures();
+        setClosures(closuresData);
+
+        setClosureModalOpen(false);
+        setClosureForm({ closureDate: '', reason: '', isFullDay: true });
+        setIsSpecificSlotBlockEnabled(false);
+        setSelectedSlotId('');
+        setAvailableSlots([]);
+      } catch (err) {
+        const errMsg = err.response?.data?.message || err.message || 'Lỗi khi khóa khung giờ!';
+        showToast(errMsg, 'error');
+      }
+    }
+  });
 };
 
-const handleSaveClosure = async (e) => {
+const handleSaveClosure = (e) => {
   e.preventDefault();
   if (!closureForm.closureDate || !closureForm.reason.trim()) {
-    alert('Vui lòng nhập đầy đủ Ngày nghỉ và Lý do!');
+    showToast('Vui lòng nhập đầy đủ Ngày nghỉ và Lý do!', 'warning');
     return;
   }
 
-  try {
-    const created = await serviceCatalogApi.createClosure({
-      closureDate: closureForm.closureDate,
-      reason: closureForm.reason.trim(),
-      isFullDay: true
-    });
+  setConfirmDialog({
+    title: 'Xác nhận thêm ngày nghỉ trạm',
+    confirmLabel: 'Xác nhận lưu lịch nghỉ',
+    cancelLabel: 'Kiểm tra lại',
+    summary: [
+      { label: 'Ngày nghỉ lễ', value: closureForm.closureDate },
+      { label: 'Lý do nghỉ', value: closureForm.reason.trim() },
+      { label: 'Khung giờ bị ảnh hưởng', value: 'Cả ngày (Full day)' }
+    ],
+    onConfirm: async () => {
+      try {
+        const created = await serviceCatalogApi.createClosure({
+          closureDate: closureForm.closureDate,
+          reason: closureForm.reason.trim(),
+          isFullDay: true
+        });
 
-    setClosures(prev => [...prev, created]);
-    alert(`Đã thiết lập lịch nghỉ trạm ngày ${closureForm.closureDate} thành công!`);
-    setClosureModalOpen(false);
-    setClosureForm({ closureDate: '', reason: '', isFullDay: true });
-  } catch (err) {
-    const errMsg = err.response?.data?.message || err.message || 'Lỗi không xác định khi tạo ngày nghỉ!';
-    alert(errMsg);
-  }
+        setClosures(prev => [...prev, created]);
+        showToast(`Đã thiết lập lịch nghỉ trạm ngày ${closureForm.closureDate} thành công!`);
+        setNotificationModal({
+          title: 'Tạo mới thành công!',
+          content: `Lịch nghỉ trạm ngày ${closureForm.closureDate} đã được thêm thành công vào hệ thống.`,
+          type: 'success'
+        });
+        setClosureModalOpen(false);
+        setClosureForm({ closureDate: '', reason: '', isFullDay: true });
+      } catch (err) {
+        const errMsg = err.response?.data?.message || err.message || 'Lỗi không xác định khi tạo ngày nghỉ!';
+        showToast(errMsg, 'error');
+      }
+    }
+  });
 };
 
-const handleDeleteClosure = async (closureId) => {
-  if (!window.confirm('Bạn có chắc chắn muốn xóa lịch nghỉ trạm này và mở cửa hoạt động lại?')) {
-    return;
-  }
-
-  try {
-    await serviceCatalogApi.deleteClosure(closureId);
-    setClosures(prev => prev.filter(c => (c.closureId || c.garageClosureId) !== closureId));
-    alert('Đã mở cửa hoạt động lại trạm thành công!');
-  } catch (err) {
-    const errMsg = err.response?.data?.message || err.message || 'Lỗi khi xóa ngày nghỉ!';
-    alert(errMsg);
-  }
+const handleDeleteClosure = (closureId) => {
+  const target = closures.find(c => (c.closureId || c.garageClosureId) === closureId);
+  const dateStr = target ? target.closureDate : '';
+  setConfirmDialog({
+    title: 'Xác nhận xóa ngày nghỉ trạm',
+    confirmLabel: 'Xác nhận xóa',
+    cancelLabel: 'Hủy bỏ',
+    isDestructive: true,
+    summary: [
+      { label: 'Mục tiêu', value: `Xóa lịch nghỉ trạm ngày ${dateStr || ''}` },
+      { label: 'Cảnh báo', value: 'Bạn có chắc chắn muốn xóa ngày nghỉ này không? Hành động này không thể hoàn tác.' }
+    ],
+    onConfirm: async () => {
+      try {
+        await serviceCatalogApi.deleteClosure(closureId);
+        setClosures(prev => prev.filter(c => (c.closureId || c.garageClosureId) !== closureId));
+        showToast('Đã mở cửa hoạt động lại trạm thành công!');
+        setNotificationModal({
+          title: 'Xóa thành công!',
+          content: 'Đã xóa lịch nghỉ trạm khỏi hệ thống thành công.',
+          type: 'success'
+        });
+      } catch (err) {
+        const errMsg = err.response?.data?.message || err.message || 'Lỗi khi xóa ngày nghỉ!';
+        showToast(errMsg, 'error');
+      }
+    }
+  });
 };
 
 // Handlers for Services
@@ -266,19 +333,51 @@ const handleDeleteClosure = async (closureId) => {
     if (!target) return;
 
     if (['PKG-STD', 'PKG-DELUXE', 'PKG-ULTIMATE'].includes(target.serviceCode || target.id)) {
-      alert('Không thể tắt hoạt động của gói dịch vụ hệ thống cốt lõi!');
+      showToast('Không thể tắt hoạt động của gói dịch vụ hệ thống cốt lõi!', 'error');
       return;
     }
 
-    await serviceCatalogApi.toggleServiceStatus(id, target.serviceId);
-    setServices(prev => prev.map(s => {
-      if (s.id === id) {
-        const nextState = !s.isActive;
-        alert(`Đã ${nextState ? 'Bật' : 'Tắt'} hoạt động của dịch vụ: ${s.name}`);
-        return { ...s, isActive: nextState };
+    try {
+      await serviceCatalogApi.toggleServiceStatus(id, target.serviceId);
+      setServices(prev => prev.map(s => {
+        if (s.id === id) {
+          const nextState = !s.isActive;
+          showToast(`Đã ${nextState ? 'Bật' : 'Tắt'} hoạt động của dịch vụ: ${s.name}`);
+          return { ...s, isActive: nextState };
+        }
+        return s;
+      }));
+    } catch (err) {
+      showToast('Lỗi khi cập nhật trạng thái dịch vụ: ' + err.message, 'error');
+    }
+  };
+
+  const handleDeleteService = (id, serviceId) => {
+    const target = services.find(s => s.id === id);
+    setConfirmDialog({
+      title: 'Xác nhận xóa gói dịch vụ',
+      confirmLabel: 'Xác nhận xóa',
+      cancelLabel: 'Hủy bỏ',
+      isDestructive: true,
+      summary: [
+        { label: 'Tên dịch vụ', value: target ? target.name : `ID: ${id}` },
+        { label: 'Cảnh báo', value: 'Bạn có chắc chắn muốn xóa dịch vụ này không? Hành động này không thể hoàn tác.' }
+      ],
+      onConfirm: async () => {
+        try {
+          await serviceCatalogApi.deleteService(id, serviceId);
+          setServices(prev => prev.filter(s => s.id !== id));
+          showToast('Đã xóa gói dịch vụ thành công!');
+          setNotificationModal({
+            title: 'Xóa thành công!',
+            content: `Đã xóa dịch vụ ${target ? target.name : ''} khỏi hệ thống thành công.`,
+            type: 'success'
+          });
+        } catch (err) {
+          showToast('Xóa gói dịch vụ thất bại: ' + (err.response?.data?.message || err.message), 'error');
+        }
       }
-      return s;
-    }));
+    });
   };
 
   const handleOpenAddService = (type) => {
@@ -308,39 +407,70 @@ const handleDeleteClosure = async (closureId) => {
   const handleSaveService = async (e) => {
     e.preventDefault();
     if (!serviceForm.name.trim() || !serviceForm.price || !serviceForm.duration) {
-      alert('Vui lòng điền đầy đủ các thông tin bắt buộc!');
+      showToast('Vui lòng điền đầy đủ các thông tin bắt buộc!', 'warning');
       return;
     }
 
     if (currentService) {
-      const updated = await serviceCatalogApi.updateService(currentService.id, { ...serviceForm, id: currentService.id, serviceId: currentService.serviceId });
-      setServices(prev => prev.map(s => (s.id === currentService.id ? { ...s, ...updated } : s)));
-      alert(`Đã chỉnh sửa dịch vụ thành công!`);
+      try {
+        const updated = await serviceCatalogApi.updateService(currentService.id, { ...serviceForm, id: currentService.id, serviceId: currentService.serviceId });
+        setServices(prev => prev.map(s => (s.id === currentService.id ? { ...s, ...updated } : s)));
+        showToast(`Đã chỉnh sửa dịch vụ thành công!`);
+        setServiceModalOpen(false);
+      } catch (err) {
+        showToast('Chỉnh sửa dịch vụ thất bại: ' + (err.response?.data?.message || err.message), 'error');
+      }
     } else {
-      const created = await serviceCatalogApi.createService(serviceForm);
-      setServices(prev => [...prev, created]);
-      alert(`Đã thêm mới dịch vụ thành công!`);
+      setConfirmDialog({
+        title: 'Xác nhận thêm dịch vụ mới',
+        confirmLabel: 'Xác nhận tạo',
+        cancelLabel: 'Kiểm tra lại',
+        summary: [
+          { label: 'Tên dịch vụ', value: serviceForm.name.trim() },
+          { label: 'Thời lượng', value: `${serviceForm.duration} phút` },
+          { label: 'Đơn giá', value: `${Number(serviceForm.price).toLocaleString('vi-VN')} đ` },
+          { label: 'Phân loại', value: serviceForm.type === 'core' ? 'Gói chính' : 'Add-on đi kèm' }
+        ],
+        onConfirm: async () => {
+          try {
+            const created = await serviceCatalogApi.createService(serviceForm);
+            setServices(prev => [...prev, created]);
+            showToast(`Đã thêm mới dịch vụ thành công!`);
+            setNotificationModal({
+              title: 'Tạo mới thành công!',
+              content: `Dịch vụ ${serviceForm.name.trim()} đã được thêm thành công vào hệ thống.`,
+              type: 'success'
+            });
+            setServiceModalOpen(false);
+          } catch (err) {
+            showToast('Thêm dịch vụ thất bại: ' + (err.response?.data?.message || err.message), 'error');
+          }
+        }
+      });
     }
-    setServiceModalOpen(false);
   };
 
   // Handlers for Slots
   const handleToggleSlot = async (id) => {
     const target = slots.find(sl => sl.id === id);
     if (!target) return;
-    await serviceCatalogApi.toggleSlotStatus(id, target.timeSlotId);
-    setSlots(prev => {
-      const next = prev.map(sl => {
-        if (sl.id === id) {
-          const nextState = !sl.isActive;
-          alert(`Đã ${nextState ? 'Kích hoạt' : 'Tạm dừng'} hoạt động khung giờ ${sl.time}`);
-          return { ...sl, isActive: nextState };
-        }
-        return sl;
+    try {
+      await serviceCatalogApi.toggleSlotStatus(id, target.timeSlotId);
+      setSlots(prev => {
+        const next = prev.map(sl => {
+          if (sl.id === id) {
+            const nextState = !sl.isActive;
+            showToast(`Đã ${nextState ? 'Kích hoạt' : 'Tạm dừng'} hoạt động khung giờ ${sl.time}`);
+            return { ...sl, isActive: nextState };
+          }
+          return sl;
+        });
+        localStorage.setItem('autowash_slots', JSON.stringify(next));
+        return next;
       });
-      localStorage.setItem('autowash_slots', JSON.stringify(next));
-      return next;
-    });
+    } catch (err) {
+      showToast('Cập nhật trạng thái khung giờ thất bại: ' + err.message, 'error');
+    }
   };
 
   const handleOpenEditSlot = (slot) => {
@@ -370,16 +500,16 @@ const handleDeleteClosure = async (closureId) => {
     e.preventDefault();
     const { startTime, endTime, maxCapacity, dayOfWeek } = slotForm;
     if (!startTime || !endTime) {
-      alert('Vui lòng chọn đầy đủ Giờ bắt đầu và Giờ kết thúc!');
+      showToast('Vui lòng chọn đầy đủ Giờ bắt đầu và Giờ kết thúc!', 'warning');
       return;
     }
     if (startTime >= endTime) {
-      alert('⚠️ Ràng buộc thời gian: Giờ bắt đầu phải nhỏ hơn Giờ kết thúc (ví dụ: 08:00 - 08:30)!');
+      showToast('⚠️ Ràng buộc thời gian: Giờ bắt đầu phải nhỏ hơn Giờ kết thúc (ví dụ: 08:00 - 08:30)!', 'warning');
       return;
     }
     const capacityNum = parseInt(maxCapacity, 10);
     if (isNaN(capacityNum) || capacityNum < 1) {
-      alert('Công suất tối đa phải là số nguyên dương (≥ 1)!');
+      showToast('Công suất tối đa phải là số nguyên dương (≥ 1)!', 'warning');
       return;
     }
 
@@ -410,7 +540,7 @@ const handleDeleteClosure = async (closureId) => {
     });
 
     if (hasOverlap) {
-      alert(`⚠️ RÀNG BUỘC TRÙNG LẶP THỜI GIAN: Khung giờ [${startTime} - ${endTime}] bị giao thoa thời gian với một khung giờ sẵn có trên hệ thống! Vui lòng điều chỉnh lại khoảng giờ.`);
+      showToast(`⚠️ RÀNG BUỘC TRÙNG LẶP THỜI GIAN: Khung giờ [${startTime} - ${endTime}] bị giao thoa thời gian với một khung giờ sẵn có trên hệ thống! Vui lòng điều chỉnh lại khoảng giờ.`, 'error');
       return;
     }
 
@@ -440,31 +570,31 @@ const handleDeleteClosure = async (closureId) => {
           return sl;
         }));
         localStorage.setItem('autowash_slots', JSON.stringify(next));
-        alert(`Đã cập nhật cấu hình khung giờ (${startTime} - ${endTime}) thành công!`);
+        showToast(`Đã cập nhật cấu hình khung giờ (${startTime} - ${endTime}) thành công!`);
         return next;
       });
       setSlotModalOpen(false);
     } catch (err) {
       const errMsg = err.response?.data?.message || err.message || 'Lỗi không xác định khi cập nhật khung giờ!';
-      alert(errMsg);
+      showToast(errMsg, 'error');
     }
   };
 
   // Handler: Add New Slot with validation + Overlap Guard + API integration
-  const handleAddSlot = async (e) => {
+  const handleAddSlot = (e) => {
     e.preventDefault();
 
     if (!newSlotStartTime || !newSlotEndTime) {
-      alert('Vui lòng chọn đầy đủ Giờ bắt đầu và Giờ kết thúc!');
+      showToast('Vui lòng chọn đầy đủ Giờ bắt đầu và Giờ kết thúc!', 'warning');
       return;
     }
     if (newSlotStartTime >= newSlotEndTime) {
-      alert('⚠️ Ràng buộc thời gian: Giờ bắt đầu phải nhỏ hơn Giờ kết thúc (ví dụ: 19:00 - 19:30)!');
+      showToast('⚠️ Ràng buộc thời gian: Giờ bắt đầu phải nhỏ hơn Giờ kết thúc (ví dụ: 19:00 - 19:30)!', 'warning');
       return;
     }
     const capacityNum = parseInt(newSlotMaxCapacity, 10);
     if (isNaN(capacityNum) || capacityNum < 1) {
-      alert('Công suất tối đa phải là số nguyên dương (≥ 1)!');
+      showToast('Công suất tối đa phải là số nguyên dương (≥ 1)!', 'warning');
       return;
     }
 
@@ -475,7 +605,7 @@ const handleDeleteClosure = async (closureId) => {
       if (sl.isActive === false) return false;
 
       const slDay = sl.dayOfWeek || 'ALL';
-      const dayConflict = targetDay === 'ALL' || slDay === 'ALL' || targetDay === slDay;
+      const dayConflict = targetDay === 'ALL' || slDay === 'ALL' || targetDay === dayConflict;
       if (!dayConflict) return false;
 
       let s2 = sl.startTime || '';
@@ -494,86 +624,117 @@ const handleDeleteClosure = async (closureId) => {
     });
 
     if (hasOverlap) {
-      alert(`⚠️ RÀNG BUỘC TRÙNG LẶP THỜI GIAN: Khung giờ [${newSlotStartTime} - ${newSlotEndTime}] bị giao thoa thời gian với một khung giờ sẵn có trên hệ thống! Vui lòng chọn khoảng giờ khác.`);
+      showToast(`⚠️ RÀNG BUỘC TRÙNG LẶP THỜI GIAN: Khung giờ [${newSlotStartTime} - ${newSlotEndTime}] bị giao thoa thời gian với một khung giờ sẵn có trên hệ thống! Vui lòng chọn khoảng giờ khác.`, 'error');
       return;
     }
 
     const formattedTime = `${newSlotStartTime}:00 - ${newSlotEndTime}:00`;
 
-    try {
-      const created = await serviceCatalogApi.createSlot({
-        time: formattedTime,
-        startTime: `${newSlotStartTime}:00`,
-        endTime: `${newSlotEndTime}:00`,
-        maxCapacity: capacityNum,
-        dayOfWeek: targetDay
-      });
+    setConfirmDialog({
+      title: 'Xác nhận thêm khung giờ mới',
+      confirmLabel: 'Xác nhận thêm slot',
+      cancelLabel: 'Hủy',
+      summary: [
+        { label: 'Giờ bắt đầu', value: newSlotStartTime },
+        { label: 'Giờ kết thúc', value: newSlotEndTime },
+        { label: 'Công suất phục vụ tối đa', value: `${capacityNum} xe / tiếng` },
+        { label: 'Ngày áp dụng', value: formatDayOfWeek(targetDay) }
+      ],
+      onConfirm: async () => {
+        try {
+          const created = await serviceCatalogApi.createSlot({
+            time: formattedTime,
+            startTime: `${newSlotStartTime}:00`,
+            endTime: `${newSlotEndTime}:00`,
+            maxCapacity: capacityNum,
+            dayOfWeek: targetDay
+          });
 
-      const newSlotObj = {
-        ...created,
-        id: `SL-NEW-${Date.now()}`,
-        time: formattedTime,
-        startTime: `${newSlotStartTime}:00`,
-        endTime: `${newSlotEndTime}:00`,
-        maxCapacity: capacityNum,
-        dayOfWeek: targetDay,
-        isActive: true
-      };
+          const newSlotObj = {
+            ...created,
+            id: `SL-NEW-${Date.now()}`,
+            time: formattedTime,
+            startTime: `${newSlotStartTime}:00`,
+            endTime: `${newSlotEndTime}:00`,
+            maxCapacity: capacityNum,
+            dayOfWeek: targetDay,
+            isActive: true
+          };
 
-      setSlots(prev => {
-        const next = sortAndReIndexSlots([...prev, newSlotObj]);
-        localStorage.setItem('autowash_slots', JSON.stringify(next));
-        return next;
-      });
+          setSlots(prev => {
+            const next = sortAndReIndexSlots([...prev, newSlotObj]);
+            localStorage.setItem('autowash_slots', JSON.stringify(next));
+            return next;
+          });
 
-      setCreatedSlotTime(`${newSlotStartTime} - ${newSlotEndTime}`);
-      setShowSlotSuccessModal(true);
-      setIsAddSlotModalOpen(false);
-      setNewSlotStartTime('19:00');
-      setNewSlotEndTime('19:30');
-      setNewSlotMaxCapacity(3);
-    } catch (err) {
-      const httpStatus = err.response?.status;
-      const serverMessage = (err.response?.data?.message || err.message || '').toLowerCase();
-      const isDuplicateConflict =
-        httpStatus === 409 ||
-        serverMessage.includes('duplicate') ||
-        serverMessage.includes('unique') ||
-        serverMessage.includes('conflict') ||
-        serverMessage.includes('đã tồn tại') ||
-        serverMessage.includes('already exists');
+          setCreatedSlotTime(`${newSlotStartTime} - ${newSlotEndTime}`);
+          showToast('Khung giờ mới đã được thêm thành công!', 'success');
+          setNotificationModal({
+            title: 'Tạo mới thành công!',
+            content: `Khung giờ ${newSlotStartTime} - ${newSlotEndTime} đã được thêm thành công vào hệ thống.`,
+            type: 'success'
+          });
+          setIsAddSlotModalOpen(false);
+          setNewSlotStartTime('19:00');
+          setNewSlotEndTime('19:30');
+          setNewSlotMaxCapacity(3);
+        } catch (err) {
+          const httpStatus = err.response?.status;
+          const serverMessage = (err.response?.data?.message || err.message || '').toLowerCase();
+          const isDuplicateConflict =
+            httpStatus === 409 ||
+            serverMessage.includes('duplicate') ||
+            serverMessage.includes('unique') ||
+            serverMessage.includes('conflict') ||
+            serverMessage.includes('đã tồn tại') ||
+            serverMessage.includes('already exists');
 
-      if (isDuplicateConflict) {
-        alert('Lỗi: Hệ thống ghi nhận khung giờ này đã tồn tại trong Database.');
-      } else {
-        const errMsg = err.response?.data?.message || err.message || 'Lỗi không xác định khi thêm khung giờ!';
-        alert(`Thêm khung giờ thất bại: ${errMsg}`);
+          if (isDuplicateConflict) {
+            showToast('Lỗi: Hệ thống ghi nhận khung giờ này đã tồn tại trong Database.', 'error');
+          } else {
+            const errMsg = err.response?.data?.message || err.message || 'Lỗi không xác định khi thêm khung giờ!';
+            showToast(`Thêm khung giờ thất bại: ${errMsg}`, 'error');
+          }
+        }
       }
-    }
+    });
   };
 
   // Handler: Delete Slot with confirmation + API integration
-  const handleDeleteSlot = async (slot) => {
-    const confirmed = window.confirm(
-      `Bạn có chắc chắn muốn xóa khung giờ ${slot.time} khỏi hệ thống không?`
-    );
-    if (!confirmed) return;
+  const handleDeleteSlot = (slot) => {
+    setConfirmDialog({
+      title: 'Xác nhận xóa khung giờ',
+      confirmLabel: 'Xác nhận xóa',
+      cancelLabel: 'Hủy bỏ',
+      isDestructive: true,
+      summary: [
+        { label: 'Khung giờ', value: slot.time },
+        { label: 'Công suất', value: `${slot.maxCapacity} xe/tiếng` },
+        { label: 'Cảnh báo', value: 'Bạn có chắc chắn muốn xóa khung giờ này không? Hành động này không thể hoàn tác.' }
+      ],
+      onConfirm: async () => {
+        try {
+          await serviceCatalogApi.deleteSlot(slot.id, slot.timeSlotId);
 
-    try {
-      await serviceCatalogApi.deleteSlot(slot.id, slot.timeSlotId);
+          setSlots(prev => {
+            const filtered = prev.filter(sl => sl.id !== slot.id);
+            const next = sortAndReIndexSlots(filtered);
+            localStorage.setItem('autowash_slots', JSON.stringify(next));
+            return next;
+          });
 
-      setSlots(prev => {
-        const filtered = prev.filter(sl => sl.id !== slot.id);
-        const next = sortAndReIndexSlots(filtered);
-        localStorage.setItem('autowash_slots', JSON.stringify(next));
-        return next;
-      });
-
-      alert('Xóa khung giờ thành công!');
-    } catch (err) {
-      const errMsg = err.response?.data?.message || err.message || 'Lỗi không xác định khi xóa khung giờ!';
-      alert(`Xóa khung giờ thất bại: ${errMsg}`);
-    }
+          showToast('Xóa khung giờ thành công!');
+          setNotificationModal({
+            title: 'Xóa thành công!',
+            content: `Đã xóa khung giờ ${slot.time} khỏi hệ thống thành công.`,
+            type: 'success'
+          });
+        } catch (err) {
+          const errMsg = err.response?.data?.message || err.message || 'Lỗi không xác định khi xóa khung giờ!';
+          showToast(`Xóa khung giờ thất bại: ${errMsg}`, 'error');
+        }
+      }
+    });
   };
 
   const totalDailyCapacity = slots.filter(sl => sl.isActive).reduce((sum, sl) => sum + sl.maxCapacity, 0);
@@ -673,7 +834,7 @@ const handleDeleteClosure = async (closureId) => {
               </button>
             </div>
 
-            {currentUser?.roleName !== 'ROLE_MANAGER' && (
+            {(currentUser?.role === 'ADMIN' || currentUser?.role === 'MANAGER')&& (
               <button
                 onClick={handleOpenAddService}
                 className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black py-2.5 px-4.5 rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-sm hover:shadow cursor-pointer"
@@ -718,9 +879,9 @@ const handleDeleteClosure = async (closureId) => {
                           </span>
                         ) : (
                           <button 
-                            disabled={currentUser?.roleName === 'ROLE_MANAGER'}
+                            disabled={currentUser?.role === 'CASHIER'}
                             onClick={() => handleToggleService(s.id)} 
-                            className={`focus:outline-none transition-transform ${currentUser?.roleName !== 'ROLE_MANAGER' ? 'hover:scale-[1.05]' : 'cursor-not-allowed'} inline-block`}
+                            className={`focus:outline-none transition-transform ${currentUser?.role !== 'CASHIER' ? 'hover:scale-[1.05] cursor-pointer' : 'cursor-not-allowed'} inline-block`}
                           >
                             {s.isActive ? (
                               <span className="flex items-center gap-1 text-emerald-600 font-extrabold bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-100">
@@ -737,12 +898,23 @@ const handleDeleteClosure = async (closureId) => {
                         )}
                       </td>
                       <td className="py-3.5 px-5 text-center">
-                        {currentUser?.roleName !== 'ROLE_MANAGER' && (
-                          <button onClick={() => handleOpenEditService(s)} className="p-1.5 bg-slate-55 border border-slate-200 hover:bg-slate-100 hover:text-slate-900 rounded-lg text-slate-660 transition-all flex items-center gap-1 font-bold cursor-pointer">
-                            <Edit className="w-3.5 h-3.5" />
-                            Sửa
-                          </button>
-                        )}
+                        <div className="flex items-center justify-center gap-2">
+                          {currentUser?.role !== 'CASHIER' && (
+                            <button onClick={() => handleOpenEditService(s)} className="p-1.5 bg-slate-55 border border-slate-200 hover:bg-slate-100 hover:text-slate-900 rounded-lg text-slate-660 transition-all flex items-center gap-1 font-bold cursor-pointer">
+                              <Edit className="w-3.5 h-3.5" />
+                              Sửa
+                            </button>
+                          )}
+                          {currentUser?.role === 'ADMIN'&& (
+                            <button 
+                              onClick={() => handleDeleteService(s.id, s.serviceId)} 
+                              className="p-1.5 bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-100 hover:text-rose-700 rounded-lg transition-all flex items-center gap-1 font-bold cursor-pointer"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                              Xóa
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -783,19 +955,21 @@ const handleDeleteClosure = async (closureId) => {
           </div>
 
           <div className="flex items-center justify-end shrink-0">
-            <button
-              onClick={() => {
-                setNewSlotStartTime('19:00');
-                setNewSlotEndTime('19:30');
-                setNewSlotMaxCapacity(3);
-                setNewSlotDayOfWeek('ALL');
-                setIsAddSlotModalOpen(true);
-              }}
-              className="bg-[#0047AB] hover:bg-[#003a8c] text-white text-xs font-black py-2.5 px-4.5 rounded-xl flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
-            >
-              <Plus className="w-4 h-4" />
-              Thêm khung giờ mới
-            </button>
+            {(currentUser?.role === 'ADMIN' || currentUser?.role === 'MANAGER')&& (
+              <button
+                onClick={() => {
+                  setNewSlotStartTime('19:00');
+                  setNewSlotEndTime('19:30');
+                  setNewSlotMaxCapacity(3);
+                  setNewSlotDayOfWeek('ALL');
+                  setIsAddSlotModalOpen(true);
+                }}
+                className="bg-[#0047AB] hover:bg-[#003a8c] text-white text-xs font-black py-2.5 px-4.5 rounded-xl flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer"
+              >
+                <Plus className="w-4 h-4" />
+                Thêm khung giờ mới
+              </button>
+            )}
           </div>
 
           {/* Slots Table */}
@@ -830,9 +1004,9 @@ const handleDeleteClosure = async (closureId) => {
                       </td>
                       <td className="py-3.5 px-4 text-center">
                         <button 
-                          disabled={currentUser?.roleName === 'ROLE_MANAGER'}
+                          disabled={currentUser?.role === 'CASHIER'}
                           onClick={() => handleToggleSlot(sl.id)} 
-                          className={`focus:outline-none transition-transform ${currentUser?.roleName !== 'ROLE_MANAGER' ? 'hover:scale-[1.05]' : 'cursor-not-allowed'} inline-block`}
+                          className={`focus:outline-none transition-transform ${currentUser?.role !== 'CASHIER' ? 'hover:scale-[1.05] cursor-pointer' : 'cursor-not-allowed'} inline-block`}
                         >
                           {sl.isActive ? (
                             <span className="flex items-center gap-1 text-emerald-600 font-extrabold bg-emerald-55 px-2.5 py-1 rounded-full border border-emerald-100">
@@ -848,7 +1022,7 @@ const handleDeleteClosure = async (closureId) => {
                         </button>
                       </td>
                       <td className="py-3.5 px-5 text-center">
-                        {currentUser?.roleName !== 'ROLE_MANAGER' && (
+                        {currentUser?.role !== 'CASHIER' && (
                           <div className="flex items-center justify-center gap-1.5">
                             <button onClick={() => handleOpenEditSlot(sl)} className="p-1.5 bg-slate-50 border border-slate-200 hover:bg-slate-100 hover:text-slate-900 rounded-lg text-slate-650 font-bold cursor-pointer inline-flex items-center gap-1">
                               <Edit className="w-3.5 h-3.5" />
@@ -995,7 +1169,7 @@ const handleDeleteClosure = async (closureId) => {
               </div>
             </div>
 
-            {currentUser?.roleName !== 'ROLE_MANAGER' && (
+            {(currentUser?.role === 'ADMIN' || currentUser?.role === 'MANAGER')&& (
               <button
                 onClick={() => {
                   setClosureForm({ closureDate: '', reason: '', isFullDay: true });
@@ -1060,7 +1234,7 @@ const handleDeleteClosure = async (closureId) => {
                         </div>
                         <div className="flex justify-between items-center pt-2 border-t border-slate-100">
                           <span className="text-[9px] text-slate-400 font-medium">Mã: #{closureId?.toString().slice(-4)}</span>
-                          {currentUser?.roleName !== 'ROLE_MANAGER' && (
+                          {currentUser?.roleName === 'ROLE_ADMIN'&& (
                             <button
                               onClick={() => handleDeleteClosure(closureId)}
                               className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition-all hover:scale-105 flex items-center gap-1 cursor-pointer font-bold text-[10px]"
@@ -1352,6 +1526,116 @@ const handleDeleteClosure = async (closureId) => {
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {/* DYNAMIC CONFIRMATION MODAL */}
+      {confirmDialog && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[150] p-4 backdrop-blur-[1px] animate-fade-in">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl space-y-4 border border-slate-100 animate-scale-up">
+            <div className="pb-2 border-b border-slate-150 flex items-center justify-between">
+              <h3 className="font-extrabold text-slate-800 text-sm">{confirmDialog.title}</h3>
+              <button 
+                type="button" 
+                onClick={() => {
+                  if (confirmDialog.onCancel) confirmDialog.onCancel();
+                  setConfirmDialog(null);
+                }}
+                className="p-1 text-slate-400 hover:text-slate-700 rounded-lg cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            
+            <div className="space-y-2.5 text-xs text-slate-600 font-semibold max-h-[40vh] overflow-y-auto pr-1">
+              {confirmDialog.summary.map((item, idx) => (
+                <div key={idx} className="flex justify-between py-1 border-b border-slate-50 gap-2">
+                  <span className="text-slate-450 font-bold uppercase text-[9px] shrink-0">{item.label}</span>
+                  <span className="text-slate-800 font-extrabold text-right break-words">{item.value}</span>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex gap-2 justify-end pt-3 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => {
+                  if (confirmDialog.onCancel) confirmDialog.onCancel();
+                  setConfirmDialog(null);
+                }}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-xl text-xs transition-colors cursor-pointer"
+              >
+                {confirmDialog.cancelLabel || 'Hủy'}
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  setConfirmDialog(prev => ({ ...prev, isSubmitting: true }));
+                  try {
+                    await confirmDialog.onConfirm();
+                  } finally {
+                    setConfirmDialog(null);
+                  }
+                }}
+                disabled={confirmDialog.isSubmitting}
+                className={`px-4.5 py-2 font-black rounded-xl text-xs transition-all shadow-md flex items-center gap-1.5 cursor-pointer disabled:opacity-75 disabled:cursor-not-allowed ${
+                  confirmDialog.isDestructive
+                    ? 'bg-rose-600 hover:bg-rose-700 text-white shadow-rose-950/10'
+                    : 'bg-[#0047AB] hover:bg-[#003c94] text-white shadow-[#0047AB]/10'
+                }`}
+              >
+                {confirmDialog.isSubmitting ? (
+                  <>
+                    <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                    Đang xử lý...
+                  </>
+                ) : (
+                  confirmDialog.confirmLabel || 'Xác nhận'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SUCCESS NOTIFICATION MODAL */}
+      {notificationModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[160] p-4 backdrop-blur-[1px] animate-fade-in">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl space-y-4 border border-slate-100 text-center animate-scale-up">
+            <div className="flex justify-center">
+              <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center text-xl font-bold border border-emerald-100">
+                ✓
+              </div>
+            </div>
+            <h3 className="font-extrabold text-slate-800 text-base">{notificationModal.title}</h3>
+            <p className="text-xs text-slate-500 font-semibold leading-relaxed">{notificationModal.content}</p>
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={() => setNotificationModal(null)}
+                className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl text-xs transition-colors cursor-pointer"
+              >
+                Đồng ý
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* DYNAMIC FLOATING TOAST */}
+      {toast && (
+        <div className={`fixed bottom-5 right-5 z-[200] flex items-center gap-2.5 px-4 py-3 rounded-2xl border text-xs font-black shadow-xl animate-fade-in transition-all ${
+          toast.type === 'success' ? 'bg-emerald-50 text-emerald-850 border-emerald-200' :
+          toast.type === 'warning' ? 'bg-amber-50 text-amber-855 border-amber-250' :
+          'bg-rose-50 text-rose-850 border-rose-200'
+        }`}>
+          <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+            toast.type === 'success' ? 'bg-emerald-500' :
+            toast.type === 'warning' ? 'bg-amber-500' :
+            'bg-rose-500'
+          }`} />
+          <span>{toast.message}</span>
+          <button onClick={() => setToast(null)} className="ml-2 text-slate-400 hover:text-slate-700 font-extrabold cursor-pointer">✕</button>
         </div>
       )}
 

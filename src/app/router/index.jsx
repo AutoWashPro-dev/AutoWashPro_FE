@@ -223,6 +223,22 @@ const router = createBrowserRouter([
         path: 'settings',
         element: <AdminSettingsPage />,
       },
+      {
+        path: 'services',
+        element: <Navigate to="/admin/services-slots" replace />,
+      },
+      {
+        path: 'customers',
+        element: <Navigate to="/admin/customers-loyalty" replace />,
+      },
+      {
+        path: 'promotions',
+        element: <Navigate to="/admin/customers-loyalty" replace />,
+      },
+      {
+        path: 'feedbacks',
+        element: <Navigate to="/admin/customers-loyalty" replace />,
+      },
     ],
   },
 ]);

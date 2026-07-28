@@ -24,8 +24,8 @@ api.interceptors.response.use(
   (error) => {
     const status = error.response ? error.response.status : null;
     
-    // Target 401 Unauthorized (Expired/Revoked Token) or 403 Forbidden
-    if (status === 401 || status === 403) {
+    // Target 401 Unauthorized (Expired/Revoked Token) only. Do NOT force logout on 403.
+    if (status === 401) {
       // 1. Immediately purge all invalid authentication tokens from client storage
       sessionStorage.removeItem('autowash_token');
       sessionStorage.removeItem('autowash_user');

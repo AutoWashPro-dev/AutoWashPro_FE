@@ -1,16 +1,21 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { 
   User, 
   Key, 
   Check, 
   Mail,
   Send,
-  Loader2
+  Loader2,
+  Car,
+  CalendarDays,
+  ShieldCheck
 } from 'lucide-react';
 import { customerApi } from '../services/customerApi';
 import { validateGmail } from '../../../utils/validationUtils';
 
 export default function CustomerAccountPage() {
+  const navigate = useNavigate();
   const [subTab, setSubTab] = useState('profile'); // 'profile', 'password'
 
   // State thông tin cá nhân khách hàng
@@ -30,51 +35,66 @@ export default function CustomerAccountPage() {
     }
   };
   
+  // Profile data from GET /customer/auth/me
   const [customerStats, setCustomerStats] = useState({
-    id: "N/A",
     customerId: "N/A",
     phoneNumber: "N/A",
-    membershipTier: "N/A",
+    tierName: "N/A",
+    tierDisplayName: "N/A",
     loyaltyPoints: 0,
-    totalSpent: 0,
-    createdAt: "N/A"
+    totalSpending: 0,
+    visitCount: 0,
+    bookingWindowDays: 7,
+    vehicles: []
   });
   const [isLoading, setIsLoading] = useState(true);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
   // State mật khẩu
-  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [isSubmittingPassword, setIsSubmittingPassword] = useState(false);
 
   useEffect(() => {
     const fetchProfile = async () => {
       try {
+        // Call GET /api/v1/customer/auth/me with Bearer token
         const data = await customerApi.getProfile();
         if (data) {
-          setFullName(data.fullName || "N/A");
-          setEmail(data.email || "N/A");
+          // Pre-fill editable form fields
+          setFullName(data.fullName || "");
+          setEmail(data.email || "");
           setIsEmailVerified(data.isEmailVerified ?? false);
           
+          // Map all response fields to customerStats
           setCustomerStats({
-            id: data.id || data.customerId || "N/A",
-            customerId: data.id || data.customerId || "N/A",
-            phoneNumber: data.phoneNumber || data.phone || "N/A",
-            membershipTier: data.membershipTier || data.tierName || "REGULAR",
+            customerId: data.customerId || "N/A",
+            phoneNumber: data.phoneNumber || "N/A",
+            tierName: data.tierName || "MEMBER",
+            tierDisplayName: data.tierDisplayName || data.tierName || "Member",
             loyaltyPoints: data.loyaltyPoints ?? 0,
-            totalSpent: data.totalSpent ?? data.totalSpending ?? 0,
-            createdAt: data.createdAt ? new Date(data.createdAt).toLocaleDateString('vi-VN') : "N/A"
+            totalSpending: data.totalSpending ?? 0,
+            visitCount: data.visitCount ?? 0,
+            bookingWindowDays: data.bookingWindowDays ?? 7,
+            vehicles: Array.isArray(data.vehicles) ? data.vehicles : []
           });
         }
       } catch (err) {
         console.error("Failed to fetch account profile:", err);
+        // If 401/403, redirect to login
+        const status = err.response?.status;
+        if (status === 401 || status === 403) {
+          navigate('/login');
+          return;
+        }
+        setErrorMessage("Không thể tải thông tin tài khoản. Vui lòng thử lại sau.");
       } finally {
         setIsLoading(false);
       }
     };
     fetchProfile();
-  }, []);
+  }, [navigate]);
 
   // Gửi email kích hoạt tài khoản
   const handleSendVerification = async () => {
@@ -107,18 +127,21 @@ export default function CustomerAccountPage() {
     try {
       const updatedData = await customerApi.updateProfile({ fullName, email });
       if (updatedData) {
-        setFullName(updatedData.fullName || "N/A");
-        setEmail(updatedData.email || "N/A");
+        setFullName(updatedData.fullName || "");
+        setEmail(updatedData.email || "");
         setIsEmailVerified(updatedData.isEmailVerified ?? false);
-        setCustomerStats({
-          id: updatedData.id || updatedData.customerId || "N/A",
-          customerId: updatedData.id || updatedData.customerId || "N/A",
-          phoneNumber: updatedData.phoneNumber || updatedData.phone || "N/A",
-          membershipTier: updatedData.membershipTier || updatedData.tierName || "REGULAR",
-          loyaltyPoints: updatedData.loyaltyPoints ?? 0,
-          totalSpent: updatedData.totalSpent ?? updatedData.totalSpending ?? 0,
-          createdAt: updatedData.createdAt ? new Date(updatedData.createdAt).toLocaleDateString('vi-VN') : "N/A"
-        });
+        setCustomerStats(prev => ({
+          ...prev,
+          customerId: updatedData.customerId || prev.customerId,
+          phoneNumber: updatedData.phoneNumber || prev.phoneNumber,
+          tierName: updatedData.tierName || prev.tierName,
+          tierDisplayName: updatedData.tierDisplayName || updatedData.tierName || prev.tierDisplayName,
+          loyaltyPoints: updatedData.loyaltyPoints ?? prev.loyaltyPoints,
+          totalSpending: updatedData.totalSpending ?? prev.totalSpending,
+          visitCount: updatedData.visitCount ?? prev.visitCount,
+          bookingWindowDays: updatedData.bookingWindowDays ?? prev.bookingWindowDays,
+          vehicles: Array.isArray(updatedData.vehicles) ? updatedData.vehicles : prev.vehicles
+        }));
       }
       setSuccessMessage("Cập nhật thông tin tài khoản thành công!");
     } catch (err) {
@@ -127,28 +150,74 @@ export default function CustomerAccountPage() {
     }
   };
 
-  // Đổi mật khẩu tài khoản
+  // Đổi mật khẩu tài khoản (API: POST /customer/auth/email/reset-password)
   const handleChangePassword = async (e) => {
     e.preventDefault();
     setSuccessMessage('');
     setErrorMessage('');
-    if (newPassword !== confirmPassword) {
-      setErrorMessage("Mật khẩu mới và Xác nhận mật khẩu không trùng khớp!");
+
+    // Validate required fields are not empty
+    if (!newPassword.trim() || !confirmPassword.trim()) {
+      setErrorMessage('Vui lòng điền đầy đủ tất cả các trường mật khẩu.');
       return;
     }
+    if (newPassword !== confirmPassword) {
+      setErrorMessage('Mật khẩu mới và Xác nhận mật khẩu không trùng khớp!');
+      return;
+    }
+
+    setIsSubmittingPassword(true);
     try {
       await customerApi.changePassword({
-        oldPassword: currentPassword,
-        newPassword: newPassword
+        newPassword: newPassword,
+        confirmPassword: confirmPassword
       });
-      setSuccessMessage("Thay đổi mật khẩu tài khoản thành công!");
-      setCurrentPassword('');
+      setSuccessMessage('Đổi mật khẩu thành công!');
       setNewPassword('');
       setConfirmPassword('');
     } catch (err) {
-      console.error("Failed to change password:", err);
-      setErrorMessage(err.response?.data?.message || "Thay đổi mật khẩu thất bại. Vui lòng kiểm tra lại mật khẩu hiện tại!");
+      console.error('Failed to change password:', err);
+      const serverMsg = err.response?.data?.message || err.message || '';
+      setErrorMessage(serverMsg || 'Thay đổi mật khẩu thất bại. Vui lòng thử lại!');
+    } finally {
+      setIsSubmittingPassword(false);
     }
+  };
+
+  // Skeleton loading component for the profile tab
+  const ProfileSkeleton = () => (
+    <div className="space-y-6 animate-pulse">
+      {/* Stats grid skeleton */}
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 bg-slate-50 p-5 rounded-2xl border border-slate-100">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <div key={i} className="space-y-2">
+            <div className="h-2.5 bg-slate-200 rounded w-2/3"></div>
+            <div className="h-4 bg-slate-200 rounded w-1/2"></div>
+          </div>
+        ))}
+      </div>
+      {/* Vehicles skeleton */}
+      <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 space-y-3">
+        <div className="h-3 bg-slate-200 rounded w-1/4"></div>
+        <div className="h-10 bg-slate-200 rounded-xl"></div>
+      </div>
+      {/* Form skeleton */}
+      <div className="space-y-4 max-w-xl">
+        <div className="h-4 bg-slate-200 rounded w-1/3"></div>
+        <div className="h-10 bg-slate-200 rounded-xl"></div>
+        <div className="h-10 bg-slate-200 rounded-xl"></div>
+        <div className="h-10 bg-slate-200 rounded-xl w-1/3"></div>
+      </div>
+    </div>
+  );
+
+  // Tier badge color helper
+  const getTierBadgeStyle = (tierName) => {
+    const tier = (tierName || '').toUpperCase();
+    if (tier.includes('PLATINUM')) return 'bg-violet-100 text-violet-700 border-violet-200';
+    if (tier.includes('GOLD')) return 'bg-amber-100 text-amber-700 border-amber-200';
+    if (tier.includes('SILVER')) return 'bg-slate-200 text-slate-700 border-slate-300';
+    return 'bg-blue-100 text-blue-700 border-blue-200'; // MEMBER default
   };
 
   return (
@@ -218,16 +287,14 @@ export default function CustomerAccountPage() {
             <div className="space-y-6">
               
               {isLoading ? (
-                <div className="flex justify-center items-center py-20 text-slate-400 gap-2">
-                  <Loader2 className="animate-spin" size={24} /> Đang tải thông tin cá nhân...
-                </div>
+                <ProfileSkeleton />
               ) : (
                 <>
-                {/* Thẻ hiển thị các tham số cố định */}
+                {/* Thẻ hiển thị các tham số cố định — mapped from GET /customer/auth/me */}
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4 bg-slate-50 p-5 rounded-2xl border border-slate-100">
                   <div>
                     <span className="text-[10px] font-bold text-slate-400 uppercase block">Mã Khách hàng</span>
-                    <span className="text-sm font-bold font-mono text-slate-800">{customerStats.id || customerStats.customerId}</span>
+                    <span className="text-sm font-bold font-mono text-slate-800">{customerStats.customerId}</span>
                   </div>
                   <div>
                     <span className="text-[10px] font-bold text-slate-400 uppercase block">Số điện thoại (ID)</span>
@@ -235,7 +302,9 @@ export default function CustomerAccountPage() {
                   </div>
                   <div>
                     <span className="text-[10px] font-bold text-slate-400 uppercase block">Hạng VIP hiện tại</span>
-                    <span className="text-sm font-bold text-blue-600 uppercase">{customerStats.membershipTier}</span>
+                    <span className={`inline-block text-xs font-extrabold uppercase px-2.5 py-0.5 rounded-lg border ${getTierBadgeStyle(customerStats.tierName)}`}>
+                      {customerStats.tierDisplayName}
+                    </span>
                   </div>
                   <div className="mt-2 pt-2 border-t border-slate-100/50 col-span-2 md:col-span-3"></div>
                   <div>
@@ -243,17 +312,57 @@ export default function CustomerAccountPage() {
                     <span className="text-sm font-bold text-slate-800">{customerStats.loyaltyPoints} Pts</span>
                   </div>
                   <div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase block">Doanh thu trọn đời</span>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase block">Đã tiêu</span>
                     <span className="text-sm font-bold text-slate-800">
-                      {customerStats.totalSpent !== undefined && customerStats.totalSpent !== null 
-                        ? `${customerStats.totalSpent.toLocaleString('vi-VN')} d` 
-                        : '0 d'}
+                      {customerStats.totalSpending !== undefined && customerStats.totalSpending !== null 
+                        ? `${Number(customerStats.totalSpending).toLocaleString('vi-VN')} đ` 
+                        : '0 đ'}
                     </span>
                   </div>
                   <div>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase block">Ngày gia nhập trạm</span>
-                    <span className="text-sm font-bold text-slate-800">{customerStats.createdAt || 'N/A'}</span>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase block">Số lần dọn xe</span>
+                    <span className="text-sm font-bold text-slate-800">{customerStats.visitCount} lần dọn xe</span>
                   </div>
+                  <div className="mt-2 pt-2 border-t border-slate-100/50 col-span-2 md:col-span-3"></div>
+                  <div className="col-span-2 md:col-span-3">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase block">Cửa sổ đặt lịch</span>
+                    <span className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+                      <CalendarDays size={14} className="text-blue-500" />
+                      Cho phép đặt trước {customerStats.bookingWindowDays} ngày
+                    </span>
+                  </div>
+                </div>
+
+                {/* Danh sách phương tiện đã đăng ký — from vehicles[] */}
+                <div className="bg-slate-50 p-5 rounded-2xl border border-slate-100 space-y-3">
+                  <h4 className="font-bold text-slate-700 text-xs flex items-center gap-1.5 uppercase">
+                    <Car size={14} className="text-blue-600" /> Phương tiện đã đăng ký
+                  </h4>
+                  {customerStats.vehicles.length === 0 ? (
+                    <p className="text-xs text-slate-400 italic">Chưa có phương tiện nào được đăng ký.</p>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {customerStats.vehicles.map((v) => (
+                        <div 
+                          key={v.vehicleId || v.id} 
+                          className="flex items-center gap-3 bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm"
+                        >
+                          <div className="w-8 h-8 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
+                            <Car size={14} className="text-blue-600" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <span className="font-bold text-slate-800 block truncate">{v.model || 'N/A'}</span>
+                            <span className="text-[11px] text-slate-500 font-mono font-semibold">{v.licensePlate || 'N/A'}</span>
+                          </div>
+                          {v.isDefault && (
+                            <span className="text-[9px] font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-lg uppercase flex items-center gap-0.5 shrink-0">
+                              <ShieldCheck size={10} /> Mặc định
+                            </span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 {/* Form chỉnh sửa thông tin */}
@@ -328,17 +437,6 @@ export default function CustomerAccountPage() {
               <h3 className="font-bold text-slate-800 text-sm border-b pb-2 mb-4">Thay đổi mật khẩu đăng nhập</h3>
 
               <div>
-                <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">Mật khẩu hiện tại</label>
-                <input 
-                  type="password" 
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                  required
-                />
-              </div>
-
-              <div>
                 <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">Mật khẩu mới</label>
                 <input 
                   type="password" 
@@ -362,9 +460,17 @@ export default function CustomerAccountPage() {
 
               <button 
                 type="submit" 
-                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all"
+                disabled={isSubmittingPassword}
+                className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all flex items-center gap-2 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed"
               >
-                Cập nhật mật khẩu mới
+                {isSubmittingPassword ? (
+                  <>
+                    <Loader2 size={12} className="animate-spin" />
+                    <span>Đang cập nhật...</span>
+                  </>
+                ) : (
+                  <span>Cập nhật mật khẩu mới</span>
+                )}
               </button>
             </form>
           )}
