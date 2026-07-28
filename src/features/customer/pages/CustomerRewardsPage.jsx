@@ -1,6 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Gift, Award, Wallet, ArrowRight, CheckCircle2, AlertCircle, Crown, Sparkles, Clock, Lock, Coins, Tag } from 'lucide-react';
+import { 
+  Gift, 
+  Award, 
+  Wallet, 
+  ArrowRight, 
+  CheckCircle2, 
+  AlertCircle, 
+  Crown, 
+  Sparkles, 
+  Clock, 
+  Lock, 
+  Coins, 
+  Tag,
+  Loader2,
+  HelpCircle,
+  AlertTriangle
+} from 'lucide-react';
 import { customerApi } from '../services/customerApi';
 
 export default function CustomerRewardsPage() {
@@ -23,6 +39,59 @@ export default function CustomerRewardsPage() {
 
   // 3. Danh sách Lịch sử biến động điểm
   const [pointHistory, setPointHistory] = useState([]);
+
+  // Loading states for exchange
+  const [isRedeeming, setIsRedeeming] = useState(false);
+
+  // Custom Alerts and Confirms states
+  const [alertModal, setAlertModal] = useState({
+    isOpen: false,
+    type: 'warning', // 'success' | 'error' | 'warning'
+    title: 'Thông báo',
+    message: ''
+  });
+
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    title: 'Xác nhận đổi quà',
+    message: '',
+    rewardItem: null,
+    onConfirm: null
+  });
+
+  const showAlert = (message, type = 'warning', title = 'Thông báo') => {
+    setAlertModal({
+      isOpen: true,
+      type,
+      title,
+      message
+    });
+  };
+
+  const showConfirm = (message, rewardItem, onConfirm, title = 'Xác nhận đổi quà') => {
+    setConfirmModal({
+      isOpen: true,
+      title,
+      message,
+      rewardItem,
+      onConfirm: () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        if (onConfirm) onConfirm();
+      }
+    });
+  };
+
+  // Close modals on Escape key press
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setAlertModal(prev => ({ ...prev, isOpen: false }));
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const loadProfileData = async () => {
     try {
@@ -97,14 +166,14 @@ export default function CustomerRewardsPage() {
   }, [activeTab]);
 
   // Xử lý đổi quà bằng điểm thưởng
-  const handleRedeemGift = async (item) => {
+  const handleRedeemGift = (item) => {
     if (item.isGrayscale) {
-      alert(`Bạn chưa đủ điều kiện đổi quà này: ${item.unlockTooltip}`);
+      showAlert(`Bạn chưa đủ điều kiện đổi quà này: ${item.unlockTooltip}`, 'warning', 'Chưa đủ điều kiện');
       return;
     }
 
     if (profile.loyaltyPoints < item.pointsCost) {
-      alert("Số điểm tích lũy của bạn không đủ để đổi quà này!");
+      showAlert("Số điểm tích lũy của bạn không đủ để đổi quà này!", 'error', 'Không đủ điểm');
       return;
     }
 
@@ -112,25 +181,32 @@ export default function CustomerRewardsPage() {
       ? `Bạn muốn nhận quà tặng miễn phí "${item.title}" trực tiếp vào ví chứ?`
       : `Bạn có chắc chắn muốn dùng ${item.pointsCost} Pts để đổi lấy "${item.title}" không?`;
 
-    const confirmRedeem = window.confirm(confirmText);
-    if (!confirmRedeem) return;
-
-    try {
-      const cId = profile.customerId || 1;
-      if (item.pointsCost === 0) {
-        await customerApi.claimFreeVoucher(item.id, cId);
-      } else {
-        await customerApi.exchangePoints(item.id, cId);
-      }
-      alert(`Đổi quà thành công! Đơn hàng ưu đãi "${item.title}" đã được gửi vào ví của bạn.`);
-      
-      // Tải lại thông tin sau khi đổi thành công
-      await loadProfileData();
-      window.dispatchEvent(new Event('profileUpdated'));
-    } catch (err) {
-      console.error('Failed to redeem gift:', err);
-      alert('Đổi quà thất bại: ' + (err.response?.data?.message || err.message));
-    }
+    showConfirm(
+      confirmText,
+      item,
+      async () => {
+        setIsRedeeming(true);
+        try {
+          const cId = profile.customerId || 1;
+          if (item.pointsCost === 0) {
+            await customerApi.claimFreeVoucher(item.id, cId);
+          } else {
+            await customerApi.exchangePoints(item.id, cId);
+          }
+          showAlert(`Đổi quà thành công! Đơn hàng ưu đãi "${item.title}" đã được gửi vào ví của bạn.`, 'success', 'Thành công');
+          
+          // Tải lại thông tin sau khi đổi thành công
+          await loadProfileData();
+          window.dispatchEvent(new Event('profileUpdated'));
+        } catch (err) {
+          console.error('Failed to redeem gift:', err);
+          showAlert('Đổi quà thất bại: ' + (err.response?.data?.message || err.message), 'error', 'Lỗi');
+        } finally {
+          setIsRedeeming(false);
+        }
+      },
+      item.pointsCost === 0 ? "Xác nhận nhận ưu đãi" : "Xác nhận đổi quà"
+    );
   };
 
   // Sử dụng voucher - đi tới trang đặt lịch dọn xe
@@ -170,7 +246,7 @@ export default function CustomerRewardsPage() {
     .sort((a, b) => (a.isGrayscale === b.isGrayscale ? 0 : a.isGrayscale ? 1 : -1));
 
   return (
-    <div className="space-y-8 pb-16 text-slate-800 font-sans">
+    <div className="space-y-8 pb-16 text-slate-800 font-sans relative">
       
       {/* KHỐI HEADER TRÊN CÙNG: PHIÊN BẢN SLIM & SANG TRỌNG */}
       <div className="relative overflow-hidden rounded-[24px] bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 px-6 py-5 shadow-lg border border-white/10 text-white flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -215,7 +291,7 @@ export default function CustomerRewardsPage() {
         </div>
       </div>
 
-      {/* CHUYỂN ĐỔI TAB: REWARDS SHOP VS MY VOUCHER WALLET VS POINTS HISTORY */}
+      {/* CHUYỂN ĐỔI TAB */}
       <div className="flex bg-slate-100 p-1.5 rounded-2xl max-w-lg overflow-x-auto no-scrollbar">
         <button
           onClick={() => setActiveTab('shop')}
@@ -245,7 +321,7 @@ export default function CustomerRewardsPage() {
               : 'text-slate-500 hover:text-slate-800'
           }`}
         >
-          <Clock size={0} /> Lịch sử điểm ({pointHistory.length})
+          <Clock size={15} /> Lịch sử điểm ({pointHistory.length})
         </button>
       </div>
 
@@ -253,9 +329,6 @@ export default function CustomerRewardsPage() {
       <div className="space-y-8">
         
         {activeTab === 'shop' && (
-          /* ========================================================================================= */
-          /* TAB 1: SHOP PTS (CỬA HÀNG ĐỔI ĐIỂM THƯỞNG) */
-          /* ========================================================================================= */
           <div className="space-y-10">
             
             {/* 1. MỤC MỚI NHẬN / TRI ÂN MIỄN PHÍ */}
@@ -263,7 +336,7 @@ export default function CustomerRewardsPage() {
               <div className="space-y-4">
                 <div className="flex items-center gap-2">
                   <div className="w-1.5 h-6 bg-rose-500 rounded-full"></div>
-                  <h3 className="font-extrabold text-slate-800 text-base flex items-center gap-2">
+                  <h3 className="font-extrabold text-slate-800 text-base flex items-center gap-2 text-left">
                     <Sparkles className="w-4 h-4 text-rose-500 animate-bounce" /> Quà tặng tri ân miễn phí cho bạn
                   </h3>
                 </div>
@@ -279,7 +352,7 @@ export default function CustomerRewardsPage() {
             <div className="space-y-4">
               <div className="flex items-center gap-2">
                 <div className="w-1.5 h-6 bg-indigo-600 rounded-full"></div>
-                <h3 className="font-extrabold text-slate-800 text-base flex items-center gap-2">
+                <h3 className="font-extrabold text-slate-800 text-base flex items-center gap-2 text-left">
                   <Coins className="w-4 h-4 text-indigo-600" /> Quầy đổi điểm nhận ưu đãi
                 </h3>
               </div>
@@ -301,15 +374,12 @@ export default function CustomerRewardsPage() {
         )}
 
         {activeTab === 'wallet' && (
-          /* ========================================================================================= */
-          /* TAB 2: VÍ VOUCHER CỦA TÔI */
-          /* ========================================================================================= */
           <div className="space-y-6">
-            <div className="flex justify-between items-center pb-2 border-b border-slate-100">
-              <h3 className="font-extrabold text-slate-800 text-base flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center pb-2 border-b border-slate-100 gap-2">
+              <h3 className="font-extrabold text-slate-800 text-base flex items-center gap-2 text-left">
                 <Wallet className="w-4 h-4 text-indigo-600" /> Mã giảm giá đang sở hữu
               </h3>
-              <p className="text-xs text-slate-400 font-semibold">Bấm "Sử dụng" để đi tới trang đặt lịch dọn xe và áp dụng voucher.</p>
+              <p className="text-xs text-slate-400 font-semibold text-left">Bấm "Sử dụng" để đi tới trang đặt lịch dọn xe và áp dụng voucher.</p>
             </div>
 
             {myVouchers.length > 0 ? (
@@ -319,8 +389,8 @@ export default function CustomerRewardsPage() {
                 ))}
               </div>
             ) : (
-              <div className="text-center py-16 text-slate-400 text-sm bg-white border-2 border-dashed border-slate-200 rounded-[24px] flex flex-col items-center justify-center gap-3">
-                <div className="bg-slate-50 p-4 rounded-full border border-slate-100">
+              <div className="text-center py-16 text-slate-400 text-sm bg-white border border-dashed border-slate-200 rounded-[24px] flex flex-col items-center justify-center gap-3">
+                <div className="bg-slate-50 p-4 rounded-full border border-slate-105">
                   <Wallet className="w-10 h-10 text-slate-300" />
                 </div>
                 <div className="space-y-1">
@@ -329,7 +399,7 @@ export default function CustomerRewardsPage() {
                 </div>
                 <button 
                   onClick={() => setActiveTab('shop')}
-                  className="mt-2.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl transition-all shadow"
+                  className="mt-2.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl transition-all shadow cursor-pointer"
                 >
                   Đến cửa hàng đổi điểm
                 </button>
@@ -339,15 +409,12 @@ export default function CustomerRewardsPage() {
         )}
 
         {activeTab === 'history' && (
-          /* ========================================================================================= */
-          /* TAB 3: LỊCH SỬ BIẾN ĐỘNG ĐIỂM (SAO KÊ) */
-          /* ========================================================================================= */
           <div className="space-y-6">
-            <div className="flex justify-between items-center pb-2 border-b border-slate-100">
-              <h3 className="font-extrabold text-slate-800 text-base flex items-center gap-2">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center pb-2 border-b border-slate-100 gap-2">
+              <h3 className="font-extrabold text-slate-800 text-base flex items-center gap-2 text-left">
                 <Clock className="w-4 h-4 text-indigo-600" /> Sao kê lịch sử giao dịch điểm
               </h3>
-              <p className="text-xs text-slate-400 font-semibold">Tra cứu mọi biến động cộng/trừ điểm tích lũy của tài khoản.</p>
+              <p className="text-xs text-slate-400 font-semibold text-left">Tra cứu mọi biến động cộng/trừ điểm tích lũy của tài khoản.</p>
             </div>
 
             {pointHistory.length > 0 ? (
@@ -430,6 +497,101 @@ export default function CustomerRewardsPage() {
           </div>
         )}
       </div>
+
+      {/* Custom UI Modal Alert / Notification Dialog */}
+      {alertModal.isOpen && (
+        <div 
+          className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4"
+          onClick={(e) => { if (e.target === e.currentTarget) setAlertModal(prev => ({ ...prev, isOpen: false })); }}
+        >
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl border border-slate-100 flex flex-col items-center text-center animate-in fade-in zoom-in-95 duration-200">
+            {alertModal.type === 'success' && (
+              <div className="w-12 h-12 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 mb-4 animate-bounce">
+                <CheckCircle2 className="w-6 h-6" />
+              </div>
+            )}
+            {alertModal.type === 'error' && (
+              <div className="w-12 h-12 rounded-full bg-red-50 border border-red-200 flex items-center justify-center text-red-600 mb-4 animate-bounce">
+                <AlertCircle className="w-6 h-6" />
+              </div>
+            )}
+            {alertModal.type === 'warning' && (
+              <div className="w-12 h-12 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 mb-4 animate-bounce">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+            )}
+
+            <h3 className="text-base font-extrabold text-slate-800 mb-1.5">{alertModal.title}</h3>
+            <p className="text-xs text-slate-500 leading-relaxed font-medium mb-5 px-1">{alertModal.message}</p>
+            <button
+              onClick={() => setAlertModal(prev => ({ ...prev, isOpen: false }))}
+              className="w-full py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-sm transition active:scale-[0.98] cursor-pointer"
+            >
+              Đã hiểu
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Confirm Modal Dialog for Redemption */}
+      {confirmModal.isOpen && confirmModal.rewardItem && (
+        <div 
+          className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4"
+          onClick={(e) => { if (e.target === e.currentTarget && !isRedeeming) setConfirmModal(prev => ({ ...prev, isOpen: false })); }}
+        >
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl border border-slate-100 flex flex-col items-center animate-in fade-in zoom-in-95 duration-200">
+            <div className="w-12 h-12 rounded-full bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-600 mb-4">
+              <HelpCircle className="w-6 h-6" />
+            </div>
+
+            <h3 className="text-base font-extrabold text-slate-800 mb-3 text-center">{confirmModal.title}</h3>
+            <p className="text-xs text-slate-500 leading-relaxed font-medium mb-5 text-center px-2">{confirmModal.message}</p>
+
+            <div className="w-full bg-slate-50 rounded-xl p-4 mb-5 text-xs text-left space-y-2.5 border border-slate-100">
+              <div className="flex justify-between">
+                <span className="text-slate-400 font-medium">Tên quà tặng:</span>
+                <span className="text-slate-800 font-bold">{confirmModal.rewardItem.title}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400 font-medium">Chiết khấu:</span>
+                <span className="text-indigo-600 font-extrabold">
+                  {renderDiscountValue(confirmModal.rewardItem.discountType, confirmModal.rewardItem.value)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400 font-medium">Điểm khấu trừ:</span>
+                <span className="text-amber-600 font-bold font-mono">
+                  {confirmModal.rewardItem.pointsCost === 0 ? 'Miễn phí' : `${confirmModal.rewardItem.pointsCost} Pts`}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400 font-medium">Hạn sử dụng:</span>
+                <span className="text-slate-650 font-bold">30 ngày kể từ lúc nhận</span>
+              </div>
+            </div>
+
+            <div className="flex gap-2 w-full">
+              <button
+                type="button"
+                disabled={isRedeeming}
+                onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+                className="flex-1 py-2.5 px-4 border border-slate-200 hover:bg-slate-50 rounded-xl text-xs font-bold text-slate-500 transition cursor-pointer disabled:opacity-50"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                disabled={isRedeeming}
+                onClick={confirmModal.onConfirm}
+                className="flex-1 py-2.5 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
+              >
+                {isRedeeming && <Loader2 size={12} className="animate-spin" />}
+                {confirmModal.rewardItem.pointsCost === 0 ? 'Xác nhận nhận' : 'Xác nhận đổi'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

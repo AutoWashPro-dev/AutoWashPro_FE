@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Calendar, 
@@ -9,7 +9,11 @@ import {
   HelpCircle,
   TrendingUp,
   Award,
-  Gift
+  Gift,
+  Loader2,
+  CheckCircle,
+  AlertCircle,
+  AlertTriangle
 } from 'lucide-react';
 import VIPCard from '../components/VIPCard';
 import TierProgressBar from '../components/TierProgressBar';
@@ -32,6 +36,55 @@ export default function CustomerDashboardPage() {
   const [vouchersCount, setVouchersCount] = useState(0);
   const [recommendedServices, setRecommendedServices] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isCanceling, setIsCanceling] = useState(false);
+
+  // Custom Alerts and Confirms states
+  const [alertModal, setAlertModal] = useState({
+    isOpen: false,
+    type: 'warning',
+    title: 'Thông báo',
+    message: ''
+  });
+
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    title: 'Xác nhận',
+    message: '',
+    onConfirm: null
+  });
+
+  const showAlert = (message, type = 'warning', title = 'Thông báo') => {
+    setAlertModal({
+      isOpen: true,
+      type,
+      title,
+      message
+    });
+  };
+
+  const showConfirm = (message, onConfirm, title = 'Xác nhận') => {
+    setConfirmModal({
+      isOpen: true,
+      title,
+      message,
+      onConfirm: () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        if (onConfirm) onConfirm();
+      }
+    });
+  };
+
+  // Close modals on Escape key press
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setAlertModal(prev => ({ ...prev, isOpen: false }));
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const fetchDashboardData = async () => {
     try {
@@ -63,11 +116,12 @@ export default function CustomerDashboardPage() {
         const pending = bookings.find(b => ['Pending', 'PENDING', 'Confirmed', 'CONFIRMED'].includes(b.status));
         if (pending) {
           setUpcomingBooking({
-            bookingCode: pending.id || pending.bookingCode,
-            licensePlate: pending.vehicle?.plate || pending.vehicle?.licensePlate || 'Chưa có',
-            model: pending.vehicle?.model || 'Xe máy',
-            packageName: pending.service?.name || pending.serviceName || 'Rửa xe',
-            slotDate: pending.slotDate || pending.date || 'Sắp tới',
+            bookingId: pending.bookingId || pending.id,
+            bookingCode: pending.bookingCode || `NV-${pending.bookingId || pending.id}`,
+            licensePlate: pending.vehicle?.plate || pending.vehicle?.licensePlate || pending.licensePlate || 'Chưa có',
+            model: pending.vehicle?.model || pending.model || 'Xe máy',
+            packageName: pending.service?.name || pending.serviceName || pending.packageName || 'Rửa xe',
+            slotDate: pending.bookingDate || pending.slotDate || pending.date || 'Sắp tới',
             slotTime: pending.slotTime || pending.time || '',
             status: pending.status?.toUpperCase()
           });
@@ -88,10 +142,11 @@ export default function CustomerDashboardPage() {
             const p = dayList.find(b => b.status?.toLowerCase() === 'pending' || b.status?.toLowerCase() === 'confirmed');
             if (p) {
               foundPending = {
-                bookingCode: p.id,
-                licensePlate: p.vehicle?.plate || 'Chưa có',
-                model: p.vehicle?.model || 'Xe máy',
-                packageName: p.service?.name || 'Rửa xe',
+                bookingId: p.id,
+                bookingCode: p.bookingCode || `NV-${p.id}`,
+                licensePlate: p.vehicle?.plate || p.licensePlate || 'Chưa có',
+                model: p.vehicle?.model || p.model || 'Xe máy',
+                packageName: p.service?.name || p.packageName || 'Rửa xe',
                 slotDate: dateKey,
                 slotTime: p.slotTime,
                 status: p.status?.toUpperCase()
@@ -132,7 +187,7 @@ export default function CustomerDashboardPage() {
     }
   };
 
-  React.useEffect(() => {
+  useEffect(() => {
     fetchDashboardData();
 
     window.addEventListener('profileUpdated', fetchDashboardData);
@@ -143,18 +198,38 @@ export default function CustomerDashboardPage() {
     };
   }, []);
 
+  const handleCancelBooking = (bookingId) => {
+    showConfirm(
+      `Bạn có chắc chắn muốn hủy lịch hẹn dọn rửa xe mã #${bookingId} không?`,
+      async () => {
+        setIsCanceling(true);
+        try {
+          await customerApi.cancelBooking(bookingId);
+          showAlert("Hủy lịch hẹn thành công!", "success", "Thành công");
+          await fetchDashboardData();
+        } catch (error) {
+          console.error("Lỗi hủy đặt lịch:", error);
+          showAlert("Không thể hủy lịch hẹn: " + (error.response?.data?.message || error.message), "error", "Lỗi");
+        } finally {
+          setIsCanceling(false);
+        }
+      },
+      "Xác nhận hủy lịch hẹn"
+    );
+  };
+
   return (
-    <div className="space-y-8 pb-10">
+    <div className="space-y-8 pb-10 relative">
       
       {/* KHU VỰC CHÀO MỪNG KHÁCH HÀNG */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
+        <div className="text-left">
           <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight">Chào bạn, {isLoading || !customer ? 'N/A' : (customer.fullName || 'N/A')}!</h1>
           <p className="text-sm text-slate-500 mt-1">Hôm nay xế cưng của bạn đã sẵn sàng để dọn rửa chưa?</p>
         </div>
         <button 
           onClick={() => navigate('/customer/book')}
-          className="flex items-center gap-2 px-5 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold shadow-md shadow-blue-200 hover:shadow-lg transition-all"
+          className="flex items-center gap-2 px-5 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold shadow-md shadow-blue-200 hover:shadow-lg transition-all cursor-pointer"
         >
           <Calendar size={16} /> Đặt lịch rửa xe ngay
         </button>
@@ -180,14 +255,14 @@ export default function CustomerDashboardPage() {
           )}
 
           {/* Khối thống kê nhỏ */}
-          <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm flex flex-col justify-between">
-            <span className="text-[10px] font-bold text-slate-400 uppercase">Tổng số lượt rửa xe tại trạm</span>
+          <div className="bg-white p-5 rounded-2xl border border-slate-150 shadow-sm flex flex-col justify-between text-left">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Tổng số lượt rửa xe tại trạm</span>
             <p className="text-2xl font-black text-slate-800 mt-2">{isLoading ? 'N/A' : (visitCount ?? 'N/A')} <span className="text-xs font-normal text-slate-500">lần dọn xe</span></p>
           </div>
         </div>
 
         {/* CỘT PHẢI (RỘNG 2/3) - LỊCH HẸN VÀ THÔNG TIN DỊCH VỤ */}
-        <div className="lg:col-span-2 space-y-6">
+        <div className="lg:col-span-2 space-y-6 text-left">
           
           {/* KHỐI LỊCH HẸN SẮP TỚI */}
           <div className="bg-white rounded-2xl border border-slate-150 p-6 shadow-sm">
@@ -196,44 +271,50 @@ export default function CustomerDashboardPage() {
                 <Clock size={16} className="text-blue-500" /> Lịch hẹn dọn xe sắp tới
               </h3>
               <button 
-                onClick={() => navigate('/customer/book', { state: { openHistoryModal: true } })} 
-                className="text-xs text-blue-600 hover:text-blue-800 font-bold flex items-center"
+                onClick={() => navigate('/customer/book')} 
+                className="text-xs text-blue-600 hover:text-blue-800 font-bold flex items-center cursor-pointer"
               >
-                Lịch sử <ChevronRight size={14} />
+                Xem chi tiết <ChevronRight size={14} />
               </button>
             </div>
 
             {upcomingBooking ? (
               <div className="bg-slate-50 rounded-xl p-5 border border-slate-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div className="space-y-2">
+                <div className="space-y-2 text-left">
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold text-yellow-700 bg-yellow-100 px-2 py-0.5 rounded-full">
+                    <span className="text-[10px] font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded">
                       {upcomingBooking.status}
+                    </span>
+                    <span className="text-[10px] font-mono font-bold text-slate-400">
+                      Mã: {upcomingBooking.bookingCode}
                     </span>
                   </div>
                   <h4 className="font-bold text-slate-800 text-base">{upcomingBooking.packageName}</h4>
-                  <p className="text-xs text-slate-500 flex items-center gap-1.5">
+                  <p className="text-xs text-slate-500 flex items-center gap-1.5 font-medium">
                     🏍️ {upcomingBooking.model} ({upcomingBooking.licensePlate})
                   </p>
-                  <p className="text-xs text-slate-600 flex items-center gap-3">
-                    <span className="flex items-center gap-1"><Calendar size={12} /> {upcomingBooking.slotDate}</span>
-                    <span className="flex items-center gap-1"><Clock size={12} /> {upcomingBooking.slotTime} (GMT+7)</span>
-                    <span className="flex items-center gap-1"><MapPin size={12} /> Trạm Trung Tâm</span>
+                  <p className="text-xs text-slate-650 flex flex-wrap items-center gap-3 pt-1">
+                    <span className="flex items-center gap-1 font-medium"><Calendar size={12} /> {upcomingBooking.slotDate}</span>
+                    <span className="flex items-center gap-1 font-medium"><Clock size={12} /> {upcomingBooking.slotTime} (GMT+7)</span>
+                    <span className="flex items-center gap-1 font-medium"><MapPin size={12} /> AutoWash Pro</span>
                   </p>
                 </div>
                 
-                <div className="flex gap-2 w-full md:w-auto">
+                <div className="flex gap-2 w-full md:w-auto shrink-0">
                   <button 
-                    onClick={() => alert("Yêu cầu hủy lịch đã gửi. Vui lòng chờ đối soát.")}
-                    className="flex-1 md:flex-none px-4 py-2 bg-white border border-slate-200 text-slate-500 hover:bg-slate-50 rounded-lg text-xs font-bold"
+                    onClick={() => handleCancelBooking(upcomingBooking.bookingId)}
+                    disabled={isCanceling}
+                    className="w-full md:w-auto px-4 py-2 bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-200 text-slate-600 hover:text-rose-600 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 disabled:opacity-50 cursor-pointer"
                   >
-                    Hủy lịch
+                    {isCanceling && <Loader2 size={12} className="animate-spin" />}
+                    Hủy lịch hẹn
                   </button>
                 </div>
               </div>
             ) : (
-              <div className="text-center py-8 text-slate-400 text-sm">
-                Bạn chưa có lịch hẹn nào sắp tới.
+              <div className="text-center py-12 text-slate-400 text-xs bg-slate-50/50 rounded-xl border border-dashed border-slate-200 flex flex-col items-center justify-center gap-2">
+                <Calendar size={20} className="text-slate-350" />
+                <span>Bạn chưa có lịch hẹn dọn rửa nào sắp tới.</span>
               </div>
             )}
           </div>
@@ -241,17 +322,17 @@ export default function CustomerDashboardPage() {
           {/* VÍ VOUCHER THU NHỎ */}
           <div className="bg-white rounded-2xl border border-slate-150 p-6 shadow-sm flex justify-between items-center">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-amber-50 rounded-xl flex items-center justify-center text-amber-500">
+              <div className="w-12 h-12 bg-amber-50 border border-amber-250 rounded-2xl flex items-center justify-center text-amber-500 shrink-0">
                 <Gift size={24} />
               </div>
-              <div>
+              <div className="text-left">
                 <h4 className="font-bold text-slate-800 text-sm">Ví Voucher Đang Có</h4>
-                <p className="text-xs text-slate-500 mt-0.5">Bạn đang sở hữu <strong>{isLoading ? 'N/A' : (vouchersCount ?? 'N/A')} Voucher</strong> khả dụng</p>
+                <p className="text-xs text-slate-500 mt-0.5">Bạn đang sở hữu <strong className="text-slate-700 font-extrabold">{isLoading ? 'N/A' : (vouchersCount ?? 'N/A')} Voucher</strong> khả dụng</p>
               </div>
             </div>
             <button 
               onClick={() => navigate('/customer/rewards')}
-              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-colors"
+              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer"
             >
               Mở Ví Ưu Đãi
             </button>
@@ -260,15 +341,15 @@ export default function CustomerDashboardPage() {
         </div>
       </div>
 
-      {/* DỰNG LƯỚI GỢI Ý DỊCH VỤ XE MÁY DƯỚI CÙNG (DÀN NGANG) */}
-      <div className="space-y-4">
+      {/* GỢI Ý DỊCH VỤ XE MÁY DƯỚI CÙNG */}
+      <div className="space-y-4 text-left">
         <div className="flex justify-between items-center">
           <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wider flex items-center gap-2">
             <Sparkles size={16} className="text-amber-500" /> Dịch vụ khuyên dùng cho bạn
           </h3>
           <button 
             onClick={() => navigate('/customer/book')}
-            className="text-xs text-blue-600 hover:text-blue-800 font-bold"
+            className="text-xs text-blue-600 hover:text-blue-800 font-bold cursor-pointer"
           >
             Tất cả dịch vụ
           </button>
@@ -276,7 +357,7 @@ export default function CustomerDashboardPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {recommendedServices.map(service => (
-            <div key={service.id} className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between group">
+            <div key={service.id} className="bg-white border border-slate-150 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between group">
               <div>
                 <div className="flex justify-between items-center mb-3">
                   <span className="text-[9px] font-black bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full uppercase tracking-wider">
@@ -291,7 +372,7 @@ export default function CustomerDashboardPage() {
               </div>
               <button 
                 onClick={() => navigate('/customer/book', { state: { autoSelectServiceId: service.id || service.serviceId } })}
-                className="mt-5 w-full py-2 bg-slate-50 hover:bg-blue-600 hover:text-white border border-slate-150 text-slate-600 rounded-lg text-xs font-bold transition-all"
+                className="mt-5 w-full py-2 bg-slate-50 hover:bg-blue-600 hover:text-white border border-slate-150 text-slate-600 rounded-xl text-xs font-bold transition-all cursor-pointer"
               >
                 Đặt dịch vụ này
               </button>
@@ -299,6 +380,74 @@ export default function CustomerDashboardPage() {
           ))}
         </div>
       </div>
+
+      {/* Custom UI Modal Alert / Notification Dialog */}
+      {alertModal.isOpen && (
+        <div 
+          className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4"
+          onClick={(e) => { if (e.target === e.currentTarget) setAlertModal(prev => ({ ...prev, isOpen: false })); }}
+        >
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl border border-slate-100 flex flex-col items-center text-center animate-in fade-in zoom-in-95 duration-200">
+            {alertModal.type === 'success' && (
+              <div className="w-12 h-12 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 mb-4 animate-bounce">
+                <CheckCircle className="w-6 h-6" />
+              </div>
+            )}
+            {alertModal.type === 'error' && (
+              <div className="w-12 h-12 rounded-full bg-red-50 border border-red-200 flex items-center justify-center text-red-600 mb-4 animate-bounce">
+                <AlertCircle className="w-6 h-6" />
+              </div>
+            )}
+            {alertModal.type === 'warning' && (
+              <div className="w-12 h-12 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 mb-4 animate-bounce">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+            )}
+
+            <h3 className="text-base font-extrabold text-slate-800 mb-1.5">{alertModal.title}</h3>
+            <p className="text-xs text-slate-500 leading-relaxed font-medium mb-5 px-1">{alertModal.message}</p>
+            <button
+              onClick={() => setAlertModal(prev => ({ ...prev, isOpen: false }))}
+              className="w-full py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-sm transition active:scale-[0.98] cursor-pointer"
+            >
+              Đã hiểu
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Confirm Modal Dialog */}
+      {confirmModal.isOpen && (
+        <div 
+          className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4"
+          onClick={(e) => { if (e.target === e.currentTarget) setConfirmModal(prev => ({ ...prev, isOpen: false })); }}
+        >
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl border border-slate-100 flex flex-col items-center text-center animate-in fade-in zoom-in-95 duration-200">
+            <div className="w-12 h-12 rounded-full bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600 mb-4">
+              <HelpCircle className="w-6 h-6" />
+            </div>
+
+            <h3 className="text-base font-extrabold text-slate-800 mb-1.5">{confirmModal.title}</h3>
+            <p className="text-xs text-slate-500 leading-relaxed font-medium mb-5 px-1">{confirmModal.message}</p>
+            <div className="flex gap-2 w-full">
+              <button
+                type="button"
+                onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+                className="flex-1 py-2.5 px-4 border border-slate-200 hover:bg-slate-50 rounded-xl text-xs font-bold text-slate-500 transition cursor-pointer"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                onClick={confirmModal.onConfirm}
+                className="flex-1 py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition cursor-pointer animate-pulse"
+              >
+                Xác nhận
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

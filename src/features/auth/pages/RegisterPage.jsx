@@ -18,6 +18,7 @@ import {
   ChevronLeft,
   RefreshCw
 } from 'lucide-react';
+import { cleanPhoneNumber, validatePhoneNumber, validateGmail } from '../../../utils/validationUtils';
 
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
@@ -35,6 +36,8 @@ export default function RegisterPage() {
   const [resendCountdown, setResendCountdown] = useState(0);
   const [resendError, setResendError] = useState('');
   const [resendSuccess, setResendSuccess] = useState('');
+  const [phoneNumberError, setPhoneNumberError] = useState('');
+  const [emailError, setEmailError] = useState('');
 
   useEffect(() => {
     let timer;
@@ -63,7 +66,23 @@ export default function RegisterPage() {
   };
 
   const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
+    let value = e.target.value;
+    if (e.target.name === 'phoneNumber') {
+      value = cleanPhoneNumber(value);
+      if (value && !validatePhoneNumber(value)) {
+        setPhoneNumberError('Số điện thoại không hợp lệ (VD: 0912345678)');
+      } else {
+        setPhoneNumberError('');
+      }
+    }
+    if (e.target.name === 'email') {
+      if (value && !validateGmail(value)) {
+        setEmailError('Địa chỉ email phải là Gmail hợp lệ (VD: user@gmail.com)');
+      } else {
+        setEmailError('');
+      }
+    }
+    setFormData({ ...formData, [e.target.name]: value });
   };
 
   const handleSubmit = async (e) => {
@@ -72,6 +91,16 @@ export default function RegisterPage() {
 
     if (!formData.fullName.trim() || !formData.username.trim() || !formData.phoneNumber.trim() || !formData.email.trim() || !formData.password) {
       setError('Vui lòng điền đầy đủ tất cả các trường thông tin bắt buộc.');
+      return;
+    }
+
+    if (!validatePhoneNumber(formData.phoneNumber.trim())) {
+      setError('Số điện thoại không đúng định dạng Việt Nam.');
+      return;
+    }
+
+    if (!validateGmail(formData.email.trim())) {
+      setError('Địa chỉ email phải kết thúc bằng @gmail.com.');
       return;
     }
 
@@ -299,6 +328,9 @@ export default function RegisterPage() {
                     required
                   />
                 </div>
+                {phoneNumberError && (
+                  <p className="mt-1 text-[10px] text-red-550 font-semibold">{phoneNumberError}</p>
+                )}
               </div>
 
               <div className="space-y-1">
@@ -320,6 +352,9 @@ export default function RegisterPage() {
                     required
                   />
                 </div>
+                {emailError && (
+                  <p className="mt-1 text-[10px] text-red-550 font-semibold">{emailError}</p>
+                )}
               </div>
             </div>
 
@@ -378,8 +413,8 @@ export default function RegisterPage() {
             <div className="pt-2">
               <button
                 type="submit"
-                disabled={isLoading}
-                className="w-full flex justify-center items-center gap-2 py-3.5 px-4 border border-transparent rounded-xl shadow-lg shadow-blue-600/25 text-sm font-bold text-white bg-gradient-to-r from-blue-600 via-sky-600 to-indigo-600 hover:from-blue-700 hover:via-sky-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-600 transition-all duration-300 transform active:scale-[0.98] disabled:opacity-50 cursor-pointer group"
+                disabled={isLoading || !!phoneNumberError || !!emailError || !formData.phoneNumber || !formData.email}
+                className="w-full flex justify-center items-center gap-2 py-3.5 px-4 border border-transparent rounded-xl shadow-lg shadow-blue-600/25 text-sm font-bold text-white bg-gradient-to-r from-blue-600 via-sky-600 to-indigo-600 hover:from-blue-700 hover:via-sky-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-600 transition-all duration-300 transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer group"
               >
                 {isLoading ? (
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />

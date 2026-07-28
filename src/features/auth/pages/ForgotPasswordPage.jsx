@@ -2,12 +2,24 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { authApi } from '../services/authApi';
 import { Sparkles, Mail, ArrowRight, CheckCircle2, ShieldCheck, ChevronLeft, KeyRound, Droplets } from 'lucide-react';
+import { validateGmail } from '../../../utils/validationUtils';
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
   const [isSent, setIsSent] = useState(false);
+  const [emailError, setEmailError] = useState('');
+
+  const handleEmailChange = (e) => {
+    const val = e.target.value;
+    setEmail(val);
+    if (val && !validateGmail(val)) {
+      setEmailError('Địa chỉ email phải là Gmail hợp lệ (VD: user@gmail.com)');
+    } else {
+      setEmailError('');
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -15,6 +27,11 @@ export default function ForgotPasswordPage() {
 
     if (!email.trim()) {
       setError('Vui lòng nhập địa chỉ email tài khoản của bạn.');
+      return;
+    }
+
+    if (!validateGmail(email.trim())) {
+      setError('Địa chỉ email phải kết thúc bằng @gmail.com.');
       return;
     }
 
@@ -142,19 +159,22 @@ export default function ForgotPasswordPage() {
                   id="email"
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={handleEmailChange}
                   placeholder="email@example.com"
                   className="block w-full pl-10 pr-3 py-3 bg-slate-50 border border-slate-200/80 rounded-xl text-slate-900 placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-600 transition text-sm font-medium"
                   required
                 />
               </div>
+              {emailError && (
+                <p className="mt-1 text-[10px] text-red-550 font-semibold">{emailError}</p>
+              )}
             </div>
 
             <div className="pt-1">
               <button
                 type="submit"
-                disabled={isLoading}
-                className="w-full flex justify-center items-center gap-2 py-3.5 px-4 border border-transparent rounded-xl shadow-lg shadow-blue-600/25 text-sm font-bold text-white bg-gradient-to-r from-blue-600 via-sky-600 to-indigo-600 hover:from-blue-700 hover:via-sky-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-600 transition-all duration-300 transform active:scale-[0.98] disabled:opacity-50 cursor-pointer group"
+                disabled={isLoading || !!emailError || !email.trim()}
+                className="w-full flex justify-center items-center gap-2 py-3.5 px-4 border border-transparent rounded-xl shadow-lg shadow-blue-600/25 text-sm font-bold text-white bg-gradient-to-r from-blue-600 via-sky-600 to-indigo-600 hover:from-blue-700 hover:via-sky-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-600 transition-all duration-300 transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer group"
               >
                 {isLoading ? (
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />

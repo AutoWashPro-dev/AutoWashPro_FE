@@ -145,13 +145,6 @@ export default function AdminSidebar() {
 
         {/* Action Footer */}
         <div className="px-4 py-5 border-t border-slate-100 flex flex-col gap-3">
-          <button 
-            onClick={() => alert('Mở cổng trợ giúp kỹ thuật...')}
-            className="flex items-center gap-2 px-3 py-1.5 text-xs font-semibold text-[#434654] hover:text-[#181c1e] transition-colors"
-          >
-            <LifeBuoy className="w-4 h-4 text-slate-400" />
-            Trợ giúp
-          </button>
           <button
             type="button"
             onClick={handleLogout}

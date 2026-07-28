@@ -2,12 +2,41 @@ import React, { useState } from 'react';
 import { Plus, Car, ShieldCheck, AlertCircle, X, Loader2 } from 'lucide-react';
 import VehicleCard from '../components/VehicleCard';
 import { customerApi } from '../services/customerApi';
+import { formatLicensePlate, validateLicensePlate } from '../../../utils/validationUtils';
 
 export default function CustomerGaragePage() {
   const [vehicles, setVehicles] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [deleteTargetVehicle, setDeleteTargetVehicle] = useState(null);
   const [garageAlert, setGarageAlert] = useState({ isOpen: false, type: 'success', title: '', message: '' });
+
+  // Custom Alerts helper to match design system
+  const showAlert = (message, type = 'warning', title = 'Thông báo') => {
+    setGarageAlert({
+      isOpen: true,
+      type,
+      title,
+      message
+    });
+  };
+
+  // States for adding vehicle confirmation modal
+  const [isVehicleConfirmModalOpen, setIsVehicleConfirmModalOpen] = useState(false);
+  const [vehiclePayloadToConfirm, setVehiclePayloadToConfirm] = useState(null);
+  const [isSubmittingVehicle, setIsSubmittingVehicle] = useState(false);
+
+  // Close modals on Escape key press
+  React.useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setDeleteTargetVehicle(null);
+        setGarageAlert(prev => ({ ...prev, isOpen: false }));
+        setIsVehicleConfirmModalOpen(false);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const fetchVehicles = async () => {
     try {
@@ -50,6 +79,7 @@ export default function CustomerGaragePage() {
   const [licensePlate, setLicensePlate] = useState('');
   const [vehicleType, setVehicleType] = useState('Scooter');
   const [isDefault, setIsDefault] = useState(false);
+  const [licensePlateError, setLicensePlateError] = useState('');
 
   // Mở modal Thêm xe mới
   const handleOpenAddModal = () => {
@@ -58,6 +88,7 @@ export default function CustomerGaragePage() {
     setLicensePlate('');
     setVehicleType('Scooter');
     setIsDefault(false);
+    setLicensePlateError('');
     setIsModalOpen(true);
   };
 
@@ -68,38 +99,76 @@ export default function CustomerGaragePage() {
     setLicensePlate(veh.licensePlate);
     setVehicleType(veh.vehicleType);
     setIsDefault(veh.isDefault);
+    setLicensePlateError('');
     setIsModalOpen(true);
   };
 
-  // Lưu thông tin xe (Thêm mới hoặc Cập nhật)
-  const handleSaveVehicle = async (e) => {
-    e.preventDefault();
+  const handleLicensePlateChange = (e) => {
+    const formatted = formatLicensePlate(e.target.value);
+    setLicensePlate(formatted);
+    if (formatted && !validateLicensePlate(formatted)) {
+      setLicensePlateError('Biển số xe không đúng định dạng (VD: 59-A1 123.45 hoặc 29H-666.66)');
+    } else {
+      setLicensePlateError('');
+    }
+  };
 
-    if (!model.trim() || !licensePlate.trim()) {
-      alert("Vui lòng nhập đầy đủ Tên xe và Biển số xe.");
+  // Lưu thông tin xe (Thêm mới hoặc Cập nhật)
+  const handleSaveVehicle = (e) => {
+    if (e) e.preventDefault();
+
+    const trimmedModel = model.trim();
+    const trimmedPlate = licensePlate.trim().toUpperCase();
+
+    if (!trimmedModel || !trimmedPlate) {
+      showAlert("Vui lòng nhập đầy đủ Tên xe và Biển số xe.", "warning");
       return;
     }
 
-    const payload = { model, licensePlate, isDefault };
+    if (!validateLicensePlate(trimmedPlate)) {
+      setLicensePlateError('Biển số xe không đúng định dạng (VD: 59-A1 123.45 hoặc 29-A1 1234)');
+      return;
+    }
+
+    const isFirstVehicle = vehicles.length === 0;
+
+    const payload = { 
+      model: trimmedModel, 
+      licensePlate: trimmedPlate, 
+      isDefault: isFirstVehicle ? true : isDefault 
+    };
+
+    setVehiclePayloadToConfirm(payload);
+    setIsVehicleConfirmModalOpen(true);
+  };
+
+  const handleConfirmSaveVehicle = async () => {
+    if (!vehiclePayloadToConfirm) return;
+    setIsSubmittingVehicle(true);
+
+    const trimmedModel = vehiclePayloadToConfirm.model;
+    const trimmedPlate = vehiclePayloadToConfirm.licensePlate;
+    const isFirstVehicle = vehicles.length === 0;
 
     try {
       if (editingVehicle) {
         // Cập nhật xe cũ (mô phỏng, backend cần PUT api)
         let updatedVehicles = [...vehicles];
-        if (isDefault) {
+        if (vehiclePayloadToConfirm.isDefault) {
           updatedVehicles = updatedVehicles.map(v => ({ ...v, isDefault: false }));
         }
         setVehicles(updatedVehicles.map(v => 
           v.vehicleId === editingVehicle.vehicleId 
-            ? { ...v, model, licensePlate, vehicleType, isDefault } 
+            ? { ...v, model: trimmedModel, licensePlate: trimmedPlate, vehicleType, isDefault: vehiclePayloadToConfirm.isDefault } 
             : v
         ));
+        showAlert('Cập nhật xe thành công!', 'success', 'Thành công');
       } else {
         // Thêm xe mới qua API
-        const newVeh = await customerApi.addVehicle(payload);
+        const newVeh = await customerApi.addVehicle(vehiclePayloadToConfirm);
         
         let updatedVehicles = [...vehicles];
-        if (isDefault) {
+        if (isFirstVehicle || vehiclePayloadToConfirm.isDefault) {
           updatedVehicles = updatedVehicles.map(v => ({ ...v, isDefault: false }));
         }
         
@@ -108,20 +177,25 @@ export default function CustomerGaragePage() {
           ...newVeh,
           vehicleId: newVeh.vehicleId || newVeh.id || Date.now(),
           brand: newVeh.brand || 'N/A',
-          model: newVeh.model || model || 'N/A',
-          licensePlate: newVeh.licensePlate || licensePlate || 'N/A',
+          model: newVeh.model || trimmedModel || 'N/A',
+          licensePlate: newVeh.licensePlate || trimmedPlate || 'N/A',
           color: newVeh.color || 'N/A',
           year: newVeh.year || 'N/A',
           vehicleType: newVeh.vehicleType || vehicleType || 'N/A',
-          isDefault: vehicles.length === 0 ? true : isDefault
+          isDefault: isFirstVehicle ? true : vehiclePayloadToConfirm.isDefault
         };
         
         setVehicles([...updatedVehicles, safeVeh]);
+        showAlert('Đăng ký xe mới thành công!', 'success', 'Thành công');
       }
       setIsModalOpen(false);
+      setIsVehicleConfirmModalOpen(false);
     } catch (err) {
-      alert("Lỗi khi lưu thông tin xe.");
+      showAlert("Lỗi khi lưu thông tin xe: " + (err.response?.data?.message || err.message), "error", "Lỗi");
       console.error(err);
+    } finally {
+      setIsSubmittingVehicle(false);
+      setVehiclePayloadToConfirm(null);
     }
   };
 
@@ -177,9 +251,10 @@ export default function CustomerGaragePage() {
         ...v,
         isDefault: (v.vehicleId || v.id) === vehicleId
       })));
+      showAlert('Đặt xe mặc định thành công!', 'success', 'Thành công');
     } catch (err) {
       console.error('Failed to set default vehicle:', err);
-      alert('Có lỗi xảy ra khi đặt xe làm mặc định. Vui lòng thử lại.');
+      showAlert('Có lỗi xảy ra khi đặt xe làm mặc định. Vui lòng thử lại.', 'error', 'Cập nhật thất bại');
     }
   };
 
@@ -280,17 +355,20 @@ export default function CustomerGaragePage() {
                 />
               </div>
 
-              {/* Biển số xe */}
               <div>
                 <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">Biển số xe</label>
                 <input 
                   type="text" 
                   value={licensePlate}
-                  onChange={(e) => setLicensePlate(e.target.value)}
+                  onChange={handleLicensePlateChange}
+                  onBlur={handleLicensePlateChange}
                   placeholder="Ví dụ: 29-H1 888.88 hoặc 59-S3 123.45"
                   className="w-full border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 font-mono tracking-wide"
                   required
                 />
+                {licensePlateError && (
+                  <p className="mt-1 text-xs text-red-500 font-medium">{licensePlateError}</p>
+                )}
               </div>
 
 
@@ -327,7 +405,8 @@ export default function CustomerGaragePage() {
                 </button>
                 <button 
                   type="submit"
-                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-sm"
+                  disabled={!model.trim() || !licensePlate.trim() || !!licensePlateError}
+                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-sm disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed"
                 >
                   {editingVehicle ? 'Lưu thay đổi' : 'Đăng ký ngay'}
                 </button>
@@ -337,6 +416,62 @@ export default function CustomerGaragePage() {
           </div>
         </div>
       )}
+      {/* 4. Add New Vehicle Confirmation Modal */}
+      {isVehicleConfirmModalOpen && vehiclePayloadToConfirm && (
+        <div 
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4"
+          onClick={(e) => { if (e.target === e.currentTarget) setIsVehicleConfirmModalOpen(false); }}
+        >
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl border border-slate-100 flex flex-col items-center animate-in fade-in zoom-in-95 duration-200">
+            <div className="w-12 h-12 rounded-full bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600 mb-4 animate-pulse">
+              <Car className="w-6 h-6" />
+            </div>
+
+            <h3 className="text-base font-extrabold text-slate-800 mb-3 text-center">Xác nhận đăng ký phương tiện</h3>
+            
+            <div className="w-full bg-slate-50 rounded-xl p-4 mb-5 text-xs text-left space-y-2.5 border border-slate-100">
+              <div className="flex justify-between">
+                <span className="text-slate-400 font-medium">Tên/Dòng xe máy:</span>
+                <span className="text-slate-850 font-bold">{vehiclePayloadToConfirm.model}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400 font-medium">Biển số xe:</span>
+                <span className="text-slate-850 font-mono font-bold">{vehiclePayloadToConfirm.licensePlate}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400 font-medium">Loại phương tiện:</span>
+                <span className="text-slate-850 font-bold">Xe máy</span>
+              </div>
+              <div className="flex justify-between items-center border-t pt-2.5 mt-1">
+                <span className="text-slate-400 font-medium">Lựa chọn mặc định:</span>
+                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${vehiclePayloadToConfirm.isDefault ? 'bg-blue-100 text-blue-700' : 'bg-slate-200 text-slate-600'}`}>
+                  {vehiclePayloadToConfirm.isDefault ? 'Đặt làm mặc định' : 'Không đặt mặc định'}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex gap-2 w-full">
+              <button
+                type="button"
+                onClick={() => setIsVehicleConfirmModalOpen(false)}
+                className="flex-1 py-2.5 px-4 border border-slate-200 hover:bg-slate-50 rounded-xl text-xs font-bold text-slate-500 transition cursor-pointer"
+              >
+                Kiểm tra lại
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmSaveVehicle}
+                disabled={isSubmittingVehicle}
+                className="flex-1 py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
+              >
+                {isSubmittingVehicle && <Loader2 size={12} className="animate-spin" />}
+                Xác nhận thêm xe
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* CONFIRM DELETE MODAL */}
       {deleteTargetVehicle && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
@@ -356,7 +491,7 @@ export default function CustomerGaragePage() {
               <button
                 type="button"
                 onClick={executeDeleteVehicle}
-                className="px-5 py-2 bg-red-650 hover:bg-red-700 text-white rounded-xl text-xs font-bold shadow-sm cursor-pointer"
+                className="px-5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold shadow-sm cursor-pointer transition-colors"
               >
                 Xác nhận xóa
               </button>

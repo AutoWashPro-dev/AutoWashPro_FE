@@ -8,6 +8,7 @@ import {
   Loader2
 } from 'lucide-react';
 import { customerApi } from '../services/customerApi';
+import { validateGmail } from '../../../utils/validationUtils';
 
 export default function CustomerAccountPage() {
   const [subTab, setSubTab] = useState('profile'); // 'profile', 'password'
@@ -17,6 +18,17 @@ export default function CustomerAccountPage() {
   const [email, setEmail] = useState("");
   const [isEmailVerified, setIsEmailVerified] = useState(false);
   const [isSendingVerification, setIsSendingVerification] = useState(false);
+  const [emailError, setEmailError] = useState("");
+
+  const handleEmailChange = (e) => {
+    const val = e.target.value;
+    setEmail(val);
+    if (val && !validateGmail(val)) {
+      setEmailError("Địa chỉ email phải là Gmail hợp lệ (VD: user@gmail.com)");
+    } else {
+      setEmailError("");
+    }
+  };
   
   const [customerStats, setCustomerStats] = useState({
     id: "N/A",
@@ -86,6 +98,12 @@ export default function CustomerAccountPage() {
     e.preventDefault();
     setSuccessMessage('');
     setErrorMessage('');
+
+    if (!validateGmail(email)) {
+      setErrorMessage("Địa chỉ email phải là Gmail hợp lệ và kết thúc bằng @gmail.com.");
+      return;
+    }
+
     try {
       const updatedData = await customerApi.updateProfile({ fullName, email });
       if (updatedData) {
@@ -270,14 +288,14 @@ export default function CustomerAccountPage() {
                       <input 
                         type="email" 
                         value={email}
-                        onChange={(e) => setEmail(e.target.value)}
+                        onChange={handleEmailChange}
                         className="flex-1 border border-slate-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:border-blue-500"
                         required
                       />
                       {!isEmailVerified && (
                         <button
                           type="button"
-                          disabled={isSendingVerification}
+                          disabled={isSendingVerification || !!emailError}
                           onClick={handleSendVerification}
                           className="px-4 py-2.5 bg-slate-900 text-white rounded-xl text-xs font-bold hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-400 flex items-center gap-1 shrink-0 transition-colors"
                         >
@@ -285,11 +303,15 @@ export default function CustomerAccountPage() {
                         </button>
                       )}
                     </div>
+                    {emailError && (
+                      <p className="mt-1 text-xs text-red-500 font-medium">{emailError}</p>
+                    )}
                   </div>
 
                   <button 
                     type="submit" 
-                    className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all"
+                    disabled={!!emailError || !email.trim() || !fullName.trim()}
+                    className="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed"
                   >
                     Lưu thay đổi thông tin
                   </button>

@@ -12,11 +12,15 @@ import {
   History,
   Trash2,
   X,
-  Car
+  Car,
+  Info,
+  AlertTriangle,
+  Loader2
 } from 'lucide-react';
 import VehicleCard from '../components/VehicleCard';
 import { customerApi } from '../services/customerApi';
 import axios from 'axios';
+import { formatLicensePlate, validateLicensePlate } from '../../../utils/validationUtils';
 
 export default function CustomerBookingPage() {
   const navigate = useNavigate();
@@ -82,6 +86,7 @@ export default function CustomerBookingPage() {
   const [vehicleModel, setVehicleModel] = useState('');
   const [vehicleLicensePlate, setVehicleLicensePlate] = useState('');
   const [vehicleIsDefault, setVehicleIsDefault] = useState(false);
+  const [vehicleLicensePlateError, setVehicleLicensePlateError] = useState('');
 
   // Khởi tạo DB autowash_slots mẫu nếu chưa có
   const initializeSlotsDb = () => {
@@ -103,12 +108,73 @@ export default function CustomerBookingPage() {
 
   const [bookingWindowDays, setBookingWindowDays] = useState(7);
   const [customerProfile, setCustomerProfile] = useState(null);
-  const [vehicleAlert, setVehicleAlert] = useState({
+  const [alertModal, setAlertModal] = useState({
     isOpen: false,
-    type: 'success', // 'success' | 'error' | 'warning'
-    title: '',
+    type: 'warning', // 'success' | 'error' | 'warning' | 'info'
+    title: 'Thông báo',
     message: ''
   });
+
+  const showAlert = (message, type = 'warning', title = 'Thông báo') => {
+    setAlertModal({
+      isOpen: true,
+      type,
+      title,
+      message
+    });
+  };
+
+  const [confirmModal, setConfirmModal] = useState({
+    isOpen: false,
+    title: 'Xác nhận',
+    message: '',
+    onConfirm: null
+  });
+
+  const showConfirm = (message, onConfirm, title = 'Xác nhận') => {
+    setConfirmModal({
+      isOpen: true,
+      title,
+      message,
+      onConfirm: () => {
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+        if (onConfirm) onConfirm();
+      }
+    });
+  };
+
+  const [isDefaultVehiclePromptOpen, setIsDefaultVehiclePromptOpen] = useState(false);
+  const [pendingDefaultVehicle, setPendingDefaultVehicle] = useState(null);
+  const [dontAskDefaultPrompt, setDontAskDefaultPrompt] = useState(false);
+
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
+  const [isErrorModalOpen, setIsErrorModalOpen] = useState(false);
+  const [createdBookingId, setCreatedBookingId] = useState('');
+  const [bookingErrorMessage, setBookingErrorMessage] = useState('');
+
+  // States for adding vehicle confirmation modal
+  const [isVehicleConfirmModalOpen, setIsVehicleConfirmModalOpen] = useState(false);
+  const [vehiclePayloadToConfirm, setVehiclePayloadToConfirm] = useState(null);
+  const [isSubmittingVehicle, setIsSubmittingVehicle] = useState(false);
+
+  // Handle ESC key press to close active modals
+  React.useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setIsVehicleModalOpen(false);
+        setIsDefaultVehiclePromptOpen(false);
+        setIsConfirmModalOpen(false);
+        setIsSuccessModalOpen(false);
+        setIsErrorModalOpen(false);
+        setIsVehicleConfirmModalOpen(false);
+        setAlertModal(prev => ({ ...prev, isOpen: false }));
+        setConfirmModal(prev => ({ ...prev, isOpen: false }));
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   const selectedVehicleRef = React.useRef(selectedVehicle);
   React.useEffect(() => {
@@ -332,17 +398,20 @@ export default function CustomerBookingPage() {
   
   // Hủy lịch hẹn đặt trước trực tiếp từ bảng lịch sử
   const handleCancelBooking = async (bookingId) => {
-    const confirmCancel = window.confirm(`Bạn có chắc chắn muốn hủy lịch hẹn mã #${bookingId} không?`);
-    if (!confirmCancel) return;
-
-    try {
-      await customerApi.cancelBooking(bookingId);
-      alert("Hủy lịch hẹn thành công!");
-      await loadUserHistory();
-    } catch (error) {
-      console.error("Lỗi hủy đặt lịch:", error);
-      alert("Không thể hủy lịch hẹn: " + (error.response?.data?.message || error.message));
-    }
+    showConfirm(
+      `Bạn có chắc chắn muốn hủy lịch hẹn mã #${bookingId} không?`,
+      async () => {
+        try {
+          await customerApi.cancelBooking(bookingId);
+          showAlert("Hủy lịch hẹn thành công!", "success", "Thành công");
+          await loadUserHistory();
+        } catch (error) {
+          console.error("Lỗi hủy đặt lịch:", error);
+          showAlert("Không thể hủy lịch hẹn: " + (error.response?.data?.message || error.message), "error", "Lỗi");
+        }
+      },
+      "Xác nhận hủy"
+    );
   };
 
   // Tính toán giá gói dịch vụ (Đồng giá xe máy toàn hệ thống)
@@ -393,6 +462,7 @@ export default function CustomerBookingPage() {
     setVehicleLicensePlate('');
     setVehicleIsDefault(false);
     setEditingVehicle(null);
+    setVehicleLicensePlateError('');
   };
 
   const closeVehicleModal = () => {
@@ -411,10 +481,17 @@ export default function CustomerBookingPage() {
     setVehicleModel(vehicle.model || '');
     setVehicleLicensePlate(vehicle.licensePlate || '');
     setVehicleIsDefault(Boolean(vehicle.isDefault));
+    setVehicleLicensePlateError('');
   };
 
   const handleVehicleLicensePlateChange = (e) => {
-    setVehicleLicensePlate(e.target.value.toUpperCase());
+    const formatted = formatLicensePlate(e.target.value);
+    setVehicleLicensePlate(formatted);
+    if (formatted && !validateLicensePlate(formatted)) {
+      setVehicleLicensePlateError('Biển số xe không đúng định dạng (VD: 59-A1 123.45 hoặc 29H-666.66)');
+    } else {
+      setVehicleLicensePlateError('');
+    }
   };
 
   const handleSetDefaultVehicle = async (veh) => {
@@ -428,31 +505,16 @@ export default function CustomerBookingPage() {
         isDefault: (v.vehicleId || v.id) === vehicleId
       })));
 
-      setVehicleAlert({
-        isOpen: true,
-        type: 'success',
-        title: "Đã đặt xe mặc định",
-        message: `Chiếc xe ${veh.model || 'Xe máy'} - ${veh.licensePlate || ''} đã được chọn làm phương tiện mặc định.`
-      });
+      showAlert(`Chiếc xe ${veh.model || 'Xe máy'} - ${veh.licensePlate || ''} đã được chọn làm phương tiện mặc định.`, 'success', 'Đã đặt xe mặc định');
     } catch (err) {
       console.error('Failed to set default vehicle:', err);
-      setVehicleAlert({
-        isOpen: true,
-        type: 'error',
-        title: "Cập nhật thất bại",
-        message: "Không thể thiết lập xe mặc định. Vui lòng kiểm tra kết nối mạng và thử lại."
-      });
+      showAlert("Không thể thiết lập xe mặc định. Vui lòng kiểm tra kết nối mạng và thử lại.", 'error', 'Cập nhật thất bại');
     }
   };
 
   const handleDeleteVehicle = (veh) => {
     if (veh.isDefault && vehicles.length > 1) {
-      setVehicleAlert({
-        isOpen: true,
-        type: 'error',
-        title: 'Không thể xóa',
-        message: 'Bạn không thể xóa xe mặc định. Vui lòng đặt xe khác làm mặc định trước.'
-      });
+      showAlert('Bạn không thể xóa xe mặc định. Vui lòng đặt xe khác làm mặc định trước.', 'error', 'Không thể xóa');
       return;
     }
     setDeleteTargetVehicle(veh);
@@ -467,77 +529,85 @@ export default function CustomerBookingPage() {
       if (selectedVehicle && (selectedVehicle.vehicleId === vehicleId || selectedVehicle.id === vehicleId)) {
         setSelectedVehicle(null);
       }
-      setVehicleAlert({
-        isOpen: true,
-        type: 'success',
-        title: 'Xóa thành công',
-        message: 'Đã xóa phương tiện thành công!'
-      });
+      showAlert('Đã xóa phương tiện thành công!', 'success', 'Xóa thành công');
       window.dispatchEvent(new Event('vehicleListUpdated'));
     } catch (err) {
       console.error(err);
       const errMsg = err.response?.data?.message || 'Không thể xóa phương tiện đang có lịch hẹn hoạt động.';
-      setVehicleAlert({
-        isOpen: true,
-        type: 'error',
-        title: 'Lỗi xóa phương tiện',
-        message: errMsg
-      });
+      showAlert(errMsg, 'error', 'Lỗi xóa phương tiện');
     } finally {
       setDeleteTargetVehicle(null);
     }
   };
 
-  const handleSaveVehicle = async (e) => {
-    e.preventDefault();
+  const handleSaveVehicle = (e) => {
+    if (e) e.preventDefault();
 
     const trimmedModel = vehicleModel.trim();
     const trimmedPlate = vehicleLicensePlate.trim().toUpperCase();
 
     if (!trimmedModel) {
-      alert('Vui lòng nhập tên/dòng xe máy.');
+      showAlert('Vui lòng nhập tên/dòng xe máy.', 'warning');
       return;
     }
 
     if (!trimmedPlate) {
-      alert('Vui lòng nhập biển số xe.');
+      showAlert('Vui lòng nhập biển số xe.', 'warning');
       return;
     }
 
-    // Strictly mapped API Payload
+    if (!validateLicensePlate(trimmedPlate)) {
+      setVehicleLicensePlateError('Biển số xe không đúng định dạng (VD: 59-A1 123.45 hoặc 29-A1 1234)');
+      return;
+    }
+
+    const isFirstVehicle = vehicles.length === 0;
+
     const payload = {
       model: trimmedModel,
       licensePlate: trimmedPlate,
-      isDefault: vehicleIsDefault
+      isDefault: isFirstVehicle ? true : vehicleIsDefault
     };
 
+    setVehiclePayloadToConfirm(payload);
+    setIsVehicleConfirmModalOpen(true);
+  };
+
+  const handleConfirmSaveVehicle = async () => {
+    if (!vehiclePayloadToConfirm) return;
+    setIsSubmittingVehicle(true);
+
+    const isFirstVehicle = vehicles.length === 0;
     try {
       let savedVehicle;
-      
       if (editingVehicle) {
         // (Mock) Handle Edit / Update flow
-        savedVehicle = { ...payload, id: editingVehicle.id || editingVehicle.vehicleId, vehicleType: editingVehicle.vehicleType || 'MOTORCYCLE' };
+        savedVehicle = { 
+          ...vehiclePayloadToConfirm, 
+          id: editingVehicle.id || editingVehicle.vehicleId, 
+          vehicleType: editingVehicle.vehicleType || 'MOTORCYCLE' 
+        };
       } else {
         // Direct API Creation flow
-        savedVehicle = await customerApi.addVehicle(payload);
+        savedVehicle = await customerApi.addVehicle(vehiclePayloadToConfirm);
       }
-      
+
       const normalizedVehicle = {
         ...savedVehicle,
-        model: trimmedModel,
-        licensePlate: trimmedPlate,
-        isDefault: vehicleIsDefault,
-        vehicleType: savedVehicle.vehicleType || payload.vehicleType
+        model: vehiclePayloadToConfirm.model,
+        licensePlate: vehiclePayloadToConfirm.licensePlate,
+        isDefault: isFirstVehicle ? true : vehiclePayloadToConfirm.isDefault,
+        vehicleType: savedVehicle.vehicleType || 'MOTORCYCLE'
       };
 
       setVehicles(prev => {
         const next = prev.map(vehicle => ({
           ...vehicle,
-          isDefault: vehicleIsDefault && editingVehicle?.id === vehicle.id ? true : false
+          isDefault: (isFirstVehicle || vehiclePayloadToConfirm.isDefault) ? false : vehicle.isDefault
         }));
 
         if (editingVehicle) {
-          return next.map(vehicle => (vehicle.id === editingVehicle.id ? normalizedVehicle : vehicle));
+          return next.map(vehicle => (vehicle.id === editingVehicle.id ? normalizedVehicle : (vehiclePayloadToConfirm.isDefault ? { ...vehicle, isDefault: false } : vehicle)));
         }
 
         return [...next, normalizedVehicle];
@@ -545,26 +615,61 @@ export default function CustomerBookingPage() {
 
       setSelectedVehicle(normalizedVehicle);
       closeVehicleModal();
-      alert(editingVehicle ? 'Cập nhật xe thành công!' : 'Đăng ký xe mới thành công!');
+      setIsVehicleConfirmModalOpen(false);
+      showAlert(editingVehicle ? 'Cập nhật xe thành công!' : 'Đăng ký xe mới thành công!', 'success', 'Thành công');
       console.log('[CustomerBookingPage] vehicle saved:', normalizedVehicle);
     } catch (err) {
       console.error('Failed to save vehicle:', err);
-      alert('Lỗi khi lưu xe: ' + (err.response?.data?.message || err.message));
+      showAlert('Lỗi khi lưu xe: ' + (err.response?.data?.message || err.message), 'error', 'Lỗi');
+    } finally {
+      setIsSubmittingVehicle(false);
+      setVehiclePayloadToConfirm(null);
     }
   };
 
-  // Gửi đơn đặt lịch lên hệ thống
-  const handleConfirmBooking = async () => {
+  const handleSelectVehicle = (v) => {
+    setSelectedVehicle(v);
+    
+    // Check if it's already default or if user set "Don't ask me again"
+    const skipPrompt = localStorage.getItem('autowash_skip_default_prompt') === 'true';
+    if (!v.isDefault && !skipPrompt) {
+      setPendingDefaultVehicle(v);
+      setDontAskDefaultPrompt(false);
+      setIsDefaultVehiclePromptOpen(true);
+    }
+  };
+
+  const handleConfirmChangeDefaultVehicle = async (shouldSetDefault) => {
+    if (shouldSetDefault && pendingDefaultVehicle) {
+      try {
+        const vehicleId = pendingDefaultVehicle.vehicleId || pendingDefaultVehicle.id;
+        await customerApi.setDefaultVehicle(vehicleId);
+        await loadUserProfile(); // refresh list to sync badges
+      } catch (err) {
+        console.error('Failed to set default vehicle:', err);
+      }
+    }
+    
+    if (dontAskDefaultPrompt) {
+      localStorage.setItem('autowash_skip_default_prompt', 'true');
+    }
+    
+    setIsDefaultVehiclePromptOpen(false);
+    setPendingDefaultVehicle(null);
+  };
+
+  const handleOpenConfirmModal = (e) => {
+    if (e) e.preventDefault();
     if (!selectedVehicle) {
-      alert("Vui lòng chọn 1 chiếc xe máy để dọn rửa.");
+      showAlert("Vui lòng chọn 1 chiếc xe máy để dọn rửa.", 'warning');
       return;
     }
     if (!selectedPackage) {
-      alert("Vui lòng chọn 1 gói dịch vụ dọn rửa chính.");
+      showAlert("Vui lòng chọn 1 gói dịch vụ dọn rửa chính.", 'warning');
       return;
     }
     if (!selectedDate || !selectedTime) {
-      alert("Vui lòng chọn ngày và giờ hẹn mong muốn.");
+      showAlert("Vui lòng chọn ngày và giờ hẹn mong muốn.", 'warning');
       return;
     }
 
@@ -572,25 +677,36 @@ export default function CustomerBookingPage() {
     const trimmedModel = String(selectedVehicle.model || '').trim();
 
     if (!trimmedLicensePlate) {
-      alert('Vui lòng chọn xe có biển số hợp lệ.');
+      showAlert('Vui lòng chọn xe có biển số hợp lệ.', 'warning');
       return;
     }
     if (!trimmedModel) {
-      alert('Vui lòng chọn xe có model hợp lệ.');
+      showAlert('Vui lòng chọn xe có model hợp lệ.', 'warning');
       return;
     }
 
     const selectedPackageId = Number(selectedPackage?.id || selectedPackage?.serviceId || 0);
     if (!selectedPackageId) {
-      alert('Không tìm thấy gói dịch vụ. Vui lòng chọn lại.');
+      showAlert('Không tìm thấy gói dịch vụ. Vui lòng chọn lại.', 'error', 'Lỗi');
       return;
     }
     const selectedSlot = timeSlots.find(s => s.slotId === selectedTimeSlotId || s.time === selectedTime);
-if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || selectedSlot.availableCapacity <= 0)) {
-      alert("Khung giờ này hiện đã đầy công suất dọn rửa! Rất tiếc vì sự bất tiện này, mong quý khách vui lòng chọn một khung giờ khác.");
+    if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || selectedSlot.availableCapacity <= 0)) {
+      showAlert("Khung giờ này hiện đã đầy công suất dọn rửa! Rất tiếc vì sự bất tiện này, mong quý khách vui lòng chọn một khung giờ khác.", 'warning');
       return;
     }
+
+    setIsConfirmModalOpen(true);
+  };
+
+  // Gửi đơn đặt lịch lên hệ thống
+  const handleConfirmBooking = async () => {
     setIsSubmitting(true);
+    setIsConfirmModalOpen(false);
+
+    const trimmedLicensePlate = String(selectedVehicle.licensePlate || '').trim().toUpperCase();
+    const trimmedModel = String(selectedVehicle.model || '').trim();
+    const selectedPackageId = Number(selectedPackage?.id || selectedPackage?.serviceId || 0);
 
     const bookingData = {
       licensePlate: trimmedLicensePlate,
@@ -609,7 +725,8 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
       const response = await axios.post('/api/v1/customer/bookings', bookingData, { headers });
       const createdBooking = response.data;
 
-      alert(`Đặt lịch thành công! Mã đơn của bạn là: ${createdBooking.bookingCode || createdBooking.id}. Hãy đến trạm đúng giờ hẹn.`);
+      const newBookingId = createdBooking.bookingCode || createdBooking.id;
+      setCreatedBookingId(String(newBookingId));
 
       // Sync local history fallback
       setUserHistory(prev => [
@@ -632,13 +749,14 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
       setSelectedTime("");
       setSelectedTimeSlotId(null);
 
-      setBookingTab('history');
+      setIsSuccessModalOpen(true);
       await loadUserHistory();
       await loadCustomerVouchers();
     } catch (err) {
       console.error('Failed to create booking:', err);
       const message = err.response?.data?.message || err.response?.data?.error || err.message || 'Không thể lưu đặt lịch. Vui lòng thử lại.';
-      alert('Đã xảy ra lỗi khi tạo đơn đặt lịch: ' + message);
+      setBookingErrorMessage(message);
+      setIsErrorModalOpen(true);
     } finally {
       setIsSubmitting(false);
     }
@@ -713,7 +831,7 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
                       isSelected={selectedVehicle?.vehicleId === veh.vehicleId}
                       isDefault={veh.isDefault}
                       isSelectable={true}
-                      onSelect={(v) => setSelectedVehicle(v)}
+                      onSelect={handleSelectVehicle}
                       onEdit={() => openEditVehicleModal(veh)}
                       onDelete={() => handleDeleteVehicle(veh)}
                       onSetDefault={handleSetDefaultVehicle}
@@ -872,12 +990,7 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
                           disabled={isDisabled}
                           onClick={() => {
                             if (isOverlap) {
-                              setVehicleAlert({
-                                isOpen: true,
-                                type: 'warning',
-                                title: 'Khung giờ đã đặt',
-                                message: 'Bạn đã có đơn hàng (đã thanh toán/xác nhận) trong khung giờ này. Mỗi khách hàng chỉ được đặt 1 lượt/khung giờ.'
-                              });
+                              showAlert('Bạn đã có đơn hàng (đã thanh toán/xác nhận) trong khung giờ này. Mỗi khách hàng chỉ được đặt 1 lượt/khung giờ.', 'warning', 'Khung giờ đã đặt');
                               return;
                             }
                             if (!isDisabled) {
@@ -1019,7 +1132,7 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
 
                 <button 
                   disabled={isSubmitting}
-                  onClick={handleConfirmBooking}
+                  onClick={handleOpenConfirmModal}
                   className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold shadow-md shadow-blue-200 transition-all flex items-center justify-center gap-2 disabled:bg-blue-400"
                 >
                   {isSubmitting ? 'Đang tạo đơn hẹn...' : 'Xác nhận Đặt lịch ngay'}
@@ -1141,10 +1254,14 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
                   type="text"
                   value={vehicleLicensePlate}
                   onChange={handleVehicleLicensePlateChange}
+                  onBlur={handleVehicleLicensePlateChange}
                   placeholder="Ví dụ: 29-H1 888.88 hoặc 59-S3 123.45"
                   className="w-full rounded-xl border border-slate-200 px-4 py-2.5 font-mono text-sm tracking-wide outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                   required
                 />
+                {vehicleLicensePlateError && (
+                  <p className="mt-1 text-xs text-red-500 font-medium">{vehicleLicensePlateError}</p>
+                )}
               </div>
 
               <div className="flex items-center gap-2 pt-2">
@@ -1177,7 +1294,8 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
                 </button>
                 <button
                   type="submit"
-                  className="rounded-xl bg-blue-600 px-5 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-blue-700"
+                  disabled={!vehicleModel.trim() || !vehicleLicensePlate.trim() || !!vehicleLicensePlateError}
+                  className="rounded-xl bg-blue-600 px-5 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed"
                 >
                   {editingVehicle ? 'Lưu thay đổi' : 'Đăng ký ngay'}
                 </button>
@@ -1187,27 +1305,131 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
         </div>
       )}
 
-      {/* Custom UI Modal Alert / Notification Dialog for Vehicle */}
-      {vehicleAlert.isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl border border-slate-100 flex flex-col items-center text-center">
-            {vehicleAlert.type === 'success' ? (
-              <div className="w-12 h-12 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 mb-4">
+      {/* 4. Add New Vehicle Confirmation Modal */}
+      {isVehicleConfirmModalOpen && vehiclePayloadToConfirm && (
+        <div 
+          className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4"
+          onClick={(e) => { if (e.target === e.currentTarget) setIsVehicleConfirmModalOpen(false); }}
+        >
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl border border-slate-100 flex flex-col items-center animate-in fade-in zoom-in-95 duration-200">
+            <div className="w-12 h-12 rounded-full bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600 mb-4 animate-pulse">
+              <Car className="w-6 h-6" />
+            </div>
+
+            <h3 className="text-base font-extrabold text-slate-800 mb-3 text-center">Xác nhận đăng ký phương tiện</h3>
+            
+            <div className="w-full bg-slate-50 rounded-xl p-4 mb-5 text-xs text-left space-y-2.5 border border-slate-100">
+              <div className="flex justify-between">
+                <span className="text-slate-400 font-medium">Tên/Dòng xe máy:</span>
+                <span className="text-slate-850 font-bold">{vehiclePayloadToConfirm.model}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400 font-medium">Biển số xe:</span>
+                <span className="text-slate-850 font-mono font-bold">{vehiclePayloadToConfirm.licensePlate}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400 font-medium">Loại phương tiện:</span>
+                <span className="text-slate-850 font-bold">Xe máy</span>
+              </div>
+              <div className="flex justify-between items-center border-t pt-2.5 mt-1">
+                <span className="text-slate-400 font-medium">Lựa chọn mặc định:</span>
+                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${vehiclePayloadToConfirm.isDefault ? 'bg-blue-100 text-blue-700' : 'bg-slate-200 text-slate-600'}`}>
+                  {vehiclePayloadToConfirm.isDefault ? 'Đặt làm mặc định' : 'Không đặt mặc định'}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex gap-2 w-full">
+              <button
+                type="button"
+                onClick={() => setIsVehicleConfirmModalOpen(false)}
+                className="flex-1 py-2.5 px-4 border border-slate-200 hover:bg-slate-50 rounded-xl text-xs font-bold text-slate-500 transition cursor-pointer"
+              >
+                Kiểm tra lại
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmSaveVehicle}
+                disabled={isSubmittingVehicle}
+                className="flex-1 py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
+              >
+                {isSubmittingVehicle && <Loader2 size={12} className="animate-spin" />}
+                Xác nhận thêm xe
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Custom UI Modal Alert / Notification Dialog */}
+      {alertModal.isOpen && (
+        <div 
+          className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4"
+          onClick={(e) => { if (e.target === e.currentTarget) setAlertModal(prev => ({ ...prev, isOpen: false })); }}
+        >
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl border border-slate-100 flex flex-col items-center text-center animate-in fade-in zoom-in-95 duration-200">
+            {alertModal.type === 'success' && (
+              <div className="w-12 h-12 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 mb-4 animate-bounce">
                 <CheckCircle className="w-6 h-6" />
               </div>
-            ) : (
-              <div className="w-12 h-12 rounded-full bg-red-50 border border-red-200 flex items-center justify-center text-red-600 mb-4">
+            )}
+            {alertModal.type === 'error' && (
+              <div className="w-12 h-12 rounded-full bg-red-50 border border-red-200 flex items-center justify-center text-red-600 mb-4 animate-bounce">
                 <AlertCircle className="w-6 h-6" />
               </div>
             )}
-            <h3 className="text-base font-extrabold text-slate-800 mb-1.5">{vehicleAlert.title}</h3>
-            <p className="text-xs text-slate-500 leading-relaxed font-medium mb-5 px-1">{vehicleAlert.message}</p>
+            {alertModal.type === 'warning' && (
+              <div className="w-12 h-12 rounded-full bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 mb-4 animate-bounce">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+            )}
+            {alertModal.type === 'info' && (
+              <div className="w-12 h-12 rounded-full bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600 mb-4 animate-bounce">
+                <Info className="w-6 h-6" />
+              </div>
+            )}
+
+            <h3 className="text-base font-extrabold text-slate-800 mb-1.5">{alertModal.title}</h3>
+            <p className="text-xs text-slate-500 leading-relaxed font-medium mb-5 px-1">{alertModal.message}</p>
             <button
-              onClick={() => setVehicleAlert(prev => ({ ...prev, isOpen: false }))}
-              className="w-full py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-sm transition active:scale-[0.98]"
+              onClick={() => setAlertModal(prev => ({ ...prev, isOpen: false }))}
+              className="w-full py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black uppercase tracking-wider shadow-sm transition active:scale-[0.98] cursor-pointer"
             >
-              Đồng ý
+              Đã hiểu
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Custom Confirm Modal Dialog */}
+      {confirmModal.isOpen && (
+        <div 
+          className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4"
+          onClick={(e) => { if (e.target === e.currentTarget) setConfirmModal(prev => ({ ...prev, isOpen: false })); }}
+        >
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl border border-slate-100 flex flex-col items-center text-center animate-in fade-in zoom-in-95 duration-200">
+            <div className="w-12 h-12 rounded-full bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600 mb-4">
+              <HelpCircle className="w-6 h-6" />
+            </div>
+
+            <h3 className="text-base font-extrabold text-slate-800 mb-1.5">{confirmModal.title}</h3>
+            <p className="text-xs text-slate-500 leading-relaxed font-medium mb-5 px-1">{confirmModal.message}</p>
+            <div className="flex gap-2 w-full">
+              <button
+                type="button"
+                onClick={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
+                className="flex-1 py-2.5 px-4 border border-slate-200 hover:bg-slate-50 rounded-xl text-xs font-bold text-slate-500 transition cursor-pointer"
+              >
+                Hủy bỏ
+              </button>
+              <button
+                type="button"
+                onClick={confirmModal.onConfirm}
+                className="flex-1 py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition cursor-pointer animate-pulse"
+              >
+                Xác nhận
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1230,9 +1452,215 @@ if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || sel
               <button
                 type="button"
                 onClick={executeDeleteVehicle}
-                className="px-5 py-2 bg-red-650 hover:bg-red-700 text-white rounded-xl text-xs font-bold shadow-sm cursor-pointer"
+                className="px-5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold shadow-sm cursor-pointer transition-colors"
               >
                 Xác nhận xóa
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 1. DEFAULT VEHICLE CHANGE CONFIRMATION MODAL */}
+      {isDefaultVehiclePromptOpen && pendingDefaultVehicle && (
+        <div 
+          className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4"
+          onClick={(e) => { if (e.target === e.currentTarget) handleConfirmChangeDefaultVehicle(false); }}
+        >
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl border border-slate-100 flex flex-col items-center text-center space-y-4 animate-in fade-in zoom-in-95 duration-250">
+            <div className="w-12 h-12 rounded-full bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600">
+              <Car className="w-6 h-6" />
+            </div>
+            
+            <div className="space-y-1.5">
+              <h3 className="text-base font-extrabold text-slate-800 font-sans">Đặt làm xe mặc định?</h3>
+              <p className="text-xs text-slate-500 leading-relaxed font-medium px-2">
+                Bạn có muốn đặt chiếc <strong className="text-slate-700">{pendingDefaultVehicle.model} ({pendingDefaultVehicle.licensePlate})</strong> làm xe mặc định cho các dịch vụ tiếp theo không?
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2 pt-1.5 cursor-pointer">
+              <input
+                type="checkbox"
+                id="dontAskAgain"
+                checked={dontAskDefaultPrompt}
+                onChange={(e) => setDontAskDefaultPrompt(e.target.checked)}
+                className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+              />
+              <label htmlFor="dontAskAgain" className="text-xs font-semibold text-slate-600 cursor-pointer">
+                Không hỏi lại tôi nữa
+              </label>
+            </div>
+
+            <div className="flex w-full gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => handleConfirmChangeDefaultVehicle(false)}
+                className="flex-1 py-2.5 px-4 border border-slate-200 hover:bg-slate-50 text-slate-500 rounded-xl text-xs font-bold transition cursor-pointer"
+              >
+                Chỉ lần này thôi
+              </button>
+              <button
+                type="button"
+                onClick={() => handleConfirmChangeDefaultVehicle(true)}
+                className="flex-1 py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-sm transition cursor-pointer"
+              >
+                Đặt mặc định
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 2. BOOKING CONFIRMATION DETAILS MODAL */}
+      {isConfirmModalOpen && selectedVehicle && selectedPackage && (
+        <div 
+          className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4"
+          onClick={(e) => { if (e.target === e.currentTarget) setIsConfirmModalOpen(false); }}
+        >
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl border border-slate-100 space-y-5 animate-in fade-in zoom-in-95 duration-250">
+            <div className="flex items-center gap-3 border-b pb-3">
+              <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
+                <CalendarIcon className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-extrabold text-slate-800">Xác nhận thông tin đặt lịch</h3>
+                <p className="text-[11px] text-slate-400 font-medium">Vui lòng rà soát kỹ thông tin trước khi hoàn tất</p>
+              </div>
+            </div>
+
+            <div className="space-y-3.5 text-xs">
+              <div className="flex justify-between items-start py-1.5 border-b border-dashed border-slate-100">
+                <span className="text-slate-400 font-medium shrink-0">Phương tiện:</span>
+                <span className="text-slate-800 font-bold text-right font-mono">
+                  {selectedVehicle.model} ({selectedVehicle.licensePlate})
+                </span>
+              </div>
+
+              <div className="flex justify-between items-start py-1.5 border-b border-dashed border-slate-100">
+                <span className="text-slate-400 font-medium shrink-0">Dịch vụ chính:</span>
+                <span className="text-slate-800 font-bold text-right">
+                  {selectedPackage.name}
+                </span>
+              </div>
+
+              {selectedAddons.length > 0 && (
+                <div className="flex justify-between items-start py-1.5 border-b border-dashed border-slate-100">
+                  <span className="text-slate-400 font-medium shrink-0">Dịch vụ kèm:</span>
+                  <span className="text-slate-800 font-bold text-right">
+                    {selectedAddons.map(id => addonServices.find(a => a.id === id)?.name).join(', ')}
+                  </span>
+                </div>
+              )}
+
+              <div className="flex justify-between items-start py-1.5 border-b border-dashed border-slate-100">
+                <span className="text-slate-400 font-medium shrink-0">Thời gian hẹn:</span>
+                <span className="text-slate-800 font-bold text-right">
+                  {selectedTime} ngày {selectedDate}
+                </span>
+              </div>
+
+              <div className="flex justify-between items-start py-1.5 border-b border-dashed border-slate-100">
+                <span className="text-slate-400 font-medium shrink-0">Địa điểm / Chi nhánh:</span>
+                <span className="text-slate-800 font-bold text-right">
+                  AutoWash Pro - Trạm Dịch Vụ Thông Minh
+                </span>
+              </div>
+
+              {selectedVoucher && (
+                <div className="flex justify-between items-start py-1.5 border-b border-dashed border-slate-100 text-emerald-600 font-semibold">
+                  <span className="shrink-0">Mã giảm giá áp dụng:</span>
+                  <span>{selectedVoucher.voucherCode}</span>
+                </div>
+              )}
+
+              <div className="flex justify-between items-center pt-3 border-t">
+                <span className="text-slate-800 font-black text-sm">Tổng thanh toán tạm tính:</span>
+                <span className="font-mono text-base font-black text-blue-600">
+                  {`${finalTotalAmount.toLocaleString('vi-VN')} đ`}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex gap-2 pt-2 border-t">
+              <button
+                type="button"
+                onClick={() => setIsConfirmModalOpen(false)}
+                className="flex-1 py-2.5 px-4 border border-slate-200 hover:bg-slate-50 text-slate-500 rounded-xl text-xs font-bold transition cursor-pointer"
+              >
+                Quay lại
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmBooking}
+                disabled={isSubmitting}
+                className="flex-1 py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-sm transition flex items-center justify-center gap-1 cursor-pointer"
+              >
+                {isSubmitting ? (
+                  <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                ) : null}
+                <span>Xác nhận đặt lịch</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 3. STATUS NOTIFICATION MODALS (SUCCESS / ERROR) */}
+      {isSuccessModalOpen && (
+        <div 
+          className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4"
+          onClick={(e) => { if (e.target === e.currentTarget) { setIsSuccessModalOpen(false); setBookingTab('history'); } }}
+        >
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl border border-slate-100 flex flex-col items-center text-center space-y-4 animate-in fade-in zoom-in-95 duration-250">
+            <div className="w-12 h-12 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600">
+              <CheckCircle className="w-6 h-6" />
+            </div>
+
+            <div className="space-y-1.5">
+              <h3 className="text-base font-extrabold text-slate-800">Đặt lịch thành công!</h3>
+              <p className="text-xs text-slate-500 leading-relaxed font-medium px-2">
+                Lịch hẹn của bạn đã được ghi nhận. Mã đơn hẹn: <strong className="text-blue-600 font-bold font-mono">#{createdBookingId}</strong>. Hệ thống sẽ gửi tin nhắn xác nhận cho bạn.
+              </p>
+            </div>
+
+            <div className="flex w-full gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => { setIsSuccessModalOpen(false); setBookingTab('history'); }}
+                className="flex-1 py-2.5 px-4 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition cursor-pointer"
+              >
+                Xem lịch hẹn của tôi
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {isErrorModalOpen && (
+        <div 
+          className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4"
+          onClick={(e) => { if (e.target === e.currentTarget) setIsErrorModalOpen(false); }}
+        >
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl border border-slate-100 flex flex-col items-center text-center space-y-4 animate-in fade-in zoom-in-95 duration-250">
+            <div className="w-12 h-12 rounded-full bg-red-50 border border-red-200 flex items-center justify-center text-red-600">
+              <AlertCircle className="w-6 h-6" />
+            </div>
+
+            <div className="space-y-1.5">
+              <h3 className="text-base font-extrabold text-slate-800">Đặt lịch thất bại</h3>
+              <p className="text-xs text-slate-500 leading-relaxed font-medium px-2">
+                {bookingErrorMessage || 'Khung giờ này hiện đã đầy công suất hoặc hệ thống gặp sự cố. Vui lòng chọn khung giờ khác.'}
+              </p>
+            </div>
+
+            <div className="flex w-full gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setIsErrorModalOpen(false)}
+                className="flex-1 py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition cursor-pointer"
+              >
+                Thử lại
               </button>
             </div>
           </div>

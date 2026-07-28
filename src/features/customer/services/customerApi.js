@@ -205,9 +205,17 @@ export const customerApi = {
   },
 
   // Get customer's history
-  getMyBookings: async (status = null) => {
+  getMyBookings: async (params = null) => {
     try {
-      const url = status ? `/customer/bookings?status=${status}` : '/customer/bookings';
+      let url = '/customer/bookings';
+      if (params) {
+        if (typeof params === 'string') {
+          url += `?status=${params}`;
+        } else {
+          const query = new URLSearchParams(params).toString();
+          url += `?${query}`;
+        }
+      }
       const res = await api.get(url);
       return res.data || [];
     } catch (err) {
@@ -304,7 +312,7 @@ export const customerApi = {
   // Get customer's feedback history
   getMyFeedbacks: async () => {
     try {
-      const res = await api.get('/customer/feedbacks');
+      const res = await api.get('/customer/feedbacks/my-feedbacks');
       return res.data || [];
     } catch (err) {
       console.warn('API getMyFeedbacks error:', err.message);
@@ -313,8 +321,9 @@ export const customerApi = {
   },
 
   // Submit feedback
-  createFeedback: async (feedbackData) => {
-    const res = await api.post('/customer/feedbacks', feedbackData);
+  createFeedback: async (customerId, feedbackData) => {
+    const url = customerId ? `/customer/feedbacks?customerId=${customerId}` : '/customer/feedbacks';
+    const res = await api.post(url, feedbackData);
     return res.data;
   },
 

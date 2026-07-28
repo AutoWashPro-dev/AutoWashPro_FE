@@ -11,7 +11,7 @@ export default function VehicleCard({ vehicle, isDefault, isSelected, onSelect, 
     >
       {isDefault && (
         <span className="absolute top-3 right-3 flex items-center gap-1 text-xs text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full font-medium">
-          <ShieldCheck size={12} /> Mặc định
+          <ShieldCheck size={12} /> Xe Mặc Định
         </span>
       )}
       <div className="flex items-center gap-3">

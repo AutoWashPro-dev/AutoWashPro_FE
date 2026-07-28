@@ -153,7 +153,7 @@ export default function CustomerLayout() {
             A
           </div>
           <div>
-            <h1 className="font-bold text-slate-800 text-base leading-tight">AutoWash Pro</h1>
+            <h1 className="font-bold text-slate-800 text-base leading-tight">NovaWash</h1>
             <span className="text-[10px] text-slate-400 font-semibold tracking-wider uppercase">Cổng Khách Hàng</span>
           </div>
         </div>
