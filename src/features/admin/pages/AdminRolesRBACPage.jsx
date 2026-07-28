@@ -23,44 +23,93 @@ import {
   Info
 } from 'lucide-react';
 import { roleApi } from '../services/roleApi';
+import { hasPermission, getFirstAllowedAdminRoute } from '../../../utils/rbac';
+
+const PERMISSION_DESCRIPTIONS = {
+  // 1. Dashboard Module
+  VIEW_DASHBOARD: "Xem báo cáo KPI, Biểu đồ Doanh thu & Slot",
+
+  // 2. Bookings & Slots Module
+  VIEW_BOOKINGS: "Xem danh sách & chi tiết đơn đặt lịch",
+  UPDATE_BOOKING_STATUS: "Cập nhật trạng thái đơn đặt lịch (Xác nhận, Đang rửa, Xong)",
+  CHECKIN_LATE: "Xác nhận Check-in trễ giờ tại quầy",
+  CHECKOUT_BOOKING: "Thanh toán hóa đơn & hoàn tất đơn tại quầy",
+  LOCK_SLOT: "Khóa / Mở khóa thủ công mốc giờ rửa xe",
+
+  // 3. Services & Slots Module
+  VIEW_SERVICES: "Xem bảng giá gói rửa & mốc giờ làm việc",
+  MANAGE_SERVICES: "Thêm mới, sửa giá & Bật/Tắt gói dịch vụ",
+  MANAGE_SLOTS: "Quản lý khung giờ, công suất & lịch đóng cửa",
+
+  // 4. Customers & Loyalty Module
+  VIEW_CUSTOMERS: "Tra cứu thông tin khách hàng & lịch sử điểm tích lũy",
+  MANAGE_CUSTOMER_STATUS: "Khóa / Mở khóa trạng thái hoạt động tài khoản khách hàng",
+
+  // 5. Promotions & Vouchers Module
+  VIEW_PROMOTIONS: "Xem danh sách chiến dịch & KPI khuyến mãi",
+  MANAGE_PROMOTIONS: "Tạo mới, kích hoạt / xóa chiến dịch Voucher",
+  GRANT_PROMOTIONS: "Xem trước tệp đối tượng & Tặng voucher trực tiếp",
+
+  // 6. Feedbacks Module
+  VIEW_FEEDBACKS: "Xem danh sách đánh giá từ khách hàng",
+  RESOLVE_FEEDBACK: "Xử lý khiếu nại & Phát voucher đền bù",
+
+  // 7. Notifications Module
+  VIEW_NOTIFICATIONS: "Xem & đánh dấu đã đọc thông báo trạm",
+
+  // 8. System Admin Module
+  CONFIG_RBAC_MATRIX: "Cấu hình Ma trận phân quyền RBAC hệ thống"
+};
+
+const MODULE_GROUPS = [
+  {
+    name: 'Dashboard Module',
+    masterCode: 'VIEW_DASHBOARD',
+    codes: ['VIEW_DASHBOARD']
+  },
+  {
+    name: 'Bookings & Slots Module',
+    masterCode: 'VIEW_BOOKINGS',
+    codes: ['VIEW_BOOKINGS', 'UPDATE_BOOKING_STATUS', 'CHECKIN_LATE', 'CHECKOUT_BOOKING', 'LOCK_SLOT']
+  },
+  {
+    name: 'Services & Slots Module',
+    masterCode: 'VIEW_SERVICES',
+    codes: ['VIEW_SERVICES', 'MANAGE_SERVICES', 'MANAGE_SLOTS']
+  },
+  {
+    name: 'Customers & Loyalty Module',
+    masterCode: 'VIEW_CUSTOMERS',
+    codes: ['VIEW_CUSTOMERS', 'MANAGE_CUSTOMER_STATUS']
+  },
+  {
+    name: 'Promotions & Vouchers Module',
+    masterCode: 'VIEW_PROMOTIONS',
+    codes: ['VIEW_PROMOTIONS', 'MANAGE_PROMOTIONS', 'GRANT_PROMOTIONS']
+  },
+  {
+    name: 'Feedbacks & Complaints Module',
+    masterCode: 'VIEW_FEEDBACKS',
+    codes: ['VIEW_FEEDBACKS', 'RESOLVE_FEEDBACK']
+  },
+  {
+    name: 'Notifications Module',
+    masterCode: 'VIEW_NOTIFICATIONS',
+    codes: ['VIEW_NOTIFICATIONS']
+  }
+];
 
 export default function AdminRolesRBACPage() {
   const [activeTab, setActiveTab] = useState('matrix'); // 'matrix' | 'roles'
   const [loading, setLoading] = useState(true);
-  
-  const getRoles = () => {
-    try {
-      const userRolesRaw = localStorage.getItem('user_roles');
-      if (userRolesRaw) {
-        const parsed = JSON.parse(userRolesRaw);
-        if (Array.isArray(parsed)) return parsed;
-        if (typeof parsed === 'string') return [parsed];
-      }
-    } catch (e) {}
-
-    try {
-      const autowashUserRaw = localStorage.getItem('autowash_user');
-      if (autowashUserRaw) {
-        const user = JSON.parse(autowashUserRaw);
-        const roles = user.roles || user.user?.roles || user.user_roles;
-        if (Array.isArray(roles)) return roles;
-        if (typeof roles === 'string') return [roles];
-      }
-    } catch (e) {}
-
-    return [];
-  };
-
-  const userRoles = getRoles();
-  const isManager = userRoles.includes('ROLE_MANAGER');
-
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (isManager) {
-      navigate('/admin/dashboard', { replace: true });
+    if (!hasPermission('CONFIG_RBAC_MATRIX')) {
+      const fallback = getFirstAllowedAdminRoute();
+      navigate(fallback, { replace: true });
     }
-  }, [isManager, navigate]);
+  }, [navigate]);
 
   const [roles, setRoles] = useState([]);
   const [permissions, setPermissions] = useState([]);
@@ -121,26 +170,57 @@ export default function AdminRolesRBACPage() {
     loadData();
   }, []);
 
-  // Group permissions by moduleGroup
-  const groupedPermissions = permissions.reduce((acc, perm) => {
-    const group = perm.moduleGroup || 'Khác (Other)';
-    if (!acc[group]) acc[group] = [];
-    acc[group].push(perm);
-    return acc;
-  }, {});
+  // Cascading Master Page Switch Handler
+  const handleToggleMasterGroup = (roleId, group) => {
+    const roleObj = roles.find(r => r.roleId === roleId);
+    if (roleObj && roleObj.roleName === 'ROLE_ADMIN') {
+      showNotification('Không thể chỉnh sửa quyền của ROLE_ADMIN (quản trị tối cao)!', 'error');
+      return;
+    }
 
-  // Handle matrix checkbox toggle
-  const handleTogglePermission = (roleId, permId, isLocked) => {
+    setMatrixState(prev => {
+      const currentSet = new Set(prev[roleId] || []);
+      const masterPerm = permissions.find(p => p.permissionCode === group.masterCode);
+      if (!masterPerm) return prev;
+
+      const isMasterOn = currentSet.has(masterPerm.permissionId);
+      const groupPermIds = permissions
+        .filter(p => group.codes.includes(p.permissionCode))
+        .map(p => p.permissionId);
+
+      if (isMasterOn) {
+        // Turn OFF master view -> Revoke master view AND all child permissions in this group
+        groupPermIds.forEach(id => currentSet.delete(id));
+      } else {
+        // Turn ON master view -> Enable master view permission
+        currentSet.add(masterPerm.permissionId);
+      }
+
+      return { ...prev, [roleId]: currentSet };
+    });
+    setHasUnsavedChanges(true);
+  };
+
+  // Handle individual permission checkbox toggle
+  const handleTogglePermission = (roleId, perm, isLocked, isMasterOn) => {
     if (isLocked) {
       showNotification('Không thể chỉnh sửa quyền của ROLE_ADMIN (quản trị tối cao) hoặc vai trò bị khóa!', 'error');
       return;
     }
+
+    const isMasterCode = ['VIEW_DASHBOARD', 'VIEW_BOOKINGS', 'VIEW_SERVICES', 'VIEW_CUSTOMERS', 'VIEW_PROMOTIONS', 'VIEW_FEEDBACKS', 'VIEW_NOTIFICATIONS', 'CONFIG_RBAC_MATRIX'].includes(perm.permissionCode);
+
+    if (!isMasterCode && !isMasterOn) {
+      showNotification(`Vui lòng bật Công tắc trang chính trước khi cấp quyền thao tác con (${perm.permissionCode})!`, 'error');
+      return;
+    }
+
     setMatrixState(prev => {
       const currentSet = new Set(prev[roleId] || []);
-      if (currentSet.has(permId)) {
-        currentSet.delete(permId);
+      if (currentSet.has(perm.permissionId)) {
+        currentSet.delete(perm.permissionId);
       } else {
-        currentSet.add(permId);
+        currentSet.add(perm.permissionId);
       }
       return { ...prev, [roleId]: currentSet };
     });
@@ -163,6 +243,7 @@ export default function AdminRolesRBACPage() {
       
       showNotification('Đã cập nhật ma trận phân quyền RBAC thành công cho toàn hệ thống! 🚀', 'success');
       setHasUnsavedChanges(false);
+      window.dispatchEvent(new Event('storage'));
       await loadData();
     } catch (error) {
       showNotification('Lỗi khi lưu ma trận quyền: ' + error.message, 'error');
@@ -257,7 +338,7 @@ export default function AdminRolesRBACPage() {
               </span>
             </h1>
             <p className="text-xs text-slate-500 font-semibold mt-0.5">
-              Chuẩn hóa ma trận phân quyền theo mô hình Admin - Manager - Cashier. Quản lý truy cập API thời gian thực.
+              Phân quyền động cho toàn bộ vai trò hệ thống. Cấp/hủy quyền tức thì theo từng mô-đun và công tắc trang chính.
             </p>
           </div>
         </div>
@@ -288,20 +369,8 @@ export default function AdminRolesRBACPage() {
       </div>
 
       {/* 2. Tabs Navigation */}
-      <div className="flex items-center gap-2 pt-4 pb-4 shrink-0">
-        <button
-          onClick={() => setActiveTab('roles')}
-          className={`px-5 py-2.5 rounded-xl text-xs font-black flex items-center gap-2 transition-all cursor-pointer ${
-            activeTab === 'roles'
-              ? 'bg-slate-900 text-white shadow-md shadow-slate-900/20'
-              : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-          }`}
-        >
-          <Key className="w-4 h-4 text-amber-400" />
-          Danh Sách Vai Trò ({roles.filter(role => !(isManager && role.roleName === 'ROLE_ADMIN')).length})
-        </button>
-
-        {!isManager && (
+      <div className="flex items-center justify-between pt-4 pb-4 shrink-0">
+        <div className="flex items-center gap-2">
           <button
             onClick={() => setActiveTab('matrix')}
             className={`px-5 py-2.5 rounded-xl text-xs font-black flex items-center gap-2 transition-all cursor-pointer ${
@@ -316,7 +385,27 @@ export default function AdminRolesRBACPage() {
               <span className="w-2 h-2 rounded-full bg-[#57f287] animate-pulse" title="Có thay đổi chưa lưu" />
             )}
           </button>
-        )}
+
+          <button
+            onClick={() => setActiveTab('roles')}
+            className={`px-5 py-2.5 rounded-xl text-xs font-black flex items-center gap-2 transition-all cursor-pointer ${
+              activeTab === 'roles'
+                ? 'bg-slate-900 text-white shadow-md shadow-slate-900/20'
+                : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            <Key className="w-4 h-4 text-amber-400" />
+            Danh Sách Vai Trò ({roles.length})
+          </button>
+        </div>
+
+        <button
+          onClick={() => setShowCreateModal(true)}
+          className="px-4 py-2.5 bg-[#0047AB] hover:bg-[#003a8c] text-white rounded-xl text-xs font-black transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
+        >
+          <Plus className="w-4 h-4" />
+          Tạo Vai Trò Mới
+        </button>
       </div>
 
       {/* 3. Main Content Area */}
@@ -329,14 +418,14 @@ export default function AdminRolesRBACPage() {
         ) : activeTab === 'matrix' ? (
           /* TAB 1: PERMISSION MATRIX TABLE */
           <div className="bg-white border border-slate-200/80 rounded-2xl shadow-sm overflow-hidden flex flex-col">
-            <div className="p-4 bg-slate-50/70 border-b border-slate-200/60 flex items-center justify-between text-xs text-slate-600 font-semibold">
+            <div className="p-4 bg-slate-50/70 border-b border-slate-200/60 flex items-center justify-between text-xs text-slate-600 font-semibold flex-wrap gap-2">
               <span className="flex items-center gap-2">
-                <Info className="w-4 h-4 text-[#0047AB]" />
-                Tích chọn các ô checkbox để cấp quyền cho vai trò tương ứng. Các thay đổi sẽ có hiệu lực ngay lập tức sau khi nhấn Lưu.
+                <Info className="w-4 h-4 text-[#0047AB] shrink-0" />
+                Dùng công tắc <strong className="text-indigo-700">"Trang: Bật/Tắt"</strong> ở dòng tiêu đề mỗi Mô-đun để cấp/thu hồi toàn bộ quyền của trang đó.
               </span>
               <div className="flex items-center gap-4 text-[11px] font-bold">
-                <span className="flex items-center gap-1 text-emerald-600"><ShieldCheck className="w-4 h-4" /> Được cấp quyền</span>
-                <span className="flex items-center gap-1 text-slate-400"><Lock className="w-4 h-4" /> Khóa (System Managed)</span>
+                <span className="flex items-center gap-1 text-emerald-600"><ShieldCheck className="w-4 h-4" /> Đã bật</span>
+                <span className="flex items-center gap-1 text-slate-400"><Lock className="w-4 h-4" /> Khóa (Super Admin)</span>
               </div>
             </div>
 
@@ -346,8 +435,8 @@ export default function AdminRolesRBACPage() {
                   <tr className="bg-slate-900 text-white text-[11px] uppercase tracking-wider font-black sticky top-0 z-10">
                     <th className="py-3.5 px-6 w-1/3 border-b border-slate-800">Mô-đun & Chức năng (Permission Catalog)</th>
                     {roles.map(r => (
-                      <th key={r.roleId} className="py-3.5 px-4 text-center min-w-[140px] border-b border-slate-800 border-l border-slate-800/60">
-                        <div className="flex flex-col items-center justify-center gap-1">
+                      <th key={r.roleId} className="py-3.5 px-4 text-center min-w-[150px] border-b border-slate-800 border-l border-slate-800/60">
+                        <div className="flex flex-col items-center justify-center gap-0.5">
                           <span className="text-white font-black tracking-wide text-xs">{r.roleName}</span>
                           <span className="text-[9px] font-semibold text-slate-400 normal-case">{r.staffCount} nhân viên</span>
                         </div>
@@ -356,68 +445,119 @@ export default function AdminRolesRBACPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 text-xs font-semibold">
-                  {Object.entries(groupedPermissions).map(([groupName, perms], idx) => (
-                    <React.Fragment key={groupName}>
-                      {/* Module Group Header */}
-                      <tr className="bg-indigo-50/50 border-t-2 border-slate-200/60">
-                        <td colSpan={roles.length + 1} className="py-2.5 px-6 font-black text-[#0047AB] uppercase tracking-wider text-[11px] flex items-center gap-2">
-                          <Layers className="w-3.5 h-3.5" />
-                          {groupName} ({perms.length} quyền)
-                        </td>
-                      </tr>
+                  {MODULE_GROUPS.map(group => {
+                    const groupPerms = permissions.filter(p => group.codes.includes(p.permissionCode) && p.permissionCode !== 'CONFIG_RBAC_MATRIX');
+                    if (groupPerms.length === 0) return null;
 
-                      {/* Permission Rows */}
-                      {perms.map(perm => (
-                        <tr key={perm.permissionId} className="hover:bg-slate-50/80 transition-colors">
-                          <td className="py-3 px-6 border-r border-slate-100">
-                            <div className="flex flex-col">
-                              <span className="font-extrabold text-slate-850 text-xs flex items-center gap-2">
-                                {perm.permissionLabel}
-                                {!perm.enabled && (
-                                  <span className="px-1.5 py-0.2 bg-amber-50 text-amber-600 border border-amber-200 text-[8px] font-black rounded uppercase">Phase 2</span>
-                                )}
-                              </span>
-                              <span className="text-[10px] text-slate-400 font-mono mt-0.5">{perm.permissionCode}</span>
-                            </div>
+                    groupPerms.sort((a, b) => {
+                      if (a.permissionCode === group.masterCode) return -1;
+                      if (b.permissionCode === group.masterCode) return 1;
+                      return 0;
+                    });
+
+                    return (
+                      <React.Fragment key={group.name}>
+                        {/* Module Group Header Row with Cascading Master Page Switch */}
+                        <tr className="bg-indigo-50/80 border-t-2 border-indigo-100">
+                          <td className="py-3 px-6 font-black text-[#0047AB] uppercase tracking-wider text-xs flex items-center gap-2">
+                            <Layers className="w-4 h-4 text-[#0047AB]" />
+                            <span>{group.name}</span>
+                            <span className="text-[10px] text-slate-500 font-semibold normal-case">({groupPerms.length} quyền)</span>
                           </td>
-
                           {roles.map(role => {
-                            const isLocked = role.roleName === 'ROLE_ADMIN' || !perm.enabled;
-                            const isChecked = (matrixState[role.roleId] || new Set()).has(perm.permissionId);
+                            const isLocked = role.roleName === 'ROLE_ADMIN';
+                            const masterPerm = permissions.find(p => p.permissionCode === group.masterCode);
+                            const isMasterOn = masterPerm && (matrixState[role.roleId] || new Set()).has(masterPerm.permissionId);
 
                             return (
-                              <td key={role.roleId} className="py-3 px-4 text-center border-l border-slate-100 bg-white/50">
-                                <label className={`inline-flex items-center justify-center p-1.5 rounded-lg transition-all ${
-                                  isLocked ? 'cursor-not-allowed opacity-75' : 'cursor-pointer hover:bg-slate-100'
-                                }`}>
-                                  <input
-                                    type="checkbox"
-                                    disabled={isLocked}
-                                    checked={isChecked}
-                                    onChange={() => handleTogglePermission(role.roleId, perm.permissionId, isLocked)}
-                                    className="hidden"
-                                  />
-                                  <div className={`w-6 h-6 rounded-lg flex items-center justify-center transition-all ${
-                                    isChecked
-                                      ? isLocked 
-                                        ? 'bg-slate-800 text-white shadow-sm' 
-                                        : 'bg-[#0047AB] text-white shadow-md shadow-[#0047AB]/20 scale-105'
-                                      : 'bg-slate-100 border border-slate-300 text-transparent hover:border-slate-400'
-                                  }`}>
-                                    {isLocked && isChecked ? (
-                                      <Lock className="w-3.5 h-3.5 text-slate-300" />
-                                    ) : isChecked ? (
-                                      <Check className="w-4 h-4 stroke-[3]" />
-                                    ) : null}
-                                  </div>
-                                </label>
+                              <td key={role.roleId} className="py-2.5 px-4 text-center border-l border-slate-200/80 bg-indigo-50/40">
+                                <button
+                                  type="button"
+                                  disabled={isLocked}
+                                  onClick={() => handleToggleMasterGroup(role.roleId, group)}
+                                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[10px] font-black uppercase transition-all ${
+                                    isLocked
+                                      ? 'bg-slate-200 text-slate-500 cursor-not-allowed opacity-80'
+                                      : isMasterOn
+                                      ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm cursor-pointer'
+                                      : 'bg-slate-200 hover:bg-slate-300 text-slate-600 cursor-pointer'
+                                  }`}
+                                  title={isLocked ? 'ROLE_ADMIN luôn bật toàn bộ trang' : isMasterOn ? 'Tắt toàn bộ trang' : 'Bật toàn bộ trang'}
+                                >
+                                  {isMasterOn ? <CheckCircle className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5 text-slate-400" />}
+                                  <span>{isMasterOn ? 'Trang: Bật' : 'Trang: Tắt'}</span>
+                                </button>
                               </td>
                             );
                           })}
                         </tr>
-                      ))}
-                    </React.Fragment>
-                  ))}
+
+                        {/* Individual Permission Rows */}
+                        {groupPerms.map(perm => {
+                          const isMasterRow = perm.permissionCode === group.masterCode;
+                          const vnDesc = PERMISSION_DESCRIPTIONS[perm.permissionCode] || perm.permissionLabel;
+
+                          return (
+                            <tr key={perm.permissionId} className={`hover:bg-slate-50/80 transition-colors ${isMasterRow ? 'bg-slate-50/40 font-black' : ''}`}>
+                              <td className="py-3 px-6 border-r border-slate-100 pl-8">
+                                <div className="flex flex-col">
+                                  <span className="font-extrabold text-slate-850 text-xs flex items-center gap-2">
+                                    {isMasterRow && <span className="px-1.5 py-0.2 bg-indigo-100 text-indigo-800 text-[9px] font-black rounded uppercase">Trang Chính</span>}
+                                    {perm.permissionLabel}
+                                    {!perm.enabled && (
+                                      <span className="px-1.5 py-0.2 bg-amber-50 text-amber-600 border border-amber-200 text-[8px] font-black rounded uppercase">Phase 2</span>
+                                    )}
+                                  </span>
+                                  <span className="text-[10px] text-[#0047AB] font-semibold mt-0.5" title={vnDesc}>
+                                    {vnDesc}
+                                  </span>
+                                  <span className="text-[9px] text-slate-400 font-mono mt-0.5">{perm.permissionCode}</span>
+                                </div>
+                              </td>
+
+                              {roles.map(role => {
+                                const isAdmin = role.roleName === 'ROLE_ADMIN';
+                                const masterPerm = permissions.find(p => p.permissionCode === group.masterCode);
+                                const isMasterOn = masterPerm && (matrixState[role.roleId] || new Set()).has(masterPerm.permissionId);
+                                
+                                const isChecked = (matrixState[role.roleId] || new Set()).has(perm.permissionId);
+                                const isDisabled = isAdmin || !perm.enabled || (!isMasterRow && !isMasterOn);
+
+                                return (
+                                  <td key={role.roleId} className="py-3 px-4 text-center border-l border-slate-100 bg-white/50">
+                                    <label className={`inline-flex items-center justify-center p-1.5 rounded-lg transition-all ${
+                                      isDisabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:bg-slate-100'
+                                    }`}>
+                                      <input
+                                        type="checkbox"
+                                        disabled={isDisabled}
+                                        checked={isChecked}
+                                        onChange={() => handleTogglePermission(role.roleId, perm, isAdmin || !perm.enabled, isMasterOn)}
+                                        className="hidden"
+                                      />
+                                      <div className={`w-6 h-6 rounded-lg flex items-center justify-center transition-all ${
+                                        isChecked
+                                          ? isAdmin
+                                            ? 'bg-slate-800 text-white shadow-sm'
+                                            : 'bg-[#0047AB] text-white shadow-md shadow-[#0047AB]/20 scale-105'
+                                          : 'bg-slate-100 border border-slate-300 text-transparent hover:border-slate-400'
+                                      }`}>
+                                        {isAdmin && isChecked ? (
+                                          <Lock className="w-3.5 h-3.5 text-slate-300" />
+                                        ) : isChecked ? (
+                                          <Check className="w-4 h-4 stroke-[3]" />
+                                        ) : null}
+                                      </div>
+                                    </label>
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          );
+                        })}
+                      </React.Fragment>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -425,13 +565,12 @@ export default function AdminRolesRBACPage() {
         ) : (
           /* TAB 2: ROLES DIRECTORY GRID */
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-            {roles.filter(role => !(isManager && role.roleName === 'ROLE_ADMIN')).map(role => {
+            {roles.map(role => {
               const isSystemRole = ['ROLE_ADMIN', 'ROLE_MANAGER', 'ROLE_CASHIER'].includes(role.roleName);
               const isAdmin = role.roleName === 'ROLE_ADMIN';
 
               return (
                 <div key={role.roleId} className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between space-y-4 relative overflow-hidden group">
-                  {/* Accent Top Border */}
                   <div className={`absolute top-0 left-0 right-0 h-1.5 ${
                     isAdmin ? 'bg-rose-600' : isSystemRole ? 'bg-[#0047AB]' : 'bg-[#57f287]'
                   }`} />
@@ -465,15 +604,15 @@ export default function AdminRolesRBACPage() {
                     </p>
 
                     <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px] font-bold text-slate-400">
-                      <span>Quyền được gán: <strong className="text-slate-800">{(role.permissions || []).length} / {permissions.length}</strong></span>
+                      <span>Quyền được gán: <strong className="text-slate-800">{((matrixState[role.roleId] || new Set()).size)} / {permissions.length}</strong></span>
                       <span className="text-[#0047AB] cursor-pointer hover:underline" onClick={() => setActiveTab('matrix')}>
                         Xem ma trận &rarr;
                       </span>
                     </div>
                   </div>
 
-                  {!isManager && (
-                    <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                  <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
+                    {!isAdmin && (
                       <button
                         onClick={() => {
                           setEditingRole(role);
@@ -484,20 +623,20 @@ export default function AdminRolesRBACPage() {
                         <Edit className="w-3.5 h-3.5 text-slate-500" />
                         Sửa Mô Tả
                       </button>
+                    )}
 
-                      {!isSystemRole && (
-                        <button
-                          onClick={() => handleDeleteRole(role)}
-                          disabled={role.staffCount > 0}
-                          title={role.staffCount > 0 ? 'Không thể xóa vai trò đang có nhân viên' : 'Xóa vai trò tự chọn'}
-                          className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                          Xóa
-                        </button>
-                      )}
-                    </div>
-                  )}
+                    {!isSystemRole && (
+                      <button
+                        onClick={() => handleDeleteRole(role)}
+                        disabled={role.staffCount > 0}
+                        title={role.staffCount > 0 ? 'Không thể xóa vai trò đang có nhân viên' : 'Xóa vai trò tự chọn'}
+                        className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Xóa
+                      </button>
+                    )}
+                  </div>
                 </div>
               );
             })}
@@ -557,36 +696,45 @@ export default function AdminRolesRBACPage() {
                 </label>
 
                 <div className="max-h-52 overflow-y-auto space-y-3 bg-slate-50/70 p-3 rounded-2xl border border-slate-200/60 no-scrollbar">
-                  {Object.entries(groupedPermissions).map(([groupName, perms]) => (
-                    <div key={groupName} className="space-y-1.5">
-                      <span className="text-[10px] font-black text-[#0047AB] uppercase tracking-wider block border-b border-slate-200/60 pb-1">
-                        {groupName}
-                      </span>
-                      <div className="grid grid-cols-1 gap-1">
-                        {perms.filter(p => p.enabled).map(p => {
-                          const isSelected = newRoleForm.selectedPermIds.includes(p.permissionId);
-                          return (
-                            <label key={p.permissionId} className="flex items-center gap-2.5 p-2 rounded-xl hover:bg-white transition-all cursor-pointer text-xs font-bold text-slate-700">
-                              <input
-                                type="checkbox"
-                                checked={isSelected}
-                                onChange={() => {
-                                  setNewRoleForm(prev => {
-                                    const nextPerms = isSelected 
-                                      ? prev.selectedPermIds.filter(id => id !== p.permissionId)
-                                      : [...prev.selectedPermIds, p.permissionId];
-                                    return { ...prev, selectedPermIds: nextPerms };
-                                  });
-                                }}
-                                className="w-4 h-4 rounded text-[#0047AB] focus:ring-[#0047AB]"
-                              />
-                              <span>{p.permissionLabel} <span className="text-[10px] text-slate-400 font-mono">({p.permissionCode})</span></span>
-                            </label>
-                          );
-                        })}
+                  {MODULE_GROUPS.map(group => {
+                    const groupPerms = permissions.filter(p => group.codes.includes(p.permissionCode) && p.permissionCode !== 'CONFIG_RBAC_MATRIX');
+                    if (groupPerms.length === 0) return null;
+                    return (
+                      <div key={group.name} className="space-y-1.5">
+                        <span className="text-[10px] font-black text-[#0047AB] uppercase tracking-wider block border-b border-slate-200/60 pb-1">
+                          {group.name}
+                        </span>
+                        <div className="grid grid-cols-1 gap-1">
+                          {groupPerms.filter(p => p.enabled).map(p => {
+                            const isSelected = newRoleForm.selectedPermIds.includes(p.permissionId);
+                            const vnDesc = PERMISSION_DESCRIPTIONS[p.permissionCode] || p.permissionLabel;
+
+                            return (
+                              <label key={p.permissionId} className="flex items-center gap-2.5 p-2 rounded-xl hover:bg-white transition-all cursor-pointer text-xs font-bold text-slate-700">
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => {
+                                    setNewRoleForm(prev => {
+                                      const nextPerms = isSelected 
+                                        ? prev.selectedPermIds.filter(id => id !== p.permissionId)
+                                        : [...prev.selectedPermIds, p.permissionId];
+                                      return { ...prev, selectedPermIds: nextPerms };
+                                    });
+                                  }}
+                                  className="w-4 h-4 rounded text-[#0047AB] focus:ring-[#0047AB]"
+                                />
+                                <div className="flex flex-col">
+                                  <span>{p.permissionLabel} <span className="text-[10px] text-slate-400 font-mono">({p.permissionCode})</span></span>
+                                  <span className="text-[10px] text-[#0047AB] font-medium">{vnDesc}</span>
+                                </div>
+                              </label>
+                            );
+                          })}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 

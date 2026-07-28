@@ -13,14 +13,15 @@ import {
   LogOut 
 } from 'lucide-react';
 
-const menuItems = [
-  { to: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/admin/bookings', label: 'Bookings & Slots', icon: Calendar },
-  { to: '/admin/services-slots', label: 'Services & Slots', icon: Wrench },
-  { to: '/admin/customers-loyalty', label: 'Customers & Promotion', icon: UsersRound },
-  { to: '/admin/roles', label: 'Roles & RBAC', icon: ShieldCheck },
+import { hasPermission } from '../../../utils/rbac';
 
-  { to: '/admin/settings', label: 'System Settings', icon: Settings },
+const menuItems = [
+  { to: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard, perm: 'VIEW_DASHBOARD' },
+  { to: '/admin/bookings', label: 'Bookings & Slots', icon: Calendar, perm: 'VIEW_BOOKINGS' },
+  { to: '/admin/services-slots', label: 'Services & Slots', icon: Wrench, perm: 'VIEW_SERVICES' },
+  { to: '/admin/customers-loyalty', label: 'Customers & Promotion', icon: UsersRound, perm: ['VIEW_CUSTOMERS', 'VIEW_PROMOTIONS', 'VIEW_FEEDBACKS'] },
+  { to: '/admin/roles', label: 'Roles & RBAC', icon: ShieldCheck, perm: 'CONFIG_RBAC_MATRIX' },
+  { to: '/admin/settings', label: 'System Settings', icon: Settings, isNonDbAdminSetting: true },
 ];
 
 export default function AdminSidebar() {
@@ -78,35 +79,15 @@ export default function AdminSidebar() {
   const isAdmin = roles.includes('ROLE_ADMIN');
   const isManager = roles.includes('ROLE_MANAGER');
   
-  const filteredMenuItems = [];
-  if (isAdmin) {
-    filteredMenuItems.push(
-      { to: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-      { to: '/admin/bookings', label: 'Bookings & Slots', icon: Calendar },
-      { to: '/admin/services-slots', label: 'Services & Slots', icon: Wrench },
-      { to: '/admin/customers-loyalty', label: 'Customers & Promotion', icon: UsersRound },
-      { to: '/admin/roles', label: 'Roles & RBAC', icon: ShieldCheck },
-      { to: '/admin/settings', label: 'System Settings', icon: Settings }
-    );
-  } else if (isManager) {
-    filteredMenuItems.push(
-      { to: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-      { to: '/admin/bookings', label: 'Bookings & Slots', icon: Calendar },
-      { to: '/admin/services-slots', label: 'Services & Slots', icon: Wrench },
-      { to: '/admin/customers-loyalty', label: 'Customers', icon: UsersRound }
-    );
-  } else if (roles.includes('ROLE_CASHIER')) {
-    filteredMenuItems.push(
-      { to: '/admin/bookings', label: 'Bookings & Slots', icon: Calendar },
-      { to: '/admin/services-slots', label: 'Services & Slots', icon: Wrench },
-      { to: '/admin/customers-loyalty', label: 'Customers', icon: UsersRound }
-    );
-  } else {
-    // Fallback immediately to the strictest configuration
-    filteredMenuItems.push(
-      { to: '/admin/bookings', label: 'Bookings & Slots', icon: Calendar }
-    );
-  }
+  const filteredMenuItems = menuItems.filter(item => {
+    if (item.isNonDbAdminSetting) {
+      return isAdmin;
+    }
+    if (Array.isArray(item.perm)) {
+      return item.perm.some(p => hasPermission(p));
+    }
+    return hasPermission(item.perm);
+  });
 
   return (
     <>

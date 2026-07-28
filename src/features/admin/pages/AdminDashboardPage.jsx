@@ -11,6 +11,7 @@ import {
   HelpCircle 
 } from 'lucide-react';
 import { dashboardApi } from '../services/dashboardApi';
+import { hasPermission, getFirstAllowedAdminRoute } from '../../../utils/rbac';
 
 const createSmoothPath = (pts) => {
   if (!pts || pts.length === 0) return '';
@@ -40,31 +41,9 @@ const AdminDashboardPage = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    const getRoles = () => {
-      try {
-        const userRolesRaw = localStorage.getItem('user_roles');
-        if (userRolesRaw) {
-          const parsed = JSON.parse(userRolesRaw);
-          if (Array.isArray(parsed)) return parsed;
-          if (typeof parsed === 'string') return [parsed];
-        }
-      } catch (e) {}
-      try {
-        const autowashUserRaw = localStorage.getItem('autowash_user');
-        if (autowashUserRaw) {
-          const user = JSON.parse(autowashUserRaw);
-          const roles = user.roles || user.user?.roles || user.user_roles;
-          if (Array.isArray(roles)) return roles;
-          if (typeof roles === 'string') return [roles];
-        }
-      } catch (e) {}
-      return [];
-    };
-
-    const roles = getRoles();
-    const isCashier = roles.includes('ROLE_CASHIER') || (!roles.includes('ROLE_ADMIN') && !roles.includes('ROLE_MANAGER'));
-    if (isCashier) {
-      navigate('/admin/bookings', { replace: true });
+    if (!hasPermission('VIEW_DASHBOARD')) {
+      const fallback = getFirstAllowedAdminRoute();
+      navigate(fallback, { replace: true });
     }
   }, [navigate]);
 
@@ -294,9 +273,9 @@ const AdminDashboardPage = () => {
 
   const current = liveData || initialEmptyData;
 return (
-    <div className="space-y-6 pb-6 text-slate-800">
+    <div className="flex flex-col h-full bg-[#f7fafd] text-slate-800 p-6 overflow-hidden">
       {errorMsg && (
-        <div className="bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-xl flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-sm font-medium text-sm animate-pulse">
+        <div className="bg-rose-50 border border-rose-200 text-rose-700 px-4 py-3 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-sm font-medium text-xs mb-4 shrink-0">
           <div className="flex items-center gap-2">
             <span>{errorMsg}</span>
           </div>
@@ -310,55 +289,62 @@ return (
               localStorage.removeItem('accessToken'); 
               window.location.href = '/login'; 
             }} 
-            className="bg-rose-600 text-white px-4 py-1.5 rounded-lg font-bold hover:bg-rose-700 transition-all text-xs shrink-0 cursor-pointer shadow-sm"
+            className="bg-rose-600 text-white px-4 py-1.5 rounded-xl font-black hover:bg-rose-700 transition-all text-xs shrink-0 cursor-pointer shadow-sm"
           >
-            Đăng xuất & Đăng nhập lại ngay
+            Đăng xuất & Đăng nhập lại
           </button>
         </div>
       )}
       
-      {/* Command Center Title & Filter */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2">
-            <h2 className="text-2xl font-extrabold font-outfit text-slate-800 tracking-tight">Command Center</h2>
-            {loading && <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-medium animate-pulse">Đang đồng bộ API...</span>}
-            {liveData && !loading && !errorMsg && <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-medium">⚡ Live Backend API</span>}
-            {errorMsg && !loading && <span className="text-xs bg-rose-100 text-rose-700 px-2 py-0.5 rounded-full font-medium">⚠️ Lỗi kết nối API</span>}
+      {/* 1. Header & Quick Actions */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-5 border-b border-slate-200/80 shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 bg-[#0047AB] rounded-2xl flex items-center justify-center shadow-lg shadow-[#0047AB]/20 text-white">
+            <Gauge className="w-6 h-6" />
           </div>
-          <p className="text-xs text-slate-400 font-semibold">Tổng quan hoạt động vận hành & Tỷ lệ lấp đầy trạm rửa xe máy.</p>
+          <div>
+            <h1 className="text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
+              Quản Lý Tổng Quan (Command Center)
+              <span className="px-2.5 py-0.5 bg-indigo-50 border border-indigo-100 text-[#0047AB] text-[10px] font-black rounded-full uppercase tracking-wider">
+                Live Operations
+              </span>
+            </h1>
+            <p className="text-xs text-slate-500 font-semibold mt-0.5">
+              Tổng quan chỉ số KPI, Doanh thu & Tỷ lệ lấp đầy trạm rửa xe máy.
+            </p>
+          </div>
         </div>
         
-        <div className="flex items-center gap-3 self-start md:self-auto">
-          <div className="bg-white border border-slate-200/80 rounded-xl p-1 flex gap-1.5 text-xs text-slate-500 shadow-sm">
+        <div className="flex items-center gap-3 self-end sm:self-auto">
+          <div className="bg-white border border-slate-200 rounded-xl p-1 flex gap-1 text-xs text-slate-600 shadow-sm">
             <button 
               onClick={() => setPeriod('today')} 
-              className={`px-3.5 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
-                period === 'today' ? 'bg-slate-900 text-white shadow-sm' : 'hover:text-slate-800 hover:bg-slate-50'
+              className={`px-3 py-1.5 rounded-lg font-black transition-all cursor-pointer ${
+                period === 'today' ? 'bg-slate-900 text-white shadow-sm' : 'hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
               Hôm nay
             </button>
             <button 
               onClick={() => setPeriod('week')} 
-              className={`px-3.5 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
-                period === 'week' ? 'bg-slate-900 text-white shadow-sm' : 'hover:text-slate-800 hover:bg-slate-50'
+              className={`px-3 py-1.5 rounded-lg font-black transition-all cursor-pointer ${
+                period === 'week' ? 'bg-slate-900 text-white shadow-sm' : 'hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
               Tuần
             </button>
             <button 
               onClick={() => setPeriod('month')} 
-              className={`px-3.5 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
-                period === 'month' ? 'bg-slate-900 text-white shadow-sm' : 'hover:text-slate-800 hover:bg-slate-50'
+              className={`px-3 py-1.5 rounded-lg font-black transition-all cursor-pointer ${
+                period === 'month' ? 'bg-slate-900 text-white shadow-sm' : 'hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
               Tháng
             </button>
             <button 
               onClick={() => setPeriod('year')} 
-              className={`px-3.5 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
-                period === 'year' ? 'bg-slate-900 text-white shadow-sm' : 'hover:text-slate-800 hover:bg-slate-50'
+              className={`px-3 py-1.5 rounded-lg font-black transition-all cursor-pointer ${
+                period === 'year' ? 'bg-slate-900 text-white shadow-sm' : 'hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
               Năm
@@ -366,6 +352,9 @@ return (
           </div>
         </div>
       </div>
+
+      {/* 2. Main Content Area */}
+      <div className="flex-1 overflow-y-auto min-h-0 pt-4 pr-1 space-y-6 no-scrollbar">
 
       {/* 1. KPI CARDS (4-Column Golden Ratio Grid) */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
@@ -820,11 +809,11 @@ return (
         <div className="mt-5 pt-4 border-t border-slate-100 flex items-center gap-2.5 text-xs font-semibold text-slate-600">
           <span className="w-2.5 h-2.5 rounded-full bg-rose-500 shrink-0 inline-block animate-pulse" />
           <div>
-            <span className="font-extrabold text-rose-600 uppercase tracking-wide">Quy tắc E2E-1 / E2E-3:</span> Khi % Rủi ro vượt ngưỡng <span className="text-rose-600 font-extrabold underline">20%</span> tại các mốc vắng khách (&lt;50%), hệ thống tự động đề xuất kích hoạt chiến dịch Voucher Loyalty Win-back!
+            <span className="font-extrabold text-rose-600 uppercase tracking-wide">Quy tắc E2E-1 / E2E-3:</span> Khi % Rủi ro vượt ngưỡng <span className="text-rose-600 font-extrabold underline">20%</span> tại các mốc vắng khách, hệ thống tự động đề xuất kích hoạt chiến dịch Voucher Loyalty Win-back!
           </div>
         </div>
+        </div>
       </div>
-
     </div>
   );
 };

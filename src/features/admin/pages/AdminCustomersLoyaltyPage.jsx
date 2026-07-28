@@ -34,13 +34,19 @@ import {
 import { loyaltyApi } from '../services/loyaltyApi';
 import { promotionApi } from '../services/promotionApi';
 import { feedbackAdminApi } from '../services/feedbackAdminApi';
+import { hasPermission } from '../../../utils/rbac';
 import { bookingAdminApi } from '../services/bookingAdminApi';
 import { serviceCatalogApi } from '../services/serviceCatalogApi';
 import { customerApi } from '../../customer/services/customerApi';
 
 export default function AdminCustomersLoyaltyPage() {
   // 1. Navigation Active Tab
-  const [activeTab, setActiveTab] = useState('crm'); // 'crm', 'campaigns', 'feedback'
+  const [activeTab, setActiveTab] = useState(() => {
+    if (hasPermission('VIEW_CUSTOMERS')) return 'crm';
+    if (hasPermission('VIEW_PROMOTIONS')) return 'campaigns';
+    if (hasPermission('VIEW_FEEDBACKS')) return 'feedback';
+    return 'crm';
+  });
 
   const getRoles = () => {
     try {
@@ -83,17 +89,22 @@ export default function AdminCustomersLoyaltyPage() {
   };
 
   useEffect(() => {
-    if ((isManager || isCashier) && activeTab === 'campaigns') {
-      setActiveTab('crm');
+    if (!hasPermission('VIEW_CUSTOMERS') && activeTab === 'crm') {
+      if (hasPermission('VIEW_PROMOTIONS')) setActiveTab('campaigns');
+      else if (hasPermission('VIEW_FEEDBACKS')) setActiveTab('feedback');
     }
-  }, [activeTab, isManager, isCashier]);
+    if (!hasPermission('VIEW_PROMOTIONS') && activeTab === 'campaigns') {
+      if (hasPermission('VIEW_CUSTOMERS')) setActiveTab('crm');
+      else if (hasPermission('VIEW_FEEDBACKS')) setActiveTab('feedback');
+    }
+    if (!hasPermission('VIEW_FEEDBACKS') && activeTab === 'feedback') {
+      if (hasPermission('VIEW_CUSTOMERS')) setActiveTab('crm');
+      else if (hasPermission('VIEW_PROMOTIONS')) setActiveTab('campaigns');
+    }
+  }, [activeTab]);
 
   // Check permission for status change
-  const userStr = localStorage.getItem('autowash_user');
-  const userObj = userStr ? JSON.parse(userStr) : null;
-  const userPermissions = userObj?.permissions || [];
-  const hasManageStatusPermission = userPermissions.includes('MANAGE_CUSTOMER_STATUS') || 
-                                    userObj?.roles?.includes('ROLE_ADMIN');
+  const hasManageStatusPermission = hasPermission('MANAGE_CUSTOMER_STATUS');
 
   // Tier Levels weights for cumulative filters (Platinum > Gold > Silver > Member)
   const tierLevels = {
@@ -579,37 +590,35 @@ export default function AdminCustomersLoyaltyPage() {
     window.dispatchEvent(new Event('storage'));
   };
 
-  // Delete a campaign
+  // Delete a campaign (Permanent Database Removal / Hard Delete)
   const handleDeleteCampaign = (id, code) => {
     setConfirmDialog({
-      title: 'Xác nhận xóa chiến dịch',
-      confirmLabel: 'Xác nhận xóa',
+      title: 'Xác nhận xóa vĩnh viễn chiến dịch khuyến mãi',
+      confirmLabel: 'Xác nhận xóa vĩnh viễn',
       cancelLabel: 'Hủy bỏ',
       isDestructive: true,
       summary: [
         { label: 'Mã chiến dịch', value: code },
-        { label: 'Cảnh báo', value: `Bạn có chắc chắn muốn xóa chiến dịch/luật đổi voucher ${code} không? Hành động này không thể hoàn tác.` }
+        { label: 'Cảnh báo', value: 'Hành động này không thể hoàn tác và sẽ xóa hoàn toàn chiến dịch khỏi hệ thống DB.' }
       ],
       onConfirm: async () => {
         try {
           if (id) {
             await promotionApi.deletePromotion(id);
-            await loadPromotionsFromApi();
-            await loadPromotionKpi();
-          } else {
-            const updated = campaigns.filter(c => c.code !== code);
-            setCampaigns(updated);
-            localStorage.setItem('autowash_campaigns', JSON.stringify(updated));
           }
-          showToast(`Đã xóa hoàn toàn chiến dịch ${code}.`);
+          const updated = campaigns.filter(c => (c.id || c.promotionId) !== id && c.code !== code);
+          setCampaigns(updated);
+          localStorage.setItem('autowash_campaigns', JSON.stringify(updated));
+          showToast('Xóa vĩnh viễn chiến dịch thành công!');
           setNotificationModal({
-            title: 'Xóa thành công!',
-            content: `Đã xóa chiến dịch/luật đổi voucher ${code} khỏi hệ thống thành công.`,
+            title: 'Xóa vĩnh viễn thành công!',
+            content: `Đã xóa vĩnh viễn chiến dịch ${code} khỏi hệ thống DB thành công.`,
             type: 'success'
           });
+          await loadPromotionKpi();
         } catch (err) {
           console.error('Failed to delete campaign:', err);
-          showToast('Không thể xóa chiến dịch: ' + err.message, 'error');
+          showToast('Không thể xóa vĩnh viễn chiến dịch: ' + err.message, 'error');
         }
         window.dispatchEvent(new Event('storage'));
       }
@@ -770,59 +779,78 @@ export default function AdminCustomersLoyaltyPage() {
   });
 
   return (
-    <div className="flex flex-col h-full bg-[#f7fafd] text-slate-800 p-5 space-y-5 overflow-hidden">
+    <div className="flex flex-col h-full bg-[#f7fafd] text-slate-800 p-6 overflow-hidden">
       
-      {/* 1. Header & Main Tab Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0">
-        <div>
-          <h2 className="text-xl font-black text-slate-800 tracking-tight font-outfit">Customers & Loyalty Strategy</h2>
-          <p className="text-xs text-slate-400 font-semibold mt-0.5">Hồ sơ khách hàng, phát hành voucher tiếp thị và giải quyết ý kiến đánh giá từ AI.</p>
+      {/* 1. Header & Quick Actions */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-5 border-b border-slate-200/80 shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 bg-[#0047AB] rounded-2xl flex items-center justify-center shadow-lg shadow-[#0047AB]/20 text-white">
+            <Users className="w-6 h-6" />
+          </div>
+          <div>
+            <h1 className="text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
+              Quản Lý Khách Hàng & Loyalty (Customers & Loyalty)
+              <span className="px-2.5 py-0.5 bg-indigo-50 border border-indigo-100 text-[#0047AB] text-[10px] font-black rounded-full uppercase tracking-wider">
+                CRM & Marketing
+              </span>
+            </h1>
+            <p className="text-xs text-slate-500 font-semibold mt-0.5">
+              Hồ sơ khách hàng, chiến dịch Voucher khuyến mãi và xử lý khiếu nại đánh giá.
+            </p>
+          </div>
         </div>
 
-        {/* Tab switchers */}
-        <div className="bg-white border border-slate-200/80 rounded-xl p-1 flex gap-1 text-xs text-slate-500 shadow-sm self-start md:self-auto z-10">
-          <button
-            onClick={() => setActiveTab('crm')}
-            className={`px-4.5 py-2 rounded-lg font-black transition-all flex items-center gap-1.5 cursor-pointer ${
-              activeTab === 'crm'
-                ? 'bg-slate-900 text-white shadow-sm'
-                : 'hover:text-slate-800 hover:bg-slate-55'
-            }`}
-          >
-            <Users className="w-4 h-4" />
-            Khách hàng & Ví Voucher
-          </button>
-          {!isManager && !isCashier && (
+        {/* Navigation Tabs */}
+        <div className="bg-white border border-slate-200 rounded-xl p-1 flex gap-1 text-xs text-slate-600 shadow-sm self-end sm:self-auto shrink-0">
+          {hasPermission('VIEW_CUSTOMERS') && (
+            <button
+              onClick={() => setActiveTab('crm')}
+              className={`px-4 py-2 rounded-xl font-black transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap ${
+                activeTab === 'crm'
+                  ? 'bg-slate-900 text-white shadow-md'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+              }`}
+            >
+              <Users className="w-4 h-4" />
+              <span>CRM Khách Hàng</span>
+            </button>
+          )}
+          {hasPermission('VIEW_PROMOTIONS') && (
             <button
               onClick={() => setActiveTab('campaigns')}
-              className={`px-4.5 py-2 rounded-lg font-black transition-all flex items-center gap-1.5 cursor-pointer ${
+              className={`px-4 py-2 rounded-xl font-black transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap ${
                 activeTab === 'campaigns'
-                  ? 'bg-slate-900 text-white shadow-sm'
-                  : 'hover:text-slate-800 hover:bg-slate-55'
+                  ? 'bg-slate-900 text-white shadow-md'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
               }`}
             >
               <Gift className="w-4 h-4" />
               Chiến dịch Khuyến mãi
             </button>
           )}
-          <button
-            onClick={() => setActiveTab('feedback')}
-            className={`px-4.5 py-2 rounded-lg font-black transition-all flex items-center gap-1.5 cursor-pointer ${
-              activeTab === 'feedback'
-                ? 'bg-slate-900 text-white shadow-sm'
-                : 'hover:text-slate-800 hover:bg-slate-55'
-            }`}
-          >
-            <MessageSquare className="w-4 h-4" />
-            Ý kiến phản hồi ({feedbacks.filter(f=>f.status==='New').length} mới)
-          </button>
+          {hasPermission('VIEW_FEEDBACKS') && (
+            <button
+              onClick={() => setActiveTab('feedback')}
+              className={`px-4.5 py-2 rounded-lg font-black transition-all flex items-center gap-1.5 cursor-pointer ${
+                activeTab === 'feedback'
+                  ? 'bg-slate-900 text-white shadow-sm'
+                  : 'hover:text-slate-800 hover:bg-slate-55'
+              }`}
+            >
+              <MessageSquare className="w-4 h-4" />
+              Ý kiến phản hồi ({feedbacks.filter(f=>f.status==='New').length} mới)
+            </button>
+          )}
         </div>
       </div>
+
+      {/* 2. Main Content Area */}
+      <div className="flex-1 overflow-y-auto min-h-0 pt-4 pr-1 space-y-6 no-scrollbar">
 
       {/* ======================================================== */}
       {/* 2. TAB CONTENT: CUSTOMER CRM                             */}
       {/* ======================================================== */}
-      {activeTab === 'crm' && (
+      {activeTab === 'crm' && hasPermission('VIEW_CUSTOMERS') && (
         <div className="flex-1 flex flex-col min-h-0 space-y-4">
           {/* Search Header */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 shrink-0">
@@ -1006,13 +1034,15 @@ export default function AdminCustomersLoyaltyPage() {
                 <span className="font-black text-slate-700 uppercase tracking-wider text-[10px]">
                   Sổ cái quản lý Voucher & Chiến dịch Quy đổi điểm ví
                 </span>
-                <button
-                  onClick={() => setIsCreateModalOpen(true)}
-                  className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[10px] font-black transition-all flex items-center gap-1 shadow-sm active:scale-[0.98] cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  Tạo Chiến dịch mới
-                </button>
+                {hasPermission('MANAGE_PROMOTIONS') && (
+                  <button
+                    onClick={() => setIsCreateModalOpen(true)}
+                    className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[10px] font-black transition-all flex items-center gap-1 shadow-sm active:scale-[0.98] cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Tạo Chiến dịch mới
+                  </button>
+                )}
               </div>
               <div className="overflow-x-auto no-scrollbar">
                 <table className="w-full text-left border-collapse">
@@ -1104,25 +1134,35 @@ export default function AdminCustomersLoyaltyPage() {
                             {camp.startDate ? camp.startDate.split('T')[0] : ''} ~ {camp.endDate ? camp.endDate.split('T')[0] : ''}
                           </td>
                           <td className="py-3 px-3 text-center">
-                            <button
-                              onClick={() => handleToggleCampaign(camp.id || camp.promotionId, camp.code, isCampActive)}
-                              className="focus:outline-none inline-block hover:scale-[1.05]"
-                            >
-                              {isCampActive ? (
-                                <span className="px-2 py-0.5 bg-emerald-50 border border-emerald-100 text-emerald-600 text-[8px] font-black rounded-full">Kích hoạt</span>
+                            {hasPermission('MANAGE_PROMOTIONS') ? (
+                              <button
+                                onClick={() => handleToggleCampaign(camp.id || camp.promotionId, camp.code, isCampActive)}
+                                className="focus:outline-none inline-block hover:scale-[1.05]"
+                              >
+                                {isCampActive ? (
+                                  <span className="px-2 py-0.5 bg-emerald-50 border border-emerald-100 text-emerald-600 text-[8px] font-black rounded-full">Kích hoạt</span>
+                                ) : (
+                                  <span className="px-2 py-0.5 bg-slate-100 border border-slate-200 text-slate-400 text-[8px] font-black rounded-full">Tạm dừng</span>
+                                )}
+                              </button>
+                            ) : (
+                              isCampActive ? (
+                                <span className="px-2 py-0.5 bg-emerald-50 border border-emerald-100 text-emerald-600 text-[8px] font-black rounded-full cursor-not-allowed">Kích hoạt</span>
                               ) : (
-                                <span className="px-2 py-0.5 bg-slate-100 border border-slate-200 text-slate-400 text-[8px] font-black rounded-full">Tạm dừng</span>
-                              )}
-                            </button>
+                                <span className="px-2 py-0.5 bg-slate-100 border border-slate-200 text-slate-400 text-[8px] font-black rounded-full cursor-not-allowed">Tạm dừng</span>
+                              )
+                            )}
                           </td>
                           <td className="py-3 px-4 text-center">
-                            <button
-                              onClick={() => handleDeleteCampaign(camp.id || camp.promotionId, camp.code)}
-                              className="p-1.5 bg-rose-50 border border-rose-100 text-rose-600 hover:bg-rose-100 rounded transition-all cursor-pointer inline-block"
-                              title="Xóa chiến dịch"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                            {hasPermission('MANAGE_PROMOTIONS') && (
+                              <button
+                                onClick={() => handleDeleteCampaign(camp.id || camp.promotionId, camp.code)}
+                                className="p-1.5 bg-rose-50 border border-rose-100 text-rose-600 hover:bg-rose-100 rounded transition-all cursor-pointer inline-block"
+                                title="Xóa vĩnh viễn chiến dịch"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                           </td>
                         </tr>
                       );
@@ -1436,7 +1476,7 @@ export default function AdminCustomersLoyaltyPage() {
                     <div className="space-y-5">
                       
                       {/* Direct Gifting Shop */}
-                      {!isManager && !isCashier && (
+                      {hasPermission('GRANT_PROMOTIONS') && (
                         <div className="bg-indigo-50/30 border border-indigo-200/50 p-4 rounded-xl space-y-3">
                           <div className="flex items-center justify-between">
                             <span className="font-black text-indigo-900 flex items-center gap-1.5 text-[11px] uppercase tracking-wide">
@@ -1598,7 +1638,7 @@ export default function AdminCustomersLoyaltyPage() {
                         />
                       </div>
 
-                      {fb.sentiment === 'Negative' && !isCashier && (
+                      {fb.sentiment === 'Negative' && hasPermission('RESOLVE_FEEDBACK') && (
                         <div className="bg-rose-50/30 border border-rose-100/60 p-3.5 rounded-xl flex items-start gap-2.5">
                           <input
                             type="checkbox"
@@ -2139,6 +2179,8 @@ export default function AdminCustomersLoyaltyPage() {
           </div>
         </div>
       )}
+
+      </div>
 
       {/* DYNAMIC FLOATING TOAST */}
       {toast && (

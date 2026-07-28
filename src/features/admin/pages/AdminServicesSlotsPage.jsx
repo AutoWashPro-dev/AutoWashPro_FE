@@ -17,6 +17,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { serviceCatalogApi } from '../services/serviceCatalogApi';
+import { hasPermission } from '../../../utils/rbac';
 
 const formatDayOfWeek = (dow) => {
   if (!dow || dow === 'ALL') return 'Mọi ngày (T2 - CN)';
@@ -353,24 +354,29 @@ const handleDeleteClosure = (closureId) => {
   };
 
   const handleDeleteService = (id, serviceId) => {
-    const target = services.find(s => s.id === id);
+    const target = services.find(s => s.id === id || s.serviceId === serviceId);
+    const serviceName = target ? target.name : `ID: ${id}`;
+
     setConfirmDialog({
-      title: 'Xác nhận xóa gói dịch vụ',
-      confirmLabel: 'Xác nhận xóa',
+      title: `Xác nhận xóa vĩnh viễn ${serviceName}?`,
+      confirmLabel: 'Xác nhận xóa vĩnh viễn',
       cancelLabel: 'Hủy bỏ',
       isDestructive: true,
       summary: [
-        { label: 'Tên dịch vụ', value: target ? target.name : `ID: ${id}` },
-        { label: 'Cảnh báo', value: 'Bạn có chắc chắn muốn xóa dịch vụ này không? Hành động này không thể hoàn tác.' }
+        { label: 'Tên dịch vụ', value: serviceName },
+        { label: 'Cảnh báo', value: 'Hành động này sẽ xóa dữ liệu khỏi hệ thống DB và không thể hoàn tác.' }
       ],
       onConfirm: async () => {
         try {
           await serviceCatalogApi.deleteService(id, serviceId);
-          setServices(prev => prev.filter(s => s.id !== id));
-          showToast('Đã xóa gói dịch vụ thành công!');
+          const freshData = await serviceCatalogApi.getAllServices();
+          const sorted = [...freshData].sort((a, b) => Number(a.price) - Number(b.price));
+          setServices(sorted);
+          localStorage.setItem('autowash_admin_services_db', JSON.stringify(sorted));
+          showToast('Xóa thành công!');
           setNotificationModal({
             title: 'Xóa thành công!',
-            content: `Đã xóa dịch vụ ${target ? target.name : ''} khỏi hệ thống thành công.`,
+            content: `Đã xóa vĩnh viễn dịch vụ ${serviceName} khỏi hệ thống DB thành công.`,
             type: 'success'
           });
         } catch (err) {
@@ -700,33 +706,29 @@ const handleDeleteClosure = (closureId) => {
     });
   };
 
-  // Handler: Delete Slot with confirmation + API integration
+  // Handler: Delete Slot with confirmation + API integration (Hard Delete)
   const handleDeleteSlot = (slot) => {
     setConfirmDialog({
-      title: 'Xác nhận xóa khung giờ',
-      confirmLabel: 'Xác nhận xóa',
+      title: 'Xác nhận xóa vĩnh viễn khung giờ',
+      confirmLabel: 'Xác nhận xóa vĩnh viễn',
       cancelLabel: 'Hủy bỏ',
       isDestructive: true,
       summary: [
         { label: 'Khung giờ', value: slot.time },
         { label: 'Công suất', value: `${slot.maxCapacity} xe/tiếng` },
-        { label: 'Cảnh báo', value: 'Bạn có chắc chắn muốn xóa khung giờ này không? Hành động này không thể hoàn tác.' }
+        { label: 'Cảnh báo', value: 'Bạn có chắc chắn muốn xóa khung giờ này? Dữ liệu sẽ bị xóa hoàn toàn khỏi hệ thống DB và không thể phục hồi.' }
       ],
       onConfirm: async () => {
         try {
           await serviceCatalogApi.deleteSlot(slot.id, slot.timeSlotId);
-
-          setSlots(prev => {
-            const filtered = prev.filter(sl => sl.id !== slot.id);
-            const next = sortAndReIndexSlots(filtered);
-            localStorage.setItem('autowash_slots', JSON.stringify(next));
-            return next;
-          });
-
+          const freshData = await serviceCatalogApi.getAllSlots();
+          const sorted = sortAndReIndexSlots(freshData);
+          setSlots(sorted);
+          localStorage.setItem('autowash_slots', JSON.stringify(sorted));
           showToast('Xóa khung giờ thành công!');
           setNotificationModal({
-            title: 'Xóa thành công!',
-            content: `Đã xóa khung giờ ${slot.time} khỏi hệ thống thành công.`,
+            title: 'Xóa khung giờ thành công!',
+            content: `Đã xóa vĩnh viễn khung giờ ${slot.time} khỏi hệ thống DB thành công.`,
             type: 'success'
           });
         } catch (err) {
@@ -740,23 +742,32 @@ const handleDeleteClosure = (closureId) => {
   const totalDailyCapacity = slots.filter(sl => sl.isActive).reduce((sum, sl) => sum + sl.maxCapacity, 0);
 
   return (
-    <div className="flex flex-col h-full bg-[#f7fafd] text-slate-800 p-5 space-y-5 overflow-hidden font-sans">
+    <div className="flex flex-col h-full bg-[#f7fafd] text-slate-800 p-6 overflow-hidden">
       
-      {/* 1. Page Header & Navigation Tabs */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0 pb-2 border-b border-slate-200/60">
-        <div>
-          <h2 className="text-xl font-black text-slate-850 tracking-tight font-outfit flex items-center gap-2">
-            <Wrench className="w-5 h-5 text-indigo-600" />
-            Services & Slots Manager
-          </h2>
-          <p className="text-xs text-slate-400 font-semibold mt-0.5">Quản lý danh mục gói rửa xe đồng giá, add-on đi kèm, công suất slot mẫu và lịch đóng cửa trạm.</p>
+      {/* 1. Header & Quick Actions */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-5 border-b border-slate-200/80 shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 bg-[#0047AB] rounded-2xl flex items-center justify-center shadow-lg shadow-[#0047AB]/20 text-white">
+            <Wrench className="w-6 h-6" />
+          </div>
+          <div>
+            <h1 className="text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
+              Quản Lý Dịch Vụ & Khung Giờ (Services & Slots)
+              <span className="px-2.5 py-0.5 bg-indigo-50 border border-indigo-100 text-[#0047AB] text-[10px] font-black rounded-full uppercase tracking-wider">
+                Catalog & Capacity
+              </span>
+            </h1>
+            <p className="text-xs text-slate-500 font-semibold mt-0.5">
+              Quản lý danh mục gói rửa xe đồng giá, add-on đi kèm, công suất slot mẫu và lịch đóng cửa trạm.
+            </p>
+          </div>
         </div>
 
-        {/* Tab switchers */}
-        <div className="bg-white border border-slate-200/80 rounded-2xl p-1 flex gap-1 text-xs text-slate-500 shadow-sm self-start md:self-auto shrink-0 overflow-x-auto no-scrollbar">
+        {/* Navigation Tabs */}
+        <div className="bg-white border border-slate-200 rounded-xl p-1 flex gap-1 text-xs text-slate-600 shadow-sm self-end sm:self-auto shrink-0">
           <button
             onClick={() => setActiveTab('catalog')}
-            className={`px-4 py-2 rounded-xl font-extrabold transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap ${
+            className={`px-4 py-2 rounded-xl font-black transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap ${
               activeTab === 'catalog'
                 ? 'bg-slate-900 text-white shadow-md'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
@@ -768,7 +779,7 @@ const handleDeleteClosure = (closureId) => {
           </button>
           <button
             onClick={() => setActiveTab('slots')}
-            className={`px-4 py-2 rounded-xl font-extrabold transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap ${
+            className={`px-4 py-2 rounded-xl font-black transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap ${
               activeTab === 'slots'
                 ? 'bg-slate-900 text-white shadow-md'
                 : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
@@ -778,20 +789,25 @@ const handleDeleteClosure = (closureId) => {
             <span>Khung giờ mẫu</span>
             <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${activeTab === 'slots' ? 'bg-slate-800 text-slate-200' : 'bg-slate-100 text-slate-500'}`}>{slots.length}</span>
           </button>
-          <button
-            onClick={() => setActiveTab('closures')}
-            className={`px-4 py-2 rounded-xl font-extrabold transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap ${
-              activeTab === 'closures'
-                ? 'bg-slate-900 text-white shadow-md'
-                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-            }`}
-          >
-            <Calendar className="w-4 h-4" />
-            <span>Lịch nghỉ trạm</span>
-            <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${activeTab === 'closures' ? 'bg-slate-800 text-slate-200' : 'bg-slate-100 text-slate-500'}`}>{closures.length}</span>
-          </button>
+          {hasPermission('LOCK_SLOT') && (
+            <button
+              onClick={() => setActiveTab('closures')}
+              className={`px-4 py-2 rounded-xl font-black transition-all flex items-center gap-2 cursor-pointer whitespace-nowrap ${
+                activeTab === 'closures'
+                  ? 'bg-slate-900 text-white shadow-md'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+              }`}
+            >
+              <Calendar className="w-4 h-4" />
+              <span>Lịch đóng cửa</span>
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${activeTab === 'closures' ? 'bg-slate-800 text-slate-200' : 'bg-slate-100 text-slate-500'}`}>{closures.length}</span>
+            </button>
+          )}
         </div>
       </div>
+
+      {/* 2. Main Content Area */}
+      <div className="flex-1 overflow-y-auto min-h-0 pt-4 pr-1 space-y-6 no-scrollbar">
 
       {/* ======================================================== */}
       {/* 2. TAB CONTENT: SERVICE CATALOG                          */}
@@ -834,7 +850,7 @@ const handleDeleteClosure = (closureId) => {
               </button>
             </div>
 
-            {(currentUser?.role === 'ADMIN' || currentUser?.role === 'MANAGER')&& (
+            {hasPermission('MANAGE_SERVICES') && (
               <button
                 onClick={handleOpenAddService}
                 className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black py-2.5 px-4.5 rounded-xl flex items-center justify-center gap-1.5 transition-all shadow-sm hover:shadow cursor-pointer"
@@ -879,9 +895,9 @@ const handleDeleteClosure = (closureId) => {
                           </span>
                         ) : (
                           <button 
-                            disabled={currentUser?.role === 'CASHIER'}
+                            disabled={!hasPermission('MANAGE_SERVICES')}
                             onClick={() => handleToggleService(s.id)} 
-                            className={`focus:outline-none transition-transform ${currentUser?.role !== 'CASHIER' ? 'hover:scale-[1.05] cursor-pointer' : 'cursor-not-allowed'} inline-block`}
+                            className={`focus:outline-none transition-transform ${hasPermission('MANAGE_SERVICES') ? 'hover:scale-[1.05] cursor-pointer' : 'cursor-not-allowed'} inline-block`}
                           >
                             {s.isActive ? (
                               <span className="flex items-center gap-1 text-emerald-600 font-extrabold bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-100">
@@ -899,20 +915,20 @@ const handleDeleteClosure = (closureId) => {
                       </td>
                       <td className="py-3.5 px-5 text-center">
                         <div className="flex items-center justify-center gap-2">
-                          {currentUser?.role !== 'CASHIER' && (
-                            <button onClick={() => handleOpenEditService(s)} className="p-1.5 bg-slate-55 border border-slate-200 hover:bg-slate-100 hover:text-slate-900 rounded-lg text-slate-660 transition-all flex items-center gap-1 font-bold cursor-pointer">
-                              <Edit className="w-3.5 h-3.5" />
-                              Sửa
-                            </button>
-                          )}
-                          {currentUser?.role === 'ADMIN'&& (
-                            <button 
-                              onClick={() => handleDeleteService(s.id, s.serviceId)} 
-                              className="p-1.5 bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-100 hover:text-rose-700 rounded-lg transition-all flex items-center gap-1 font-bold cursor-pointer"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                              Xóa
-                            </button>
+                          {hasPermission('MANAGE_SERVICES') && (
+                            <>
+                              <button onClick={() => handleOpenEditService(s)} className="p-1.5 bg-slate-55 border border-slate-200 hover:bg-slate-100 hover:text-slate-900 rounded-lg text-slate-660 transition-all flex items-center gap-1 font-bold cursor-pointer">
+                                <Edit className="w-3.5 h-3.5" />
+                                Sửa
+                              </button>
+                              <button 
+                                onClick={() => handleDeleteService(s.id, s.serviceId)} 
+                                className="p-1.5 bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-100 hover:text-rose-700 rounded-lg transition-all flex items-center gap-1 font-bold cursor-pointer"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                Xóa
+                              </button>
+                            </>
                           )}
                         </div>
                       </td>
@@ -955,7 +971,7 @@ const handleDeleteClosure = (closureId) => {
           </div>
 
           <div className="flex items-center justify-end shrink-0">
-            {(currentUser?.role === 'ADMIN' || currentUser?.role === 'MANAGER')&& (
+            {hasPermission('MANAGE_SLOTS') && (
               <button
                 onClick={() => {
                   setNewSlotStartTime('19:00');
@@ -1004,9 +1020,9 @@ const handleDeleteClosure = (closureId) => {
                       </td>
                       <td className="py-3.5 px-4 text-center">
                         <button 
-                          disabled={currentUser?.role === 'CASHIER'}
+                          disabled={!hasPermission('MANAGE_SLOTS')}
                           onClick={() => handleToggleSlot(sl.id)} 
-                          className={`focus:outline-none transition-transform ${currentUser?.role !== 'CASHIER' ? 'hover:scale-[1.05] cursor-pointer' : 'cursor-not-allowed'} inline-block`}
+                          className={`focus:outline-none transition-transform ${hasPermission('MANAGE_SLOTS') ? 'hover:scale-[1.05] cursor-pointer' : 'cursor-not-allowed'} inline-block`}
                         >
                           {sl.isActive ? (
                             <span className="flex items-center gap-1 text-emerald-600 font-extrabold bg-emerald-55 px-2.5 py-1 rounded-full border border-emerald-100">
@@ -1022,7 +1038,7 @@ const handleDeleteClosure = (closureId) => {
                         </button>
                       </td>
                       <td className="py-3.5 px-5 text-center">
-                        {currentUser?.role !== 'CASHIER' && (
+                        {hasPermission('MANAGE_SLOTS') && (
                           <div className="flex items-center justify-center gap-1.5">
                             <button onClick={() => handleOpenEditSlot(sl)} className="p-1.5 bg-slate-50 border border-slate-200 hover:bg-slate-100 hover:text-slate-900 rounded-lg text-slate-650 font-bold cursor-pointer inline-flex items-center gap-1">
                               <Edit className="w-3.5 h-3.5" />
@@ -1149,7 +1165,7 @@ const handleDeleteClosure = (closureId) => {
       {/* ======================================================== */}
       {/* 4. TAB CONTENT: GARAGE CLOSURES                          */}
       {/* ======================================================== */}
-      {activeTab === 'closures' && (
+      {activeTab === 'closures' && hasPermission('LOCK_SLOT') && (
         <div className="flex-1 flex flex-col min-h-0 space-y-4">
           
           {/* Unified Subheader Bar */}
@@ -1169,7 +1185,7 @@ const handleDeleteClosure = (closureId) => {
               </div>
             </div>
 
-            {(currentUser?.role === 'ADMIN' || currentUser?.role === 'MANAGER')&& (
+            {hasPermission('LOCK_SLOT') && hasPermission('MANAGE_SLOTS') && (
               <button
                 onClick={() => {
                   setClosureForm({ closureDate: '', reason: '', isFullDay: true });
@@ -1234,7 +1250,7 @@ const handleDeleteClosure = (closureId) => {
                         </div>
                         <div className="flex justify-between items-center pt-2 border-t border-slate-100">
                           <span className="text-[9px] text-slate-400 font-medium">Mã: #{closureId?.toString().slice(-4)}</span>
-                          {currentUser?.roleName === 'ROLE_ADMIN'&& (
+                          {hasPermission('LOCK_SLOT') && hasPermission('MANAGE_SLOTS') && (
                             <button
                               onClick={() => handleDeleteClosure(closureId)}
                               className="p-2 text-rose-500 hover:bg-rose-50 rounded-xl transition-all hover:scale-105 flex items-center gap-1 cursor-pointer font-bold text-[10px]"
@@ -1598,29 +1614,41 @@ const handleDeleteClosure = (closureId) => {
         </div>
       )}
 
-      {/* SUCCESS NOTIFICATION MODAL */}
+      {/* NOTIFICATION MODAL (SUCCESS & ERROR) */}
       {notificationModal && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[160] p-4 backdrop-blur-[1px] animate-fade-in">
           <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl space-y-4 border border-slate-100 text-center animate-scale-up">
             <div className="flex justify-center">
-              <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center text-xl font-bold border border-emerald-100">
-                ✓
-              </div>
+              {notificationModal.type === 'error' ? (
+                <div className="w-12 h-12 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center text-xl font-bold border border-rose-100">
+                  ✕
+                </div>
+              ) : (
+                <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center text-xl font-bold border border-emerald-100">
+                  ✓
+                </div>
+              )}
             </div>
-            <h3 className="font-extrabold text-slate-800 text-base">{notificationModal.title}</h3>
-            <p className="text-xs text-slate-500 font-semibold leading-relaxed">{notificationModal.content}</p>
+            <h3 className={`font-extrabold text-base ${notificationModal.type === 'error' ? 'text-rose-700' : 'text-slate-800'}`}>
+              {notificationModal.title}
+            </h3>
+            <p className="text-xs text-slate-600 font-semibold leading-relaxed">{notificationModal.content}</p>
             <div className="pt-2">
               <button
                 type="button"
                 onClick={() => setNotificationModal(null)}
-                className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl text-xs transition-colors cursor-pointer"
+                className={`w-full py-2.5 text-white font-black rounded-xl text-xs transition-colors cursor-pointer ${
+                  notificationModal.type === 'error' ? 'bg-rose-600 hover:bg-rose-700' : 'bg-emerald-600 hover:bg-emerald-700'
+                }`}
               >
-                Đồng ý
+                {notificationModal.type === 'error' ? 'Đã hiểu' : 'Đồng ý'}
               </button>
             </div>
           </div>
         </div>
       )}
+
+      </div>
 
       {/* DYNAMIC FLOATING TOAST */}
       {toast && (

@@ -29,6 +29,7 @@ import {
 import { useParams } from 'react-router-dom';
 import { bookingAdminApi } from '../services/bookingAdminApi';
 import { loyaltyApi } from '../services/loyaltyApi';
+import { hasPermission } from '../../../utils/rbac';
 
 export default function AdminBookingsPage() {
   // 1. Initialize localStorage databases if not exists to enable E2E integration
@@ -961,6 +962,33 @@ const allBookingsMapped = getAllBookings().map(b => {
   const [walkInVehiclePlate, setWalkInVehiclePlate] = useState('29-D1 555.55');
   const [walkInVehicleModel, setWalkInVehicleModel] = useState('Yamaha Grande');
   const [walkInErrorModal, setWalkInErrorModal] = useState({ isOpen: false, message: '' });
+  const [dbTimeSlots, setDbTimeSlots] = useState([]);
+
+  useEffect(() => {
+    const loadSlots = async () => {
+      try {
+        const slots = await serviceCatalogApi.getAllSlots();
+        if (slots && Array.isArray(slots) && slots.length > 0) {
+          const sorted = [...slots].sort((a, b) => {
+            const orderA = a.displayOrder ?? 0;
+            const orderB = b.displayOrder ?? 0;
+            if (orderA !== orderB) return orderA - orderB;
+            const timeA = a.startTime || a.time || '';
+            const timeB = b.startTime || b.time || '';
+            return timeA.localeCompare(timeB);
+          });
+          setDbTimeSlots(sorted);
+          const firstSlot = sorted[0];
+          const firstId = Number(firstSlot.timeSlotId || firstSlot.slotId || 1);
+          setWalkInSlotId(firstId);
+          setWalkInSlotTime(firstSlot.time || `${firstSlot.startTime} - ${firstSlot.endTime}`);
+        }
+      } catch (e) {
+        console.warn('Failed to load slots for WalkIn modal:', e);
+      }
+    };
+    loadSlots();
+  }, [selectedDate, refreshTrigger]);
 
   // Update Walk-In Date dynamically if selectedDate changes
   useEffect(() => {
@@ -1430,33 +1458,37 @@ const allBookingsMapped = getAllBookings().map(b => {
 });
 
   return (
-    <div className="flex flex-col h-full bg-[#f7fafd] text-slate-800 p-5 overflow-hidden">
+    <div className="flex flex-col h-full bg-[#f7fafd] text-slate-800 p-6 overflow-hidden">
       
-      {/* ========================================================= */}
-      {/* 1. VIEW MODE: LIST                                        */}
-      {/* ========================================================= */}
-      {viewMode === 'list' && (
-        <div className="flex-1 flex flex-col min-h-0 space-y-4">
-          
-          {/* Header */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 shrink-0">
-            <div className="flex items-center gap-3">
-              <h2 className="text-lg font-black text-slate-800 tracking-tight font-outfit">Today's Bookings</h2>
-              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-amber-50 border border-amber-200 text-amber-700 text-[10px] rounded-lg font-bold">
-                <AlertTriangle className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                <span>Khách tự đặt lịch qua App. Quầy không tạo đơn thủ công và không có luồng khoang rửa.</span>
-              </div>
-            </div>
+      {/* 1. Header & Quick Actions */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-5 border-b border-slate-200/80 shrink-0">
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 bg-[#0047AB] rounded-2xl flex items-center justify-center shadow-lg shadow-[#0047AB]/20 text-white">
+            <ClipboardList className="w-6 h-6" />
+          </div>
+          <div>
+            <h1 className="text-lg font-black text-slate-900 tracking-tight flex items-center gap-2">
+              Quản Lý Đặt Lịch & Hàng Chờ (Bookings & Queue)
+              <span className="px-2.5 py-0.5 bg-indigo-50 border border-indigo-100 text-[#0047AB] text-[10px] font-black rounded-full uppercase tracking-wider">
+                Real-time Queue
+              </span>
+            </h1>
+            <p className="text-xs text-slate-500 font-semibold mt-0.5">
+              Theo dõi hàng chờ check-in, xử lý thanh toán hoàn tất đơn và rà soát lịch sử đặt hẹn.
+            </p>
+          </div>
+        </div>
 
-            <div className="flex items-center gap-2">
-              <button
-                onClick={handlePrevDate}
-                className="p-1.5 hover:bg-slate-100 rounded-lg border border-slate-200 text-slate-650 transition-colors cursor-pointer"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-[11px] font-bold text-slate-700 min-w-[220px]">
-                <Calendar className="w-3.5 h-3.5 text-slate-400" />
+        {/* Date Selector */}
+        <div className="flex items-center gap-2 self-end sm:self-auto">
+          <button
+            onClick={handlePrevDate}
+            className="p-2 bg-white hover:bg-slate-50 rounded-xl border border-slate-200 text-slate-600 transition-colors cursor-pointer shadow-sm"
+          >
+            <ChevronLeft className="w-4 h-4" />
+          </button>
+          <div className="flex items-center gap-2 px-3.5 py-2 bg-white border border-slate-200 rounded-xl text-xs font-black text-slate-700 shadow-sm">
+            <Calendar className="w-4 h-4 text-[#0047AB]" />
                 <span className="min-w-[90px] text-slate-600 text-[11px]">{getSelectedDateLabel()}</span>
                 <input
                   type="date"
@@ -1470,28 +1502,16 @@ const allBookingsMapped = getAllBookings().map(b => {
               </div>
               <button
                 onClick={handleNextDate}
-                className="p-1.5 hover:bg-slate-100 rounded-lg border border-slate-200 text-slate-650 transition-colors cursor-pointer mr-2"
+                className="p-2 bg-white hover:bg-slate-50 rounded-xl border border-slate-200 text-slate-600 transition-colors cursor-pointer shadow-sm"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
-            
-            {/* Date selector */}
-            {/* <div className="flex items-center gap-2.5 bg-white border border-slate-200/80 rounded-xl px-3.5 py-2 shadow-sm">
-              <span className="text-xs font-black text-slate-500">Chọn ngày dọn xe:</span>
-              <input
-                type="date"
-                value={selectedDate}
-                onChange={e => {
-                  setSelectedDate(e.target.value);
-                  setSelectedTimeFilter('');
-                }}
-                className="bg-transparent text-xs font-black text-slate-800 focus:outline-none cursor-pointer"
-              />
-            </div> */}
           </div>
 
-          {/* Main Content Layout Grid */}
+          {/* 2. Main Content Area */}
+      <div className="flex-1 overflow-y-auto min-h-0 pt-4 pr-1 space-y-6 no-scrollbar">
+        {viewMode === 'list' && (
           <div className="flex-1 flex flex-col lg:flex-row gap-5 min-h-0 overflow-hidden">
             
             {/* Left: Bookings List Card */}
@@ -1797,11 +1817,8 @@ const allBookingsMapped = getAllBookings().map(b => {
               </table>
             </div>
           </div>
-
         </div>
-
-      </div>
-    )}
+      )}
 
       {/* ========================================================= */}
       {/* 2. VIEW MODE: DETAIL                                      */}
@@ -2020,21 +2037,27 @@ const allBookingsMapped = getAllBookings().map(b => {
                               </div>
                             )}
 
-                            <button
-                              disabled={!windowInfo.isValid}
-                              onClick={() => {
-                                setShowConfirmModal(true);
-                                setShowSuccessModal(false);
-                              }}
-                              className={`w-full text-white text-xs font-black py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md ${
-                                windowInfo.isValid
-                                  ? 'bg-indigo-600 hover:bg-indigo-700 cursor-pointer font-outfit'
-                                  : 'bg-slate-300 border border-slate-350 text-slate-500 cursor-not-allowed opacity-60'
-                              }`}
-                            >
-                              <CheckCircle className="w-4.5 h-4.5" />
-                              Xác nhận Thanh toán & Hoàn tất
-                            </button>
+                            {hasPermission('CHECKOUT_BOOKING') ? (
+                              <button
+                                disabled={!windowInfo.isValid}
+                                onClick={() => {
+                                  setShowConfirmModal(true);
+                                  setShowSuccessModal(false);
+                                }}
+                                className={`w-full text-white text-xs font-black py-3 px-4 rounded-xl flex items-center justify-center gap-2 transition-all shadow-md ${
+                                  windowInfo.isValid
+                                    ? 'bg-indigo-600 hover:bg-indigo-700 cursor-pointer font-outfit'
+                                    : 'bg-slate-300 border border-slate-350 text-slate-500 cursor-not-allowed opacity-60'
+                                }`}
+                              >
+                                <CheckCircle className="w-4.5 h-4.5" />
+                                Xác nhận Thanh toán & Hoàn tất
+                              </button>
+                            ) : (
+                              <div className="p-3 bg-slate-100 border border-slate-200 text-slate-500 text-center text-xs font-bold rounded-xl">
+                                🔒 Bạn không có quyền thanh toán (CHECKOUT_BOOKING)
+                              </div>
+                            )}
                           </div>
                         );
                       })()}
@@ -2077,7 +2100,7 @@ const allBookingsMapped = getAllBookings().map(b => {
                       </div>
 
                       {/* Staff Override: "Cứu Đơn" – check-in late with downstream availability guard */}
-                      {isNoShowOverrideCandidate(selectedBooking) ? (
+                      {isNoShowOverrideCandidate(selectedBooking) && hasPermission('CHECKIN_LATE') ? (
                           <button
                             onClick={() => handleCheckinLateOverride(selectedBooking.id || selectedBooking.bookingId)}
                             className="w-full bg-amber-600 hover:bg-amber-700 active:scale-[0.98] text-white text-xs font-black py-2.5
@@ -2145,7 +2168,7 @@ const allBookingsMapped = getAllBookings().map(b => {
                 </div>
 
                 {/* Cancel trigger */}
-                {(selectedBooking.status === 'Pending' || selectedBooking.status === 'Confirmed') && (
+                {(selectedBooking.status === 'Pending' || selectedBooking.status === 'Confirmed') && hasPermission('UPDATE_BOOKING_STATUS') && (
                   <div className="border border-rose-150 p-4 rounded-2xl bg-rose-50/10 space-y-3">
                     <div className="text-xs text-rose-700 font-bold flex items-center gap-1">
                       <AlertTriangle className="w-4.5 h-4.5 text-rose-600" />
@@ -2332,25 +2355,39 @@ const allBookingsMapped = getAllBookings().map(b => {
                 <div>
                   <label className="block text-[10px] font-bold text-slate-450 uppercase mb-1">Khung giờ</label>
                   <select
-                    value={walkInSlotTime}
+                    value={walkInSlotId}
                     onChange={e => {
-                      const mapping = {
-                        '07:30': 1, '08:30': 2, '09:30': 3, '10:30': 4,
-                        '13:00': 5, '14:00': 6, '15:00': 7, '16:00': 8
-                      };
-                      setWalkInSlotTime(e.target.value);
-                      setWalkInSlotId(mapping[e.target.value] || 1);
+                      const selectedId = Number(e.target.value);
+                      setWalkInSlotId(selectedId);
+                      const matched = dbTimeSlots.find(s => Number(s.timeSlotId || s.slotId) === selectedId);
+                      if (matched) {
+                        setWalkInSlotTime(matched.time || `${matched.startTime} - ${matched.endTime}`);
+                      }
                     }}
                     className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 focus:outline-none focus:border-indigo-500"
                   >
-                    <option value="07:30">07:30 - 08:30</option>
-                    <option value="08:30">08:30 - 09:30</option>
-                    <option value="09:30">09:30 - 10:30</option>
-                    <option value="10:30">10:30 - 11:30</option>
-                    <option value="13:00">13:00 - 14:00</option>
-                    <option value="14:00">14:00 - 15:00</option>
-                    <option value="15:00">15:00 - 16:00</option>
-                    <option value="16:00">16:00 - 17:00</option>
+                    {dbTimeSlots.length > 0 ? (
+                      dbTimeSlots.map(slot => {
+                        const sid = Number(slot.timeSlotId || slot.slotId);
+                        const label = slot.time || `${slot.startTime} - ${slot.endTime}`;
+                        return (
+                          <option key={sid} value={sid}>
+                            {label} ({slot.maxCapacity} xe/tiếng)
+                          </option>
+                        );
+                      })
+                    ) : (
+                      <>
+                        <option value={1}>07:30 - 08:30</option>
+                        <option value={2}>08:30 - 09:30</option>
+                        <option value={3}>09:30 - 10:30</option>
+                        <option value={4}>10:30 - 11:30</option>
+                        <option value={5}>13:00 - 14:00</option>
+                        <option value={6}>14:00 - 15:00</option>
+                        <option value={7}>15:00 - 16:00</option>
+                        <option value={8}>16:00 - 17:00</option>
+                      </>
+                    )}
                   </select>
                 </div>
               </div>
@@ -2472,6 +2509,7 @@ const allBookingsMapped = getAllBookings().map(b => {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

@@ -129,12 +129,17 @@ export const serviceCatalogApi = {
   },
 
   deleteService: async (id, serviceId) => {
+    const rawId = serviceId || id;
+    const numericMatch = String(rawId).match(/\d+/);
+    const actualId = numericMatch ? numericMatch[0] : rawId;
     try {
-      const actualId = serviceId || id;
       await api.delete(`/admin/services/${actualId}`);
       return true;
     } catch (err) {
-      console.warn('API deleteService fallback:', err.message);
+      console.error('API deleteService error:', err);
+      if (err.response) {
+        throw err;
+      }
       return true;
     }
   },
@@ -211,7 +216,9 @@ export const serviceCatalogApi = {
         isActive: data.isActive !== undefined ? data.isActive : true,
         displayOrder: 1
       };
-      const actualId = timeSlotId || id;
+      const rawId = timeSlotId || id;
+      const numericMatch = String(rawId).match(/\d+/);
+      const actualId = numericMatch ? numericMatch[0] : rawId;
       await api.put(`/admin/slots/${actualId}`, payload);
       return { 
         ...data, 
@@ -229,7 +236,9 @@ export const serviceCatalogApi = {
 
   toggleSlotStatus: async (id, timeSlotId) => {
     try {
-      const actualId = timeSlotId || id;
+      const rawId = timeSlotId || id;
+      const numericMatch = String(rawId).match(/\d+/);
+      const actualId = numericMatch ? numericMatch[0] : rawId;
       await api.patch(`/admin/slots/${actualId}/status`);
       return true;
     } catch (err) {
@@ -239,12 +248,17 @@ export const serviceCatalogApi = {
   },
 
   deleteSlot: async (id, timeSlotId) => {
+    const rawId = timeSlotId || id;
+    const numericMatch = String(rawId).match(/\d+/);
+    const actualId = numericMatch ? numericMatch[0] : rawId;
     try {
-      const actualId = timeSlotId || id;
       await api.delete(`/admin/slots/${actualId}`);
       return true;
     } catch (err) {
-      console.warn('API deleteSlot fallback:', err.message);
+      console.error('API deleteSlot error:', err);
+      if (err.response) {
+        throw err;
+      }
       return true;
     }
   },

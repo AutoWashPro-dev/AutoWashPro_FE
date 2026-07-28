@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { getUserPermissions, getFirstAllowedAdminRoute } from '../../../utils/rbac';
 
 const api = axios.create({
   baseURL: 'http://localhost:8080/api/v1',
@@ -8,7 +9,7 @@ const api = axios.create({
   timeout: 5000,
 });
 
-// Thêm interceptor để tự động gắn Bearer Token nếu có trong sessionStorage
+// Thêm interceptor để tự động gắn Bearer Token nếu có trong sessionStorage/localStorage
 api.interceptors.request.use(
   (config) => {
     const token = sessionStorage.getItem('autowash_token') || localStorage.getItem('autowash_token');
@@ -48,7 +49,7 @@ api.interceptors.response.use(
 
 export const authApi = {
   /**
-   * Omni-Login cho cả Khách hàng và Staff/Admin
+   * Omni-Login cho cả Khách hàng và Staff/Admin/Manager/Cashier
    * @param {Object} data - { loginId, password }
    */
   login: async (data) => {
@@ -60,20 +61,43 @@ export const authApi = {
         throw new Error(error.response.data?.message || 'Tài khoản hoặc mật khẩu không chính xác!');
       }
       console.warn('Backend API /auth/login offline or network error, falling back to mock login:', error.message);
-      // Fallback mock cho demo UX chỉ khi máy chủ backend hoàn toàn offline (mất kết nối mạng)
-      const loginId = data.loginId || '';
-      const isStaff = loginId.toLowerCase().includes('admin') || loginId.toLowerCase().includes('staff');
       
+      const loginId = data.loginId || '';
+      const loginLower = loginId.toLowerCase();
+
       if (loginId === 'error') {
         throw new Error('Tài khoản hoặc mật khẩu không chính xác!');
       }
 
+      const isStaff = loginLower.includes('admin') || loginLower.includes('manager') || loginLower.includes('staff') || loginLower.includes('cashier');
+
+      let userRoles = ['ROLE_CUSTOMER'];
+      let fullName = 'Nguyễn Minh Anh';
+
+      if (loginLower.includes('admin')) {
+        userRoles = ['ROLE_ADMIN'];
+        fullName = 'Super Admin';
+      } else if (loginLower.includes('manager')) {
+        userRoles = ['ROLE_MANAGER'];
+        fullName = 'Quản Lý Trạm';
+      } else if (loginLower.includes('cashier') || loginLower.includes('staff')) {
+        userRoles = ['ROLE_CASHIER'];
+        fullName = 'Nhân Viên Thu Ngân';
+      }
+
+      // Temporarily store user_roles so getUserPermissions can evaluate matrix permissions
+      sessionStorage.setItem('user_roles', JSON.stringify(userRoles));
+      localStorage.setItem('user_roles', JSON.stringify(userRoles));
+
+      const permissions = getUserPermissions();
+
       const mockUser = isStaff ? {
-        id: 1,
+        id: loginLower.includes('admin') ? 1 : loginLower.includes('manager') ? 2 : 3,
         username: loginId,
-        fullName: 'Admin Hệ Thống',
+        fullName: fullName,
         userType: 'STAFF',
-        roles: ['ROLE_ADMIN'],
+        roles: userRoles,
+        permissions: permissions
       } : {
         id: 15,
         username: loginId,
@@ -83,7 +107,10 @@ export const authApi = {
         userType: 'CUSTOMER',
         roles: ['ROLE_CUSTOMER'],
         tierName: 'PLATINUM MEMBER',
+        permissions: []
       };
+
+      const redirectUrl = isStaff ? getFirstAllowedAdminRoute(permissions) : '/customer/dashboard';
 
       return {
         accessToken: 'mock_jwt_token_' + Date.now(),
@@ -91,8 +118,9 @@ export const authApi = {
         expiresIn: 86400,
         user: mockUser,
         userType: isStaff ? 'STAFF' : 'CUSTOMER',
-        redirectUrl: isStaff ? '/admin/dashboard' : '/customer/dashboard',
+        redirectUrl: redirectUrl,
         roles: mockUser.roles,
+        permissions: mockUser.permissions,
         username: mockUser.username,
         fullName: mockUser.fullName,
       };
@@ -178,7 +206,6 @@ export const authApi = {
       };
     }
   },
-
 
   /**
    * Lấy thông tin hồ sơ Khách hàng

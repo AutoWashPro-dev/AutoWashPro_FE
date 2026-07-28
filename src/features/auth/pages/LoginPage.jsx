@@ -107,7 +107,7 @@ export default function LoginPage() {
               </span>
             </h1>
             <p className="text-slate-600 text-sm sm:text-base max-w-lg font-normal leading-relaxed">
-              Chào mừng đến với <strong className="text-blue-700 font-bold">AutoWash Pro</strong>! Cổng truy cập hợp nhất giúp Khách hàng đặt lịch chăm sóc xe và Quản lý điều hành xưởng chuyên nghiệp.
+              Chào mừng đến với <strong className="text-blue-700 font-bold">NovaWash</strong>! Cổng truy cập hợp nhất giúp Khách hàng đặt lịch chăm sóc xe và Quản lý điều hành xưởng chuyên nghiệp.
             </p>
           </div>
 

@@ -65,11 +65,14 @@ export default function CustomerBookingPage() {
   const [selectedTime, setSelectedTime] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [userHistory, setUserHistory] = useState([]);
+  const [historyStatusFilter, setHistoryStatusFilter] = useState('ALL'); // 'ALL' | 'PENDING' | 'COMPLETED' | 'CANCELLED'
   const [availableVouchers, setAvailableVouchers] = useState([]);
   const [selectedVoucher, setSelectedVoucher] = useState(null);
   const [selectedTimeSlotId, setSelectedTimeSlotId] = useState(null);
   const [slotRefreshTrigger, setSlotRefreshTrigger] = useState(0);
   const [deleteTargetVehicle, setDeleteTargetVehicle] = useState(null);
+  const [isDayLocked, setIsDayLocked] = useState(false);
+  const [closureReason, setClosureReason] = useState('');
 
   const isSlotInPast = (slotDateStr, slotTimeStr) => {
     if (!slotDateStr || !slotTimeStr) return false;
@@ -294,6 +297,8 @@ export default function CustomerBookingPage() {
   useEffect(() => {
     if (!selectedDate) {
       setTimeSlots([]);
+      setIsDayLocked(false);
+      setClosureReason('');
       return;
     }
     const fetchSlots = async () => {
@@ -302,6 +307,19 @@ export default function CustomerBookingPage() {
           customerApi.getAvailableSlots(selectedDate),
           customerApi.getMyBookings()
         ]);
+
+        // Detect garage closure from API response (isDayLocked + closureReason on each slot)
+        const dayLocked = Array.isArray(slots) && slots.length > 0 && slots[0].isDayLocked === true;
+        const dayClosureReason = dayLocked ? (slots[0].closureReason || 'Xưởng tạm đóng cửa') : '';
+        setIsDayLocked(dayLocked);
+        setClosureReason(dayClosureReason);
+
+        // If day is locked, clear any previously selected time
+        if (dayLocked) {
+          setSelectedTime('');
+          setSelectedTimeSlotId(null);
+        }
+
         const activeBookings = (bookings || []).filter(b => 
           ['PENDING', 'CONFIRMED', 'PAID', 'IN_PROGRESS', 'CHECKED_IN', 'COMPLETED'].includes(b.status)
         );
@@ -315,20 +333,35 @@ export default function CustomerBookingPage() {
           return {
             slotId: s.slotId,
             time: timeFormatted,
-            available: (isPast || isOverlap) ? false : s.isAvailable,
+            available: dayLocked ? false : ((isPast || isOverlap) ? false : s.isAvailable),
             bookedCount: s.bookedCount ?? 0,
             maxCapacity: s.maxCapacity ?? 0,
-            availableCapacity: s.availableCapacity ?? 0,
+            availableCapacity: dayLocked ? 0 : (s.availableCapacity ?? 0),
             isPast: isPast,
             isOverlap: isOverlap,
+            isDayLocked: dayLocked,
             startTime: s.startTime,
-            reason: isPast ? "ĐÃ QUA" : (s.disabledReason === "FULL" ? "ĐẦY" : s.disabledReason ? "T.DỪNG" : "")
+            displayOrder: s.displayOrder ?? 0,
+            reason: dayLocked ? 'ĐÓNG CỬA' : (isPast ? "ĐÃ QUA" : (s.disabledReason === "FULL" ? "ĐẦY" : s.disabledReason ? "T.DỪNG" : ""))
           };
         });
-        setTimeSlots(mapped);
+
+        // Explicit Ascending Sorting by displayOrder then startTime
+        const sortedMapped = [...mapped].sort((a, b) => {
+          const orderA = a.displayOrder ?? 0;
+          const orderB = b.displayOrder ?? 0;
+          if (orderA !== orderB) return orderA - orderB;
+          const timeA = a.startTime || a.time || '';
+          const timeB = b.startTime || b.time || '';
+          return timeA.localeCompare(timeB);
+        });
+
+        setTimeSlots(sortedMapped);
       } catch (err) {
         console.error('Failed to load slots from API:', err);
         setTimeSlots([]);
+        setIsDayLocked(false);
+        setClosureReason('');
       }
     };
     fetchSlots();
@@ -368,6 +401,8 @@ export default function CustomerBookingPage() {
             ? b.items[0].serviceNameSnapshot + (b.items.length > 1 ? ` (+${b.items.length - 1} dịch vụ kèm)` : '')
             : 'Rửa xe máy';
           const timeFormatted = b.startTime ? b.startTime.substring(0, 5) : "08:00";
+          const rawStatusStr = String(b.status || '').toUpperCase();
+          const createdAtVal = b.createdAt || b.created_at || (b.bookingDate + 'T' + (b.startTime || '00:00:00'));
           return {
             id: b.bookingId,
             bookingCode: b.bookingCode,
@@ -377,11 +412,21 @@ export default function CustomerBookingPage() {
             licensePlate: b.licensePlate,
             model: b.model || 'Xe máy',
             finalAmount: Number(b.finalAmount),
-            status: b.status === 'PENDING' ? 'Pending' : b.status === 'CONFIRMED' ? 'Confirmed' : b.status === 'COMPLETED' ? 'Completed' : b.status === 'CANCELLED' ? 'Canceled' : b.status
+            status: b.status === 'PENDING' ? 'Pending' : b.status === 'CONFIRMED' ? 'Confirmed' : b.status === 'COMPLETED' ? 'Completed' : (b.status === 'CANCELLED' || b.status === 'CANCELED') ? 'Canceled' : b.status,
+            rawStatus: rawStatusStr,
+            createdAt: createdAtVal
           };
         });
-        // Sắp xếp giảm dần theo ngày và giờ đặt
-        const sorted = list.sort((a, b) => (b.date + ' ' + b.time).localeCompare(a.date + ' ' + a.time));
+
+        // Sắp xếp giảm dần theo thời gian tạo đơn (Chrono-Sorting: created_at DESC)
+        const sorted = list.sort((a, b) => {
+          const timeA = new Date(a.createdAt).getTime();
+          const timeB = new Date(b.createdAt).getTime();
+          if (!isNaN(timeA) && !isNaN(timeB) && timeA !== timeB) {
+            return timeB - timeA;
+          }
+          return (b.date + ' ' + b.time).localeCompare(a.date + ' ' + a.time);
+        });
         setUserHistory(sorted);
       } else {
         setUserHistory([]);
@@ -391,6 +436,22 @@ export default function CustomerBookingPage() {
       setUserHistory([]);
     }
   };
+
+  // Filter history bookings according to active status tab
+  const filteredUserHistory = userHistory.filter((b) => {
+    if (historyStatusFilter === 'ALL') return true;
+    const raw = String(b.rawStatus || b.status || '').toUpperCase();
+    if (historyStatusFilter === 'PENDING') {
+      return raw === 'PENDING' || raw === 'CONFIRMED' || raw === 'WAITING_CONFIRMATION' || raw === 'IN_PROGRESS' || raw === 'CHECKED_IN';
+    }
+    if (historyStatusFilter === 'COMPLETED') {
+      return raw === 'COMPLETED' || raw === 'FINISHED' || raw === 'PAID';
+    }
+    if (historyStatusFilter === 'CANCELLED') {
+      return raw === 'CANCELLED' || raw === 'CANCELED' || raw === 'REJECTED' || raw.includes('CANCEL') || raw.includes('NO_SHOW');
+    }
+    return true;
+  });
 
   useEffect(() => {
     loadUserHistory();
@@ -660,6 +721,10 @@ export default function CustomerBookingPage() {
 
   const handleOpenConfirmModal = (e) => {
     if (e) e.preventDefault();
+    if (isDayLocked) {
+      showAlert(`Xưởng tạm đóng cửa trong ngày ${selectedDate}. Lý do: ${closureReason || 'Bảo trì / Nghỉ lễ'}. Vui lòng chọn ngày khác!`, 'warning', 'Ngày đóng cửa');
+      return;
+    }
     if (!selectedVehicle) {
       showAlert("Vui lòng chọn 1 chiếc xe máy để dọn rửa.", 'warning');
       return;
@@ -976,12 +1041,22 @@ export default function CustomerBookingPage() {
 
                 <div>
                   <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Khung giờ hoạt động</label>
-                  <div className="grid grid-cols-3 gap-2">
+
+                  {/* Garage Closure / Day Locked Banner */}
+                  {isDayLocked && (
+                    <div className="mb-3 rounded-xl border border-amber-300/60 bg-amber-50/80 px-4 py-3">
+                      <p className="text-sm font-bold text-amber-800 mb-0.5">Ngày này hiện đang tạm đóng cửa</p>
+                      <p className="text-sm text-amber-800 mb-0.5">Lý do:</p>
+                      <p className="text-xs text-700 leading-relaxed">{closureReason || 'Xưởng nghỉ — vui lòng chọn ngày khác.'}</p>
+                    </div>
+                  )}
+
+                  <div className={`grid grid-cols-3 gap-2 ${isDayLocked ? 'opacity-40 pointer-events-none' : ''}`}>
                     {timeSlots.map(slot => {
                       const isPast = slot.isPast === true;
                       const isFull = slot.bookedCount >= slot.maxCapacity || slot.availableCapacity <= 0;
                       const isOverlap = slot.isOverlap === true;
-                      const isDisabled = isPast || isFull;
+                      const isDisabled = isDayLocked || isPast || isFull;
 
                       return (
                         <button
@@ -989,6 +1064,7 @@ export default function CustomerBookingPage() {
                           type="button"
                           disabled={isDisabled}
                           onClick={() => {
+                            if (isDayLocked) return;
                             if (isOverlap) {
                               showAlert('Bạn đã có đơn hàng (đã thanh toán/xác nhận) trong khung giờ này. Mỗi khách hàng chỉ được đặt 1 lượt/khung giờ.', 'warning', 'Khung giờ đã đặt');
                               return;
@@ -999,19 +1075,25 @@ export default function CustomerBookingPage() {
                             }
                           }}
                           className={`py-2 px-1 text-[11px] font-bold rounded-xl border transition-all flex flex-col items-center justify-center min-h-[50px] ${
-                            isPast 
-                              ? 'opacity-40 bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed pointer-events-none'
-                              : isOverlap
-                                ? 'bg-orange-50 text-orange-500 border-orange-200 cursor-pointer opacity-70'
-                                : selectedTime === slot.time
-                                  ? 'bg-blue-600 text-white border-blue-600'
-                                  : isFull
-                                    ? 'bg-slate-100 text-slate-300 border-slate-150 cursor-not-allowed'
-                                    : 'bg-white text-slate-700 border-slate-200 hover:border-blue-500 hover:text-blue-600'
+                            isDayLocked
+                              ? 'opacity-60 bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
+                              : isPast 
+                                ? 'opacity-40 bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed pointer-events-none'
+                                : isOverlap
+                                  ? 'bg-orange-50 text-orange-500 border-orange-200 cursor-pointer opacity-70'
+                                  : selectedTime === slot.time
+                                    ? 'bg-blue-600 text-white border-blue-600'
+                                    : isFull
+                                      ? 'bg-slate-100 text-slate-300 border-slate-150 cursor-not-allowed'
+                                      : 'bg-white text-slate-700 border-slate-200 hover:border-blue-500 hover:text-blue-600'
                           }`}
                         >
                           <span>{slot.time}</span>
-                          {isPast ? (
+                          {isDayLocked ? (
+                            <span className="text-[8px] font-extrabold uppercase mt-0.5 text-amber-600">
+                              Đóng cửa
+                            </span>
+                          ) : isPast ? (
                             <span className="text-[8px] font-extrabold uppercase mt-0.5 text-gray-400">
                               Đã qua
                             </span>
@@ -1154,9 +1236,34 @@ export default function CustomerBookingPage() {
         /* TAB 2: LỊCH SỬ ĐẶT LỊCH DỌN XE CỦA KHÁCH HÀNG */
         /* ========================================================================================= */
         <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
-          <h3 className="font-bold text-slate-800 text-sm border-b pb-3 mb-4">Nhật ký lịch trình đặt hẹn rửa xe máy</h3>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b pb-4 mb-4 gap-3">
+            <h3 className="font-bold text-slate-800 text-sm">Nhật ký lịch trình đặt hẹn rửa xe máy</h3>
+
+            {/* Status Filter Tabs */}
+            <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
+              {[
+                { id: 'ALL', label: 'Tất cả' },
+                { id: 'PENDING', label: 'Chờ xác nhận' },
+                { id: 'COMPLETED', label: 'Đã hoàn thành' },
+                { id: 'CANCELLED', label: 'Đã hủy' }
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setHistoryStatusFilter(tab.id)}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
+                    historyStatusFilter === tab.id
+                      ? 'bg-white text-blue-600 shadow-sm border border-slate-200/50'
+                      : 'text-slate-500 hover:text-slate-800'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
           
-          {userHistory.length > 0 ? (
+          {filteredUserHistory.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full text-xs text-left text-slate-655 border-collapse">
                 <thead>
@@ -1171,7 +1278,7 @@ export default function CustomerBookingPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {userHistory.map(b => (
+                  {filteredUserHistory.map(b => (
                     <tr key={b.id} className="border-b border-slate-100 hover:bg-slate-50/50 transition-colors">
                       <td className="py-4 px-2 font-mono font-bold text-blue-600">{b.bookingCode}</td>
                       <td className="py-4 px-2 font-mono">
@@ -1184,7 +1291,7 @@ export default function CustomerBookingPage() {
                         <span className={`px-2.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
                           b.status?.toLowerCase() === 'completed'
                             ? 'bg-emerald-50 text-emerald-700 border border-emerald-250'
-                            : b.status?.toLowerCase() === 'pending'
+                            : b.status?.toLowerCase() === 'pending' || b.status?.toLowerCase() === 'confirmed'
                               ? 'bg-yellow-50 text-yellow-700 border border-yellow-250'
                               : 'bg-red-50 text-red-700 border border-red-250'
                         }`}>
@@ -1192,7 +1299,7 @@ export default function CustomerBookingPage() {
                         </span>
                       </td>
                       <td className="py-4 px-2 text-right">
-                        {b.status?.toLowerCase() === 'pending' ? (
+                        {(b.status?.toLowerCase() === 'pending' || b.rawStatus === 'PENDING') ? (
                           <button 
                             onClick={() => handleCancelBooking(b.id)}
                             className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1.5 rounded transition-all flex items-center gap-1 text-[10px] font-bold ml-auto"
@@ -1209,8 +1316,8 @@ export default function CustomerBookingPage() {
               </table>
             </div>
           ) : (
-            <div className="text-center py-12 text-slate-400">
-              Chưa ghi nhận lịch hẹn nào trong lịch sử.
+            <div className="text-center py-12 text-slate-400 font-medium text-xs">
+              Không có lịch đặt nào ở trạng thái này.
             </div>
           )}
         </div>

@@ -2,15 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Search, Bell, ChevronDown, CheckCircle, PlusCircle, AlertTriangle } from 'lucide-react';
 import { notificationApi } from '../services/notificationApi';
+import { hasPermission } from '../../../utils/rbac';
 
 export default function AdminHeader() {
   const [showNotifications, setShowNotifications] = useState(false);
   const [adminNotifications, setAdminNotifications] = useState([]);
   const location = useLocation();
   const isBookingsPage = location.pathname.includes('/bookings');
+  const canViewNotifications = hasPermission('VIEW_NOTIFICATIONS');
 
   // Nạp dữ liệu thông báo từ API thực (chuyển tiếp sang localStorage fallback nếu offline)
   useEffect(() => {
+    if (!canViewNotifications) return;
     const loadNotifications = async () => {
       try {
         const data = await notificationApi.getStaffNotifications(20);
@@ -36,7 +39,7 @@ export default function AdminHeader() {
       clearInterval(interval);
       window.removeEventListener('storage', handleStorage);
     };
-  }, [location.pathname]);
+  }, [location.pathname, canViewNotifications]);
 
   const handleMarkAllRead = async () => {
     await notificationApi.markAllAsRead();
@@ -98,18 +101,19 @@ export default function AdminHeader() {
       {/* Utilities */}
       <div className="flex items-center gap-4">
         {/* Notification Bell */}
-        <div className="relative">
-          <button 
-            onClick={() => setShowNotifications(!showNotifications)}
-            className="p-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 hover:text-slate-800 transition-all relative shadow-sm"
-          >
-            <Bell className="w-5 h-5" />
-            {unreadAdminCount > 0 && (
-              <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-rose-500 text-white text-[8px] font-black rounded-full flex items-center justify-center">
-                {unreadAdminCount}
-              </span>
-            )}
-          </button>
+        {canViewNotifications && (
+          <div className="relative">
+            <button 
+              onClick={() => setShowNotifications(!showNotifications)}
+              className="p-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 text-slate-600 hover:text-slate-800 transition-all relative shadow-sm"
+            >
+              <Bell className="w-5 h-5" />
+              {unreadAdminCount > 0 && (
+                <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-rose-500 text-white text-[8px] font-black rounded-full flex items-center justify-center">
+                  {unreadAdminCount}
+                </span>
+              )}
+            </button>
 
           {/* Notifications Dropdown Drawer */}
           {showNotifications && (
@@ -150,7 +154,7 @@ export default function AdminHeader() {
             </div>
           )}
         </div>
-
+        )}
       </div>
     </header>
   );
