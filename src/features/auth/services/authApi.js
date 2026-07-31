@@ -143,8 +143,6 @@ export const authApi = {
       return {
         message: 'Registration successful. Please check your email to activate your account.',
         email: data.email,
-        mailMode: 'MOCK',
-        devActionUrl: `http://localhost:5173/verify-email?token=_MOCK_VERIFY_TOKEN_${Date.now()}`,
       };
     }
   },

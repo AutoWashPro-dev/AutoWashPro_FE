@@ -75,23 +75,6 @@ export default function ForgotPasswordPage() {
               </p>
             </div>
 
-            {/* Dev Mock Action */}
-            <div className="mt-5 p-3.5 rounded-2xl bg-blue-50/80 border border-blue-200/80 text-left">
-              <div className="flex items-center gap-1.5 text-[11px] font-extrabold text-blue-700 mb-1">
-                <ShieldCheck className="w-3.5 h-3.5" />
-                <span>Kiểm thử nhanh (Dev Mode):</span>
-              </div>
-              <p className="text-[11px] text-slate-600 mb-2.5 font-medium">
-                Nhấn nút dưới để chuyển thẳng tới trang đặt lại mật khẩu không cần mở mail:
-              </p>
-              <Link
-                to={`/reset-password?token=_MOCK_RESET_TOKEN_${Date.now()}`}
-                className="w-full flex items-center justify-center gap-1.5 py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl transition shadow-md shadow-blue-600/20"
-              >
-                <span>⚡ Mở Trang Đổi Mật Khẩu Ngay</span>
-              </Link>
-            </div>
-
             <div className="mt-6 pt-5 border-t border-slate-100">
               <Link
                 to="/login"

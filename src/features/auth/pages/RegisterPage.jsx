@@ -187,26 +187,6 @@ export default function RegisterPage() {
               </button>
             </div>
 
-            {/* Dev Mock Mode Action */}
-            {successData.devActionUrl && (
-              <div className="mt-5 p-3.5 rounded-2xl bg-blue-50/80 border border-blue-200/80 text-left">
-                <div className="flex items-center gap-1.5 text-[11px] font-extrabold text-blue-700 mb-1">
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                  <span>Chế độ kiểm thử nhanh (Dev Mode):</span>
-                </div>
-                <p className="text-[11px] text-slate-600 mb-2.5 font-medium">
-                  Nhấn nút dưới để tự động xác thực email và kích hoạt tài khoản ngay lập tức:
-                </p>
-                <a
-                  href={successData.devActionUrl}
-                  className="w-full flex items-center justify-center gap-1.5 py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl transition shadow-md shadow-blue-600/20"
-                >
-                  <span>⚡ Kích Hoạt & Đăng Nhập Ngay</span>
-                  <ExternalLink className="w-3.5 h-3.5" />
-                </a>
-              </div>
-            )}
-
             <div className="mt-6 pt-5 border-t border-slate-100">
               <Link
                 to="/login"
