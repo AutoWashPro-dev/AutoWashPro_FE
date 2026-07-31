@@ -46,23 +46,26 @@ export const serviceCatalogApi = {
       return res.data.map((item, idx) => ({
         ...item,
         id: item.serviceCode || `S-0${idx + 1}`,
+        serviceId: item.serviceId,
         name: item.serviceName || item.name,
         price: item.price,
         duration: item.durationMinutes || item.duration || 15,
-        type: (item.serviceType === 'PACKAGE' || item.type === 'core') ? 'core' : 'addons',
+        type: (item.serviceType === 'PACKAGE' || item.type === 'core') ? 'core' : (item.serviceType === 'SINGLE_SERVICE' ? 'single' : 'addons'),
+        serviceType: item.serviceType,
         desc: item.description || item.desc || '',
-        isActive: item.isActive !== undefined ? item.isActive : true
+        isActive: item.isActive !== undefined ? item.isActive : true,
+        includedServices: item.includedServices || []
       }));
     } catch (err) {
       console.warn('API /admin/services offline or error, using localStorage fallback:', err.message);
       const saved = localStorage.getItem('autowash_admin_services_db');
       if (saved) return JSON.parse(saved);
       return [
-        { id: 'S-01', serviceId: 1, serviceCode: 'PKG-STD', name: 'Rửa xe máy tiêu chuẩn', price: 30000, duration: 15, type: 'core', desc: 'Rửa bọt tuyết chuyên dụng, xịt khô, lau bóng', isActive: true },
-        { id: 'S-02', serviceId: 2, serviceCode: 'PKG-DELUXE', name: 'Rửa xe máy cao cấp', price: 50000, duration: 25, type: 'core', desc: 'Rửa bọt tuyết, tẩy nhờn lốc máy, dưỡng bóng lốp', isActive: true },
-        { id: 'S-03', serviceId: 3, serviceCode: 'PKG-ULTIMATE', name: 'Rửa xe máy siêu cấp & bảo dưỡng', price: 80000, duration: 40, type: 'core', desc: 'Rửa chi tiết toàn diện, tẩy ố xích chíp, dưỡng nhựa nhám, tra dầu xích', isActive: true },
-        { id: 'A-01', serviceId: 4, serviceCode: 'ADD-CHAIN', name: 'Tẩy rửa và dưỡng xích (sên)', price: 20000, duration: 10, type: 'addons', desc: 'Tẩy sạch cặn bẩn xích, tra dầu bôi trơn chuyên dụng', isActive: true },
-        { id: 'A-02', serviceId: 5, serviceCode: 'ADD-HELMET', name: 'Vệ sinh mũ bảo hiểm khử khuẩn', price: 15000, duration: 10, type: 'addons', desc: 'Khử mùi bọt nano, sấy khô mũ bảo hiểm', isActive: true }
+        { id: 'S-01', serviceId: 1, serviceCode: 'PKG-STD', name: 'Rửa xe máy tiêu chuẩn', price: 30000, duration: 15, type: 'core', serviceType: 'PACKAGE', desc: 'Rửa bọt tuyết chuyên dụng, xịt khô, lau bóng', isActive: true },
+        { id: 'S-02', serviceId: 2, serviceCode: 'PKG-DELUXE', name: 'Rửa xe máy cao cấp', price: 50000, duration: 25, type: 'core', serviceType: 'PACKAGE', desc: 'Rửa bọt tuyết, tẩy nhờn lốc máy, dưỡng bóng lốp', isActive: true },
+        { id: 'S-03', serviceId: 3, serviceCode: 'PKG-ULTIMATE', name: 'Rửa xe máy siêu cấp & bảo dưỡng', price: 80000, duration: 40, type: 'core', serviceType: 'PACKAGE', desc: 'Rửa chi tiết toàn diện, tẩy ố xích chíp, dưỡng nhựa nhám, tra dầu xích', isActive: true },
+        { id: 'A-01', serviceId: 4, serviceCode: 'ADD-CHAIN', name: 'Tẩy rửa và dưỡng xích (sên)', price: 20000, duration: 10, type: 'addons', serviceType: 'ADDON', desc: 'Tẩy sạch cặn bẩn xích, tra dầu bôi trơn chuyên dụng', isActive: true },
+        { id: 'A-02', serviceId: 5, serviceCode: 'ADD-HELMET', name: 'Vệ sinh mũ bảo hiểm khử khuẩn', price: 15000, duration: 10, type: 'addons', serviceType: 'ADDON', desc: 'Khử mùi bọt nano, sấy khô mũ bảo hiểm', isActive: true }
       ];
     }
   },
@@ -77,7 +80,8 @@ export const serviceCatalogApi = {
         durationMinutes: Number(data.duration),
         description: data.desc,
         isActive: true,
-        displayOrder: 1
+        displayOrder: 1,
+        includedServiceIds: data.includedServiceIds || []
       };
       const res = await api.post('/admin/services', payload);
       return {
@@ -88,7 +92,8 @@ export const serviceCatalogApi = {
         duration: res.data.durationMinutes || data.duration,
         type: data.type,
         desc: res.data.description || data.desc,
-        isActive: true
+        isActive: true,
+        includedServices: res.data.includedServices || []
       };
     } catch (err) {
       console.warn('API createService fallback:', err.message);
@@ -106,11 +111,12 @@ export const serviceCatalogApi = {
         durationMinutes: Number(data.duration),
         description: data.desc,
         isActive: data.isActive !== undefined ? data.isActive : true,
-        displayOrder: 1
+        displayOrder: 1,
+        includedServiceIds: data.includedServiceIds || []
       };
       const actualId = data.serviceId || id;
       const res = await api.put(`/admin/services/${actualId}`, payload);
-      return { ...data, id, serviceId: actualId };
+      return { ...data, id, serviceId: actualId, includedServices: res.data.includedServices || [] };
     } catch (err) {
       console.warn('API updateService fallback:', err.message);
       return { ...data, id, serviceId: id };

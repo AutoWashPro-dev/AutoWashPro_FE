@@ -114,6 +114,7 @@ export default function CustomerBookingPage() {
 
   const [bookingWindowDays, setBookingWindowDays] = useState(7);
   const [customerProfile, setCustomerProfile] = useState(null);
+  const [detailPackageModal, setDetailPackageModal] = useState(null);
   const [alertModal, setAlertModal] = useState({
     isOpen: false,
     type: 'warning', // 'success' | 'error' | 'warning' | 'info'
@@ -1114,15 +1115,29 @@ export default function CustomerBookingPage() {
                         )}
                       </div>
 
-                      <div className="mt-3 flex items-baseline justify-between border-t pt-2 border-slate-100">
-                        <span className="font-mono text-base font-black text-blue-600">
-                          {formatVnd(currentPrice)}
-                        </span>
-                        {exclusiveVoucher && (
-                          <span className="text-[10px] font-extrabold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200">
-                            Có mã giảm giá
+                      <div className="mt-3 pt-2 flex flex-col gap-2 border-t border-slate-100">
+                        <div className="flex items-baseline justify-between">
+                          <span className="font-mono text-base font-black text-blue-600">
+                            {formatVnd(currentPrice)}
                           </span>
-                        )}
+                          {exclusiveVoucher && (
+                            <span className="text-[10px] font-extrabold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200">
+                              Có mã giảm giá
+                            </span>
+                          )}
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setDetailPackageModal(pkg);
+                          }}
+                          className="w-full py-1.5 px-3 bg-blue-50 hover:bg-blue-100 text-blue-700 font-extrabold text-[11px] rounded-xl border border-blue-200/80 flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-2xs hover:shadow-sm"
+                        >
+                          <Info size={13} className="text-blue-600 shrink-0" />
+                          <span>Tìm hiểu thêm quy trình</span>
+                        </button>
                       </div>
                     </div>
                   );
@@ -2106,6 +2121,99 @@ export default function CustomerBookingPage() {
                 className="flex-1 py-2.5 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition cursor-pointer"
               >
                 Thử lại
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {detailPackageModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-[150] p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-4 border border-white relative overflow-hidden animate-scale-up">
+            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-blue-600 via-sky-500 to-indigo-600" />
+
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 font-bold shrink-0">
+                  <Sparkles className="w-5 h-5 text-blue-600" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-slate-900 text-base">
+                    {detailPackageModal.name}
+                  </h3>
+                  <span className="text-[11px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-100 inline-block mt-0.5">
+                    ⏱️ Thời lượng: {detailPackageModal.duration}
+                  </span>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setDetailPackageModal(null)}
+                className="p-2 text-slate-400 hover:text-slate-700 rounded-xl hover:bg-slate-100 transition cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 py-1 text-left">
+              <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 text-xs text-slate-600 font-medium leading-relaxed">
+                <strong className="text-slate-800 block mb-1">Mô tả quy trình tổng quan:</strong>
+                {detailPackageModal.description || 'Quy trình dọn rửa chăm sóc xe máy tiêu chuẩn chuyên nghiệp.'}
+              </div>
+
+              <h4 className="font-black text-slate-800 text-xs uppercase tracking-wider flex items-center gap-1.5 pt-1">
+                <CheckCircle className="w-4 h-4 text-emerald-500" />
+                <span>Các công đoạn thực hiện chi tiết trong gói:</span>
+              </h4>
+
+              <div className="max-h-60 overflow-y-auto pr-1 space-y-2">
+                {detailPackageModal.includedServices && detailPackageModal.includedServices.length > 0 ? (
+                  detailPackageModal.includedServices.map((srv, idx) => (
+                    <div key={srv.serviceId || idx} className="p-3 bg-white border border-slate-200/80 rounded-2xl shadow-sm flex items-start gap-3">
+                      <div className="w-6 h-6 rounded-full bg-emerald-50 text-emerald-600 font-black text-[11px] flex items-center justify-center shrink-0 border border-emerald-100 mt-0.5">
+                        {idx + 1}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <h5 className="font-extrabold text-slate-800 text-xs truncate">
+                            {srv.serviceName}
+                          </h5>
+                          <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md shrink-0">
+                            ⏱️ {srv.durationMinutes || 5} phút
+                          </span>
+                        </div>
+                        {srv.description && (
+                          <p className="text-[11px] text-slate-500 mt-1 font-medium leading-relaxed">
+                            {srv.description}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-center py-4 text-slate-400 text-xs bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                    Gói bao gồm các bước rửa bọt tuyết, xịt khô và lau bóng sơn xe.
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-3 text-left">
+              <div>
+                <span className="text-[10px] font-bold text-slate-400 uppercase block">Giá gói dịch vụ</span>
+                <span className="font-mono text-lg font-black text-blue-600">
+                  {formatVnd(calculatePackagePrice(detailPackageModal.basePrice))}
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  handleSelectPackage(detailPackageModal);
+                  setDetailPackageModal(null);
+                }}
+                className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-extrabold text-xs rounded-xl shadow-md transition-all cursor-pointer"
+              >
+                Chọn Gói Này Ngay
               </button>
             </div>
           </div>

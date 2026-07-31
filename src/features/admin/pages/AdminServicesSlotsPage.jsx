@@ -391,21 +391,24 @@ const handleDeleteClosure = (closureId) => {
     setServiceForm({
       name: '',
       price: '',
-      duration: type === 'core' ? '20' : '10',
+      duration: type === 'core' ? '15' : '10',
       type: type,
-      desc: ''
+      desc: '',
+      includedServiceIds: []
     });
     setServiceModalOpen(true);
   };
 
   const handleOpenEditService = (service) => {
     setCurrentService(service);
+    const incIds = (service.includedServices || []).map(s => s.serviceId || s.id);
     setServiceForm({
       name: service.name,
       price: service.price,
       duration: service.duration,
       type: service.type,
-      desc: service.desc
+      desc: service.desc,
+      includedServiceIds: incIds
     });
     setServiceModalOpen(true);
   };
@@ -1105,14 +1108,22 @@ const handleDeleteClosure = (closureId) => {
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="font-bold text-slate-600 block">Thời lượng (phút) *</label>
+                  <div className="flex justify-between items-center">
+                    <label className="font-bold text-slate-600 block">Thời lượng (phút) *</label>
+                    {serviceForm.type === 'core' && (
+                      <span className="text-[10px] text-blue-600 font-extrabold bg-blue-50 px-2 py-0.5 rounded">
+                        ⚡ Tự động cộng
+                      </span>
+                    )}
+                  </div>
                   <input
                     type="number"
                     required
+                    readOnly={serviceForm.type === 'core' && (serviceForm.includedServiceIds || []).length > 0}
                     placeholder="Ví dụ: 20"
                     value={serviceForm.duration}
                     onChange={e => setServiceForm({...serviceForm, duration: e.target.value})}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-700"
+                    className={`w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-700 ${serviceForm.type === 'core' && (serviceForm.includedServiceIds || []).length > 0 ? 'bg-slate-100 cursor-not-allowed text-blue-600 font-black' : ''}`}
                   />
                 </div>
               </div>
@@ -1141,6 +1152,64 @@ const handleDeleteClosure = (closureId) => {
                   <span className="text-[10px] text-slate-450 block mt-1">🔒 Gói dịch vụ hệ thống cố định</span>
                 )}
               </div>
+
+              {serviceForm.type === 'core' && (
+                <div className="space-y-2 border-t border-b border-slate-150 py-3 my-2 text-left">
+                  <div className="flex items-center justify-between">
+                    <label className="font-extrabold text-slate-800 flex items-center gap-1 text-xs">
+                      <Layers className="w-4 h-4 text-blue-600" />
+                      <span>Chọn công đoạn thành phần *</span>
+                    </label>
+                    <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-100">
+                      ⏱️ Tổng: {services.filter(s => (s.serviceType === 'SINGLE_SERVICE' || s.type === 'single') && (serviceForm.includedServiceIds || []).includes(s.serviceId || s.id)).reduce((acc, c) => acc + Number(c.durationMinutes || c.duration || 0), 0)} phút
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-slate-500 font-medium leading-relaxed">
+                    Tích chọn các công đoạn thành phần. Thời lượng gói chính sẽ <strong>tự động cộng dồn</strong> từ tổng số phút của các công đoạn được chọn.
+                  </p>
+
+                  <div className="max-h-44 overflow-y-auto space-y-1.5 p-2 bg-slate-50 border border-slate-200 rounded-xl">
+                    {services.filter(s => s.serviceType === 'SINGLE_SERVICE' || s.type === 'single').length > 0 ? (
+                      services.filter(s => s.serviceType === 'SINGLE_SERVICE' || s.type === 'single').map((srv) => {
+                        const srvId = srv.serviceId || srv.id;
+                        const isChecked = (serviceForm.includedServiceIds || []).includes(srvId);
+                        return (
+                          <label key={srvId} className={`flex items-center justify-between p-2 rounded-xl cursor-pointer transition-all border ${isChecked ? 'bg-blue-50/60 border-blue-400 shadow-sm' : 'bg-white hover:bg-slate-50 border-slate-200'}`}>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="checkbox"
+                                checked={isChecked}
+                                onChange={(e) => {
+                                  const current = serviceForm.includedServiceIds || [];
+                                  const next = e.target.checked
+                                    ? [...current, srvId]
+                                    : current.filter(id => id !== srvId);
+                                  const singleItems = services.filter(s => s.serviceType === 'SINGLE_SERVICE' || s.type === 'single');
+                                  const newDuration = singleItems.filter(s => next.includes(s.serviceId || s.id)).reduce((acc, c) => acc + Number(c.durationMinutes || c.duration || 0), 0);
+                                  setServiceForm({
+                                    ...serviceForm,
+                                    includedServiceIds: next,
+                                    duration: newDuration > 0 ? newDuration : serviceForm.duration
+                                  });
+                                }}
+                                className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 accent-blue-600 cursor-pointer"
+                              />
+                              <span className="font-bold text-slate-800 text-xs">{srv.name || srv.serviceName}</span>
+                            </div>
+                            <span className="text-[10px] font-extrabold text-blue-700 bg-blue-100/60 px-2 py-0.5 rounded-md">
+                              ⏱️ {srv.durationMinutes || srv.duration || 5} phút
+                            </span>
+                          </label>
+                        );
+                      })
+                    ) : (
+                      <div className="text-center py-3 text-slate-400 text-[11px]">
+                        Không tìm thấy dịch vụ thành phần lẻ nào.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               <div className="space-y-1">
                 <label className="font-bold text-slate-600 block">Mô tả ngắn</label>
