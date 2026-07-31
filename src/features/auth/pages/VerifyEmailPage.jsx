@@ -7,7 +7,7 @@ export default function VerifyEmailPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const [status, setStatus] = useState('VERIFYING'); // VERIFYING, SUCCESS, ERROR
-  const [message, setMessage] = useState('');
+  const [countdown, setCountdown] = useState(3);
   const calledRef = useRef(false);
 
   useEffect(() => {
@@ -41,6 +41,27 @@ export default function VerifyEmailPage() {
     verify();
   }, [location.search]);
 
+  useEffect(() => {
+    if (status !== 'SUCCESS') return;
+
+    const timer = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          navigate('/login', {
+            state: {
+              successMessage: 'Xác thực email thành công! Vui lòng đăng nhập vào tài khoản của bạn.'
+            }
+          });
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [status, navigate]);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-sky-50 via-blue-50/70 to-indigo-100/50 flex items-center justify-center p-4 sm:p-6 selection:bg-blue-600 selection:text-white relative overflow-hidden font-sans text-slate-800">
       <div className="absolute top-1/3 left-1/2 w-80 h-80 bg-blue-400/20 rounded-full blur-3xl pointer-events-none -translate-x-1/2 -translate-y-1/2 animate-pulse" />
@@ -71,23 +92,26 @@ export default function VerifyEmailPage() {
               </div>
               
               <h3 className="text-xl font-black text-slate-900 tracking-tight">
-                Kích Hoạt Thành Công! 🎉
+                Xác Thực Mail Thành Công! 🎉
               </h3>
               
               <p className="mt-2 text-xs text-slate-600 px-2 leading-relaxed font-medium">
                 {message}
               </p>
-              <p className="mt-1 text-xs text-blue-600 font-bold">
-                Chào mừng bạn đến với AutoWash Pro.
-              </p>
+              
+              <div className="mt-3">
+                <span className="text-[11px] text-blue-600 font-bold bg-blue-50 py-1.5 px-3 rounded-lg border border-blue-100 inline-block">
+                  Tự động chuyển qua trang đăng nhập sau <strong className="text-blue-700 font-black">{countdown}s</strong>...
+                </span>
+              </div>
 
               <div className="mt-6">
                 <button
                   type="button"
-                  onClick={() => navigate('/login')}
+                  onClick={() => navigate('/login', { state: { successMessage: 'Xác thực email thành công! Vui lòng đăng nhập.' } })}
                   className="w-full flex justify-center items-center gap-2 py-3.5 px-4 border border-transparent rounded-xl shadow-lg shadow-blue-600/25 text-sm font-bold text-white bg-gradient-to-r from-blue-600 via-sky-600 to-indigo-600 hover:from-blue-700 hover:via-sky-700 hover:to-indigo-700 transition-all transform active:scale-[0.98] cursor-pointer"
                 >
-                  <span>Đăng Nhập Để Trải Nghiệm Ngay</span>
+                  <span>Chuyển Sang Đăng Nhập Ngay</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </div>

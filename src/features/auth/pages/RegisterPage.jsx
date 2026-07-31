@@ -185,6 +185,14 @@ export default function RegisterPage() {
                 <RefreshCw className={`w-3.5 h-3.5 ${resendCountdown > 0 ? '' : 'animate-spin'}`} style={{ animationDuration: '3s' }} />
                 <span>{resendCountdown > 0 ? `Gửi lại email sau (${resendCountdown}s)` : 'Gửi lại email xác nhận'}</span>
               </button>
+
+              <Link
+                to="/login"
+                className="w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-extrabold shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer mt-2"
+              >
+                <span>Đã Xác Thực Email? Đăng Nhập Ngay</span>
+                <ChevronRight className="w-4 h-4" />
+              </Link>
             </div>
 
             <div className="mt-6 pt-5 border-t border-slate-100">

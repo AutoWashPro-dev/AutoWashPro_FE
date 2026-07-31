@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { authApi } from '../services/authApi';
 import { 
   Sparkles, 
@@ -19,11 +19,14 @@ import {
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [loginId, setLoginId] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const successMessage = location.state?.successMessage || (location.state?.verified ? 'Xác thực email thành công! Vui lòng đăng nhập.' : null);
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -151,6 +154,13 @@ export default function LoginPage() {
 
             {/* Form */}
             <form className="space-y-4" onSubmit={handleLogin}>
+              {successMessage && (
+                <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs flex items-center gap-2 font-bold shadow-sm animate-bounce">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>{successMessage}</span>
+                </div>
+              )}
+
               {error && (
                 <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-red-600 text-xs flex items-center gap-2 font-semibold animate-shake">
                   <div className="w-2 h-2 rounded-full bg-red-500 shrink-0" />
