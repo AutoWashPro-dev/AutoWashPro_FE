@@ -452,7 +452,14 @@ export default function AdminBookingsPage() {
           const newLocks = { ...slotLocks };
           monitorList.forEach(m => {
             const lockKey = `${selectedDate}_${m.slotId}`;
-            newLocks[lockKey] = m.isLocked || false;
+            const isFull = (m.bookedCount || 0) >= (m.maxCapacity || 0);
+            const isLocked = m.isLocked || isFull;
+            newLocks[lockKey] = isLocked;
+
+            // Nếu slot đã đầy xe mà ở Backend chưa có bản ghi lock, tự động POST lock để đồng bộ khóa slot
+            if (isFull && !m.isLocked && m.slotId) {
+              bookingAdminApi.adjustLock(m.slotId, selectedDate, true).catch(() => {});
+            }
           });
           setSlotLocks(newLocks);
         }
@@ -461,7 +468,7 @@ export default function AdminBookingsPage() {
       }
     };
     fetchOccupancy();
-  }, [selectedDate]);
+  }, [selectedDate, refreshTrigger]);
 
   const toggleLock = async (slotId, currentLocked) => {
     try {
@@ -1744,6 +1751,7 @@ export default function AdminBookingsPage() {
                       const occupancyPctStr = occupancyPct.toFixed(0) + '%';
                       const noShowPct = noShowRate > 1.0 ? noShowRate : noShowRate * 100;
                       const noShowPctStr = noShowPct.toFixed(0) + '% Hủy/Trễ';
+                      const isLockedSlot = item.isLocked || (slotLocks[`${selectedDate}_${item.slotId}`]) || (actualBooked >= configuredMaxCapacity) || remaining <= 0;
 
                       // Format start time string (e.g. "08:00") to full range (e.g. "08:00 - 09:00")
                       let formattedTime = timeSlot;
@@ -1760,7 +1768,7 @@ export default function AdminBookingsPage() {
                       }
 
                       return (
-                        <tr key={idx} className={`hover:bg-slate-50/70 transition-colors ${isHighRisk ? 'bg-rose-50/10' : ''}`}>
+                        <tr key={idx} className={`hover:bg-slate-50/70 transition-colors ${isLockedSlot ? 'bg-rose-50/20' : (isHighRisk ? 'bg-amber-50/20' : '')}`}>
                           <td className="py-2 px-2.5 font-outfit font-black text-slate-800 whitespace-nowrap">
                             <div className="flex items-center gap-1">
                               <Clock className="w-3 h-3 text-slate-400 shrink-0" />
@@ -1773,19 +1781,23 @@ export default function AdminBookingsPage() {
                           <td className="py-2 px-2">
                             <div className="flex flex-col gap-0.5">
                               <div className="flex items-center justify-between gap-1 flex-wrap">
-                                {isHighRisk ? (
+                                {isLockedSlot ? (
+                                  <span className="px-1.5 py-0.5 bg-rose-100 text-rose-700 border border-rose-200 rounded text-[8px] font-black uppercase tracking-wider whitespace-nowrap flex items-center gap-0.5">
+                                    🔒 ĐÃ ĐẦY / KHÓA ({actualBooked}/{configuredMaxCapacity})
+                                  </span>
+                                ) : isHighRisk ? (
                                   <div className="flex items-center gap-1.5 flex-wrap">
-                                    <span className="px-1.5 py-0.5 bg-rose-100 text-rose-700 border border-rose-200 rounded text-[8px] font-black uppercase tracking-wider">
+                                    <span className="px-1.5 py-0.5 bg-amber-100 text-amber-800 border border-amber-200 rounded text-[8px] font-black uppercase tracking-wider">
                                       RỦI RO CAO
                                     </span>
-                                    <span className="text-[8px] font-bold text-rose-500 whitespace-nowrap">{noShowPctStr}</span>
+                                    <span className="text-[8px] font-bold text-amber-600 whitespace-nowrap">{noShowPctStr}</span>
                                   </div>
                                 ) : (
                                   <span className="px-1.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-100 rounded text-[8px] font-black uppercase tracking-wider whitespace-nowrap">
                                     ĐANG NHẬN ({actualBooked}/{configuredMaxCapacity})
                                   </span>
                                 )}
-                                <span className={`text-[9px] font-bold ${isHighRisk ? 'text-rose-600' : 'text-slate-500'}`}>
+                                <span className={`text-[9px] font-bold ${isLockedSlot ? 'text-rose-600' : (isHighRisk ? 'text-amber-600' : 'text-slate-500')}`}>
                                   {occupancyPctStr}
                                 </span>
                               </div>
