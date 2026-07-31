@@ -1214,7 +1214,7 @@ export default function CustomerBookingPage() {
                   <div className={`grid grid-cols-3 gap-2 ${isDayLocked ? 'opacity-40 pointer-events-none' : ''}`}>
                     {timeSlots.map(slot => {
                       const isPast = slot.isPast === true;
-                      const isFull = slot.bookedCount >= slot.maxCapacity || slot.availableCapacity <= 0;
+                      const isFull = !slot.available || slot.bookedCount >= slot.maxCapacity || slot.availableCapacity <= 0;
                       const isOverlap = slot.isOverlap === true;
                       const isDisabled = isDayLocked || isPast || isFull;
 
