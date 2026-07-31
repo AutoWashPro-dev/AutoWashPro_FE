@@ -336,19 +336,23 @@ export default function CustomerBookingPage() {
             String(b.bookingDate) === selectedDate &&
             (b.startTime?.substring(0, 5) === s.startTime?.substring(0, 5))
           );
+          const isFull = (s.bookedCount >= s.maxCapacity && s.maxCapacity > 0) || (s.availableCapacity <= 0) || (s.isAvailable === false) || s.disabledReason === "FULL";
+          const isSlotAvailable = dayLocked ? false : (!isPast && !isOverlap && !isFull);
+
           return {
             slotId: s.slotId,
             time: timeFormatted,
-            available: dayLocked ? false : ((isPast || isOverlap) ? false : s.isAvailable),
+            available: isSlotAvailable,
             bookedCount: s.bookedCount ?? 0,
             maxCapacity: s.maxCapacity ?? 0,
             availableCapacity: dayLocked ? 0 : (s.availableCapacity ?? 0),
             isPast: isPast,
             isOverlap: isOverlap,
+            isFull: isFull,
             isDayLocked: dayLocked,
             startTime: s.startTime,
             displayOrder: s.displayOrder ?? 0,
-            reason: dayLocked ? 'ĐÓNG CỬA' : (isPast ? "ĐÃ QUA" : (s.disabledReason === "FULL" ? "ĐẦY" : s.disabledReason ? "T.DỪNG" : ""))
+            reason: dayLocked ? 'ĐÓNG CỬA' : (isPast ? "ĐÃ QUA" : (isFull ? "ĐẦY" : s.disabledReason ? "T.DỪNG" : ""))
           };
         });
 
@@ -363,6 +367,17 @@ export default function CustomerBookingPage() {
         });
 
         setTimeSlots(sortedMapped);
+
+        // Tự động bỏ chọn slot nếu slot hiện tại đã bị đầy/khóa/vô hiệu hóa
+        setSelectedTime(prevTime => {
+          if (!prevTime) return '';
+          const foundSlot = sortedMapped.find(st => st.time === prevTime);
+          if (!foundSlot || !foundSlot.available) {
+            setSelectedTimeSlotId(null);
+            return '';
+          }
+          return prevTime;
+        });
       } catch (err) {
         console.error('Failed to load slots from API:', err);
         setTimeSlots([]);
