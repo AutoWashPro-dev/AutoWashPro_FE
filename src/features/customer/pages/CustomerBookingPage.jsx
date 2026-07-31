@@ -1214,9 +1214,9 @@ export default function CustomerBookingPage() {
                   <div className={`grid grid-cols-3 gap-2 ${isDayLocked ? 'opacity-40 pointer-events-none' : ''}`}>
                     {timeSlots.map(slot => {
                       const isPast = slot.isPast === true;
-                      const isFull = !slot.available || slot.bookedCount >= slot.maxCapacity || slot.availableCapacity <= 0;
+                      const isFull = (slot.bookedCount >= slot.maxCapacity) || (slot.availableCapacity <= 0) || (slot.available === false);
                       const isOverlap = slot.isOverlap === true;
-                      const isDisabled = isDayLocked || isPast || isFull;
+                      const isDisabled = isDayLocked || isPast || isFull || isOverlap;
 
                       return (
                         <button
@@ -1224,45 +1224,39 @@ export default function CustomerBookingPage() {
                           type="button"
                           disabled={isDisabled}
                           onClick={() => {
-                            if (isDayLocked) return;
-                            if (isOverlap) {
-                              showAlert('Bạn đã có đơn hàng (đã thanh toán/xác nhận) trong khung giờ này. Mỗi khách hàng chỉ được đặt 1 lượt/khung giờ.', 'warning', 'Khung giờ đã đặt');
-                              return;
-                            }
-                            if (!isDisabled) {
-                              setSelectedTime(slot.time);
-                              setSelectedTimeSlotId(slot.slotId);
-                            }
+                            if (isDisabled) return;
+                            setSelectedTime(slot.time);
+                            setSelectedTimeSlotId(slot.slotId);
                           }}
                           className={`py-2 px-1 text-[11px] font-bold rounded-xl border transition-all flex flex-col items-center justify-center min-h-[50px] ${isDayLocked
                             ? 'opacity-60 bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
                             : isPast
                               ? 'opacity-40 bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed pointer-events-none'
                               : isOverlap
-                                ? 'bg-orange-50 text-orange-500 border-orange-200 cursor-pointer opacity-70'
-                                : selectedTime === slot.time
-                                  ? 'bg-blue-600 text-white border-blue-600'
-                                  : isFull
-                                    ? 'bg-slate-100 text-slate-300 border-slate-150 cursor-not-allowed'
+                                ? 'opacity-60 bg-slate-100 border-slate-200 text-slate-400 cursor-not-allowed'
+                                : isFull
+                                  ? 'opacity-70 bg-rose-50 border-rose-200 text-rose-600 cursor-not-allowed'
+                                  : selectedTime === slot.time
+                                    ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
                                     : 'bg-white text-slate-700 border-slate-200 hover:border-blue-500 hover:text-blue-600'
                             }`}
                         >
                           <span>{slot.time}</span>
                           {isDayLocked ? (
                             <span className="text-[8px] font-extrabold uppercase mt-0.5 text-amber-600">
-                              Đóng cửa
+                              🔒 Đóng cửa
                             </span>
                           ) : isPast ? (
                             <span className="text-[8px] font-extrabold uppercase mt-0.5 text-gray-400">
                               Đã qua
                             </span>
-                          ) : isFull ? (
-                            <span className="text-[8px] font-extrabold uppercase mt-0.5 text-red-500">
-                              ĐẦY
-                            </span>
                           ) : isOverlap ? (
-                            <span className="text-[8px] font-extrabold uppercase mt-0.5 text-orange-650">
-                              Đã đặt & Thanh toán
+                            <span className="text-[8px] font-extrabold uppercase mt-0.5 text-slate-500">
+                              🔒 Đã đặt
+                            </span>
+                          ) : isFull ? (
+                            <span className="text-[8px] font-black uppercase mt-0.5 text-rose-600">
+                              🔒 ĐÃ ĐẦY / KHÓA
                             </span>
                           ) : null}
                         </button>
