@@ -33,7 +33,9 @@ export default function TierProgressBar() {
     );
   }
 
-  const totalSpending = profileData?.totalSpending || 0;
+  const tierSpending = profileData?.tierSpending !== undefined && profileData?.tierSpending !== null 
+    ? profileData.tierSpending 
+    : (profileData?.totalSpending || 0);
   const tierName = profileData?.tierName || 'MEMBER';
   const progressPercentage = profileData?.progressPercentage || 0;
   const spendNeededForNextTier = profileData?.spendNeededForNextTier || 0;
@@ -69,7 +71,7 @@ export default function TierProgressBar() {
 
       {/* Chú thích thông tin chi tiết */}
       <div className="flex justify-between items-center text-xs">
-        <span className="text-slate-500 font-medium">Tích lũy: {formatCurrency(totalSpending)}</span>
+        <span className="text-slate-500 font-medium">Tích lũy: {formatCurrency(tierSpending)}</span>
         {!isPlatinum ? (
           <span className="text-slate-600 font-semibold bg-blue-50 text-blue-700 px-2.5 py-1 rounded-lg">
             Chi tiêu thêm {formatCurrency(spendNeededForNextTier)} để thăng hạng {nextTierName}

@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { 
-  LayoutDashboard, 
-  Calendar, 
-  Gift, 
-  Car, 
-  User, 
-  LogOut, 
-  Bell, 
-  Menu, 
+import {
+  LayoutDashboard,
+  Calendar,
+  Gift,
+  Car,
+  User,
+  LogOut,
+  Bell,
+  Menu,
   X,
   MessageSquare
 } from 'lucide-react';
@@ -74,7 +74,7 @@ export default function CustomerLayout() {
     window.addEventListener('storage', handleStorage);
     window.addEventListener('profileUpdated', fetchFreshProfile);
     window.addEventListener('focus', fetchFreshProfile);
-    
+
     return () => {
       window.removeEventListener('storage', handleStorage);
       window.removeEventListener('profileUpdated', fetchFreshProfile);
@@ -85,7 +85,7 @@ export default function CustomerLayout() {
   const handleMarkAllRead = async () => {
     try {
       await customerApi.markAllNotificationsRead();
-      const updated = notifications.map(n => ({...n, read: true, isRead: true}));
+      const updated = notifications.map(n => ({ ...n, read: true, isRead: true }));
       setNotifications(updated);
       localStorage.setItem('autowash_cust_notifications', JSON.stringify(updated));
     } catch (err) {
@@ -124,7 +124,7 @@ export default function CustomerLayout() {
   };
 
   const menuItems = [
-    { to: '/customer/dashboard', label: 'Bảng điều khiển', icon: LayoutDashboard },
+    { to: '/customer/dashboard', label: 'Trang chủ', icon: LayoutDashboard },
     { to: '/customer/book', label: 'Đặt lịch dọn xe', icon: Calendar },
     { to: '/customer/rewards', label: 'Ưu đãi & Đổi quà', icon: Gift },
     { to: '/customer/garage', label: 'Ga-ra xe máy', icon: Car },
@@ -142,7 +142,7 @@ export default function CustomerLayout() {
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden font-sans">
-      
+
       {/* ========================================================================================= */}
       {/* 💻 GIAO DIỆN DESKTOP: LEFT SIDEBAR (Hiển thị từ màn hình lg trở lên) */}
       {/* ========================================================================================= */}
@@ -180,10 +180,9 @@ export default function CustomerLayout() {
               key={to}
               to={to}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all relative ${
-                  isActive
-                    ? 'bg-blue-50 text-blue-600'
-                    : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+                `flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold transition-all relative ${isActive
+                  ? 'bg-blue-50 text-blue-600'
+                  : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
                 }`
               }
             >
@@ -202,7 +201,7 @@ export default function CustomerLayout() {
 
         {/* Chân Sidebar (Đăng xuất) */}
         <div className="p-4 border-t border-slate-100 space-y-2">
-          <button 
+          <button
             onClick={handleLogout}
             className="flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-xl text-sm font-bold w-full transition-colors"
           >
@@ -228,9 +227,9 @@ export default function CustomerLayout() {
                 <span className="text-xs font-bold text-slate-400">Pts</span>
               </span>
             </div>
-            
+
             {/* Chuông thông báo */}
-            <button 
+            <button
               onClick={() => setIsNotifOpen(!isNotifOpen)}
               className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-50 rounded-xl transition-colors relative"
             >
@@ -247,14 +246,14 @@ export default function CustomerLayout() {
               <div className="absolute right-0 top-12 w-80 bg-white border border-slate-200 rounded-2xl shadow-xl z-[100] p-4 animate-fade-in text-left">
                 <div className="flex justify-between items-center border-b pb-2 mb-3">
                   <h4 className="font-bold text-slate-800 text-xs uppercase tracking-wider">Thông báo của bạn</h4>
-                  <button 
+                  <button
                     onClick={handleMarkAllRead}
                     className="text-[10px] text-blue-600 font-bold hover:underline"
                   >
                     Đọc tất cả
                   </button>
                 </div>
-                
+
                 <div className="space-y-2 max-h-60 overflow-y-auto">
                   {notifications.length === 0 ? (
                     <div className="text-slate-400 text-xs text-center py-4">Không có thông báo gì mới.</div>
@@ -262,19 +261,19 @@ export default function CustomerLayout() {
                     notifications.map(notif => {
                       const isUnread = notif.isRead === false || notif.read === false;
                       return (
-                      <div 
-                        key={notif.id}
-                        className={`p-2.5 rounded-xl border text-[11px] leading-relaxed transition-all ${
-                          !isUnread ? 'bg-white border-slate-100 text-slate-500' : 'bg-blue-50/20 border-blue-100 text-slate-800 font-medium'
-                        }`}
-                      >
-                        {notif.title && <p className="font-bold mb-0.5">{notif.title}</p>}
-                        <p>{notif.content || notif.text}</p>
-                        <span className="text-[9px] text-slate-400 mt-1 block font-semibold">
-                          {notif.createdAt ? new Date(notif.createdAt).toLocaleString('vi-VN') : notif.time}
-                        </span>
-                      </div>
-                    )})
+                        <div
+                          key={notif.id}
+                          className={`p-2.5 rounded-xl border text-[11px] leading-relaxed transition-all ${!isUnread ? 'bg-white border-slate-100 text-slate-500' : 'bg-blue-50/20 border-blue-100 text-slate-800 font-medium'
+                            }`}
+                        >
+                          {notif.title && <p className="font-bold mb-0.5">{notif.title}</p>}
+                          <p>{notif.content || notif.text}</p>
+                          <span className="text-[9px] text-slate-400 mt-1 block font-semibold">
+                            {notif.createdAt ? new Date(notif.createdAt).toLocaleString('vi-VN') : notif.time}
+                          </span>
+                        </div>
+                      )
+                    })
                   )}
                 </div>
               </div>
@@ -291,23 +290,23 @@ export default function CustomerLayout() {
         {/* 📱 GIAO DIỆN MOBILE: BOTTOM NAVIGATION BAR (Hiển thị dưới màn hình lg) */}
         {/* ========================================================================================= */}
         <nav className="lg:hidden fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-slate-200 flex justify-around items-center z-50 shadow-lg">
-          <NavLink to="/customer/dashboard" className={({isActive}) => `flex flex-col items-center gap-1 text-[10px] font-bold ${isActive ? 'text-blue-600' : 'text-slate-400'}`}>
+          <NavLink to="/customer/dashboard" className={({ isActive }) => `flex flex-col items-center gap-1 text-[10px] font-bold ${isActive ? 'text-blue-600' : 'text-slate-400'}`}>
             <LayoutDashboard size={20} />
             <span>Trang chủ</span>
           </NavLink>
-          <NavLink to="/customer/book" className={({isActive}) => `flex flex-col items-center gap-1 text-[10px] font-bold ${isActive ? 'text-blue-600' : 'text-slate-400'}`}>
+          <NavLink to="/customer/book" className={({ isActive }) => `flex flex-col items-center gap-1 text-[10px] font-bold ${isActive ? 'text-blue-600' : 'text-slate-400'}`}>
             <Calendar size={20} />
             <span>Đặt lịch</span>
           </NavLink>
-          <NavLink to="/customer/rewards" className={({isActive}) => `flex flex-col items-center gap-1 text-[10px] font-bold ${isActive ? 'text-blue-600' : 'text-slate-400'}`}>
+          <NavLink to="/customer/rewards" className={({ isActive }) => `flex flex-col items-center gap-1 text-[10px] font-bold ${isActive ? 'text-blue-600' : 'text-slate-400'}`}>
             <Gift size={20} />
             <span>Ưu đãi</span>
           </NavLink>
-          <NavLink to="/customer/feedback" className={({isActive}) => `flex flex-col items-center gap-1 text-[10px] font-bold ${isActive ? 'text-blue-600' : 'text-slate-400'}`}>
+          <NavLink to="/customer/feedback" className={({ isActive }) => `flex flex-col items-center gap-1 text-[10px] font-bold ${isActive ? 'text-blue-600' : 'text-slate-400'}`}>
             <MessageSquare size={20} />
             <span>Phản hồi</span>
           </NavLink>
-          <NavLink to="/customer/account" className={({isActive}) => `flex flex-col items-center gap-1 text-[10px] font-bold ${isActive ? 'text-blue-600' : 'text-slate-400'}`}>
+          <NavLink to="/customer/account" className={({ isActive }) => `flex flex-col items-center gap-1 text-[10px] font-bold ${isActive ? 'text-blue-600' : 'text-slate-400'}`}>
             <User size={20} />
             <span>Tài khoản</span>
           </NavLink>
@@ -323,13 +322,13 @@ export default function CustomerLayout() {
                 <h3 className="font-extrabold text-slate-800 text-base">Xác nhận đăng xuất</h3>
                 <p className="text-xs text-slate-500 font-semibold">Bạn có chắc chắn muốn đăng xuất không?</p>
                 <div className="flex gap-3 justify-center pt-2">
-                  <button 
+                  <button
                     onClick={() => setLogoutModalPhase(null)}
                     className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-xl text-xs transition-colors cursor-pointer"
                   >
                     Hủy
                   </button>
-                  <button 
+                  <button
                     onClick={confirmLogout}
                     className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-black rounded-xl text-xs transition-colors cursor-pointer"
                   >

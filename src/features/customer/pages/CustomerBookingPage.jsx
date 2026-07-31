@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { 
-  Calendar as CalendarIcon, 
-  Clock, 
-  Sparkles, 
-  Plus, 
+import {
+  Calendar as CalendarIcon,
+  Clock,
+  Sparkles,
+  Plus,
   CheckCircle,
   FileText,
   AlertCircle,
@@ -15,7 +15,9 @@ import {
   Car,
   Info,
   AlertTriangle,
-  Loader2
+  Loader2,
+  ChevronDown,
+  Check
 } from 'lucide-react';
 import VehicleCard from '../components/VehicleCard';
 import { customerApi } from '../services/customerApi';
@@ -68,6 +70,7 @@ export default function CustomerBookingPage() {
   const [historyStatusFilter, setHistoryStatusFilter] = useState('ALL'); // 'ALL' | 'PENDING' | 'COMPLETED' | 'CANCELLED'
   const [availableVouchers, setAvailableVouchers] = useState([]);
   const [selectedVoucher, setSelectedVoucher] = useState(null);
+  const [isVoucherDropdownOpen, setIsVoucherDropdownOpen] = useState(false);
   const [selectedTimeSlotId, setSelectedTimeSlotId] = useState(null);
   const [slotRefreshTrigger, setSlotRefreshTrigger] = useState(0);
   const [deleteTargetVehicle, setDeleteTargetVehicle] = useState(null);
@@ -204,7 +207,7 @@ export default function CustomerBookingPage() {
           isDefault: v.isDefault ?? false
         }));
         setVehicles(mappedVehicles);
-        
+
         const currentSel = selectedVehicleRef.current;
         if (currentSel) {
           const stillExists = mappedVehicles.some(v => v.vehicleId === currentSel.vehicleId);
@@ -241,6 +244,7 @@ export default function CustomerBookingPage() {
       if (data && data.length > 0) {
         const pkgs = data.filter(s => s.serviceType === 'PACKAGE').map(s => ({
           id: s.serviceId || s.id,
+          serviceCode: s.serviceCode || s.code || s.name,
           name: s.serviceName || s.name,
           basePrice: Number(s.price || 0),
           duration: `${s.durationMinutes || 60} minutes`,
@@ -320,14 +324,14 @@ export default function CustomerBookingPage() {
           setSelectedTimeSlotId(null);
         }
 
-        const activeBookings = (bookings || []).filter(b => 
+        const activeBookings = (bookings || []).filter(b =>
           ['PENDING', 'CONFIRMED', 'PAID', 'IN_PROGRESS', 'CHECKED_IN', 'COMPLETED'].includes(b.status)
         );
         const mapped = slots.map(s => {
           const timeFormatted = s.startTime ? s.startTime.substring(0, 5) : "";
           const isPast = s.disabledReason === "PAST_TIME" || (s.startTime ? isSlotInPast(selectedDate, s.startTime) : false);
-          const isOverlap = activeBookings.some(b => 
-            String(b.bookingDate) === selectedDate && 
+          const isOverlap = activeBookings.some(b =>
+            String(b.bookingDate) === selectedDate &&
             (b.startTime?.substring(0, 5) === s.startTime?.substring(0, 5))
           );
           return {
@@ -397,7 +401,7 @@ export default function CustomerBookingPage() {
       const data = await customerApi.getMyBookings();
       if (data && data.length > 0) {
         const list = data.map(b => {
-          const serviceName = b.items && b.items.length > 0 
+          const serviceName = b.items && b.items.length > 0
             ? b.items[0].serviceNameSnapshot + (b.items.length > 1 ? ` (+${b.items.length - 1} dịch vụ kèm)` : '')
             : 'Rửa xe máy';
           const timeFormatted = b.startTime ? b.startTime.substring(0, 5) : "08:00";
@@ -456,7 +460,7 @@ export default function CustomerBookingPage() {
   useEffect(() => {
     loadUserHistory();
   }, [bookingTab]);
-  
+
   // Hủy lịch hẹn đặt trước trực tiếp từ bảng lịch sử
   const handleCancelBooking = async (bookingId) => {
     showConfirm(
@@ -466,9 +470,11 @@ export default function CustomerBookingPage() {
           await customerApi.cancelBooking(bookingId);
           showAlert("Hủy lịch hẹn thành công!", "success", "Thành công");
           await loadUserHistory();
+          await loadUserProfile();
         } catch (error) {
           console.error("Lỗi hủy đặt lịch:", error);
-          showAlert("Không thể hủy lịch hẹn: " + (error.response?.data?.message || error.message), "error", "Lỗi");
+          const errMsg = error.response?.data?.message || error.message || '';
+          showAlert("Không thể hủy lịch hẹn: " + (errMsg || "Có lỗi xảy ra"), "error", "Lỗi");
         }
       },
       "Xác nhận hủy"
@@ -502,20 +508,152 @@ export default function CustomerBookingPage() {
     return total;
   };
 
+  // Tính toán số tiền được giảm của 1 voucher đối với tổng tiền đơn hàng
+  const computeVoucherDiscount = (voucher, totalAmount) => {
+    if (!voucher) return 0;
+    let discount = 0;
+    const discType = voucher.discountType;
+
+    if (discType === 'FIXED_AMOUNT' || discType === 'cash') {
+      discount = Number(voucher.value) || 0;
+    } else if (discType === 'PERCENTAGE' || discType === 'percent') {
+      const pct = Number(voucher.value) || 0;
+      discount = Math.round((totalAmount * pct) / 100);
+    } else if (discType === 'FREE_SERVICE' || discType === 'free_wash') {
+      discount = totalAmount;
+    }
+
+    if (voucher.maxDiscountAmount != null && Number(voucher.maxDiscountAmount) > 0) {
+      const maxDisc = Number(voucher.maxDiscountAmount);
+      if (discount > maxDisc) {
+        discount = maxDisc;
+      }
+    }
+
+    return discount > totalAmount ? totalAmount : discount;
+  };
+
+  // Kiểm tra tính khả dụng của 1 voucher đối với gói/đơn hàng đang chọn
+  const checkVoucherApplicability = (voucher, currentPkg, totalAmount, dateStr) => {
+    if (!voucher) return { isApplicable: false, reason: 'Voucher không tồn tại' };
+
+    // 1. Kiểm tra khóa gói rửa (applicableServiceCode)
+    if (voucher.applicableServiceCode && String(voucher.applicableServiceCode).trim() !== '') {
+      const lockCode = String(voucher.applicableServiceCode).trim().toUpperCase();
+      const pkgCode = currentPkg ? String(currentPkg.serviceCode || currentPkg.code || currentPkg.name || '').trim().toUpperCase() : '';
+      const pkgId = currentPkg ? String(currentPkg.id) : '';
+
+      const matchesCode = pkgCode.includes(lockCode) || lockCode.includes(pkgCode) || lockCode === pkgId;
+      if (!currentPkg || !matchesCode) {
+        return {
+          isApplicable: false,
+          reason: `Dành riêng cho gói "${voucher.applicableServiceCode}"`
+        };
+      }
+    }
+
+    // 2. Kiểm tra khóa thứ trong tuần (applicableDays)
+    if (voucher.applicableDays && String(voucher.applicableDays).trim() !== '' && dateStr) {
+      const daysStr = String(voucher.applicableDays).toUpperCase();
+      const dateObj = new Date(dateStr);
+      if (!isNaN(dateObj.getTime())) {
+        const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+        const dayCode = dayNames[dateObj.getDay()];
+        if (!daysStr.includes(dayCode)) {
+          return {
+            isApplicable: false,
+            reason: `Chỉ áp dụng các thứ: ${voucher.applicableDays}`
+          };
+        }
+      }
+    }
+
+    // 3. Kiểm tra đơn hàng tối thiểu (minOrderValue)
+    if (voucher.minOrderValue != null && Number(voucher.minOrderValue) > 0) {
+      const isPointsExchange = Number(voucher.costPoints) > 0 || voucher.source === 'EXCHANGE';
+      if (!isPointsExchange && totalAmount < Number(voucher.minOrderValue)) {
+        return {
+          isApplicable: false,
+          reason: `Đơn tối thiểu ${Number(voucher.minOrderValue).toLocaleString('vi-VN')} đ`
+        };
+      }
+    }
+
+    return { isApplicable: true, reason: '' };
+  };
+
+  // Trả về danh sách voucher phân loại & sắp xếp theo mức giảm từ cao đến thấp
+  const getEvaluatedVouchers = (overridePkg = null) => {
+    if (!availableVouchers || availableVouchers.length === 0) {
+      return { applicableVouchers: [], inapplicableVouchers: [], bestVoucher: null };
+    }
+
+    const pkgToUse = overridePkg !== null ? overridePkg : selectedPackage;
+    let totalAmount = 0;
+    if (pkgToUse) {
+      totalAmount += calculatePackagePrice(pkgToUse.basePrice);
+    }
+    selectedAddons.forEach(addonId => {
+      const addon = addonServices.find(a => a.id === addonId);
+      if (addon) totalAmount += addon.price;
+    });
+
+    const evaluated = availableVouchers.map(v => {
+      const { isApplicable, reason } = checkVoucherApplicability(v, pkgToUse, totalAmount, selectedDate);
+      const computedDiscount = computeVoucherDiscount(v, totalAmount);
+      return {
+        ...v,
+        isApplicable,
+        inapplicableReason: reason,
+        computedDiscount
+      };
+    });
+
+    // Voucher khả dụng sắp xếp giảm từ CAO → THẤP
+    const applicableVouchers = evaluated
+      .filter(v => v.isApplicable)
+      .sort((a, b) => b.computedDiscount - a.computedDiscount);
+
+    // Voucher không khả dụng hạ xuống ĐÁY, vẫn sắp xếp giảm từ CAO → THẤP
+    const inapplicableVouchers = evaluated
+      .filter(v => !v.isApplicable)
+      .sort((a, b) => b.computedDiscount - a.computedDiscount);
+
+    const bestVoucher = applicableVouchers.length > 0 ? applicableVouchers[0] : null;
+
+    return { applicableVouchers, inapplicableVouchers, bestVoucher };
+  };
+
+  // Handler khi click chọn gói rửa
+  const handleSelectPackage = (pkg) => {
+    setSelectedPackage(pkg);
+
+    // Tự động tìm voucher khả dụng giảm nhiều nhất cho gói mới chọn
+    const { applicableVouchers, bestVoucher } = getEvaluatedVouchers(pkg);
+
+    if (bestVoucher) {
+      setSelectedVoucher(bestVoucher);
+    } else {
+      setSelectedVoucher(null);
+    }
+  };
+
   const calculateDiscount = () => {
     if (!selectedVoucher) return 0;
     const total = calculateTotalAmount();
-    
-    if (selectedVoucher.discountType === 'FIXED_AMOUNT') {
-      const val = Number(selectedVoucher.value);
-      return val > total ? total : val;
-    } else if (selectedVoucher.discountType === 'PERCENTAGE') {
-      const pct = Number(selectedVoucher.value);
-      return Math.round((total * pct) / 100);
-    } else if (selectedVoucher.discountType === 'FREE_SERVICE') {
-      return total;
+    const { isApplicable } = checkVoucherApplicability(selectedVoucher, selectedPackage, total, selectedDate);
+    if (!isApplicable) return 0;
+    return computeVoucherDiscount(selectedVoucher, total);
+  };
+
+  const handleVehicleLicensePlateChange = (e) => {
+    const formatted = formatLicensePlate(e.target.value);
+    setVehicleLicensePlate(formatted);
+    if (formatted && !validateLicensePlate(formatted)) {
+      setVehicleLicensePlateError('Biển số xe không đúng định dạng (VD: 59-A1 123.45 hoặc 29H-666.66)');
+    } else {
+      setVehicleLicensePlateError('');
     }
-    return 0;
   };
 
   const resetVehicleForm = () => {
@@ -543,34 +681,6 @@ export default function CustomerBookingPage() {
     setVehicleLicensePlate(vehicle.licensePlate || '');
     setVehicleIsDefault(Boolean(vehicle.isDefault));
     setVehicleLicensePlateError('');
-  };
-
-  const handleVehicleLicensePlateChange = (e) => {
-    const formatted = formatLicensePlate(e.target.value);
-    setVehicleLicensePlate(formatted);
-    if (formatted && !validateLicensePlate(formatted)) {
-      setVehicleLicensePlateError('Biển số xe không đúng định dạng (VD: 59-A1 123.45 hoặc 29H-666.66)');
-    } else {
-      setVehicleLicensePlateError('');
-    }
-  };
-
-  const handleSetDefaultVehicle = async (veh) => {
-    try {
-      const vehicleId = veh.vehicleId || veh.id;
-      await customerApi.setDefaultVehicle(vehicleId);
-      
-      // Optimistic UI Update
-      setVehicles(prev => prev.map(v => ({
-        ...v,
-        isDefault: (v.vehicleId || v.id) === vehicleId
-      })));
-
-      showAlert(`Chiếc xe ${veh.model || 'Xe máy'} - ${veh.licensePlate || ''} đã được chọn làm phương tiện mặc định.`, 'success', 'Đã đặt xe mặc định');
-    } catch (err) {
-      console.error('Failed to set default vehicle:', err);
-      showAlert("Không thể thiết lập xe mặc định. Vui lòng kiểm tra kết nối mạng và thử lại.", 'error', 'Cập nhật thất bại');
-    }
   };
 
   const handleDeleteVehicle = (veh) => {
@@ -643,10 +753,10 @@ export default function CustomerBookingPage() {
       let savedVehicle;
       if (editingVehicle) {
         // (Mock) Handle Edit / Update flow
-        savedVehicle = { 
-          ...vehiclePayloadToConfirm, 
-          id: editingVehicle.id || editingVehicle.vehicleId, 
-          vehicleType: editingVehicle.vehicleType || 'MOTORCYCLE' 
+        savedVehicle = {
+          ...vehiclePayloadToConfirm,
+          id: editingVehicle.id || editingVehicle.vehicleId,
+          vehicleType: editingVehicle.vehicleType || 'MOTORCYCLE'
         };
       } else {
         // Direct API Creation flow
@@ -688,35 +798,51 @@ export default function CustomerBookingPage() {
     }
   };
 
-  const handleSelectVehicle = (v) => {
-    setSelectedVehicle(v);
-    
-    // Check if it's already default or if user set "Don't ask me again"
+  const handleSetDefaultVehicle = (veh) => {
     const skipPrompt = localStorage.getItem('autowash_skip_default_prompt') === 'true';
-    if (!v.isDefault && !skipPrompt) {
-      setPendingDefaultVehicle(v);
-      setDontAskDefaultPrompt(false);
-      setIsDefaultVehiclePromptOpen(true);
+    if (skipPrompt) {
+      executeSetDefaultVehicle(veh);
+      return;
     }
+    setPendingDefaultVehicle(veh);
+    setDontAskDefaultPrompt(false);
+    setIsDefaultVehiclePromptOpen(true);
   };
 
   const handleConfirmChangeDefaultVehicle = async (shouldSetDefault) => {
     if (shouldSetDefault && pendingDefaultVehicle) {
-      try {
-        const vehicleId = pendingDefaultVehicle.vehicleId || pendingDefaultVehicle.id;
-        await customerApi.setDefaultVehicle(vehicleId);
-        await loadUserProfile(); // refresh list to sync badges
-      } catch (err) {
-        console.error('Failed to set default vehicle:', err);
-      }
+      await executeSetDefaultVehicle(pendingDefaultVehicle);
     }
-    
+
     if (dontAskDefaultPrompt) {
       localStorage.setItem('autowash_skip_default_prompt', 'true');
     }
-    
+
     setIsDefaultVehiclePromptOpen(false);
     setPendingDefaultVehicle(null);
+  };
+
+  const executeSetDefaultVehicle = async (veh) => {
+    try {
+      const vehicleId = veh.vehicleId || veh.id;
+      await customerApi.setDefaultVehicle(vehicleId);
+
+      // Optimistic UI Update
+      setVehicles(prev => prev.map(v => ({
+        ...v,
+        isDefault: (v.vehicleId || v.id) === vehicleId
+      })));
+
+      showAlert(`Chiếc xe ${veh.model || 'Xe máy'} - ${veh.licensePlate || ''} đã được chọn làm phương tiện mặc định.`, 'success', 'Đã đặt xe mặc định');
+      window.dispatchEvent(new Event('vehicleListUpdated'));
+    } catch (err) {
+      console.error('Failed to set default vehicle:', err);
+      showAlert("Không thể thiết lập xe mặc định. Vui lòng kiểm tra kết nối mạng và thử lại.", 'error', 'Cập nhật thất bại');
+    }
+  };
+
+  const handleSelectVehicle = (v) => {
+    setSelectedVehicle(v);
   };
 
   const handleOpenConfirmModal = (e) => {
@@ -838,26 +964,24 @@ export default function CustomerBookingPage() {
 
   return (
     <div className="space-y-6 pb-12 text-left">
-      
+
       {/* THANH TAB CHỌN PHÂN HỆ ĐẶT LỊCH / LỊCH SỬ ĐƠN */}
       <div className="flex border-b border-slate-200 bg-white p-2 rounded-2xl">
         <button
           onClick={() => setBookingTab('new')}
-          className={`flex items-center gap-2 px-6 py-3 font-bold text-sm rounded-xl transition-all ${
-            bookingTab === 'new'
-              ? 'bg-blue-50 text-blue-600'
-              : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
-          }`}
+          className={`flex items-center gap-2 px-6 py-3 font-bold text-sm rounded-xl transition-all ${bookingTab === 'new'
+            ? 'bg-blue-50 text-blue-600'
+            : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+            }`}
         >
           <CalendarIcon size={16} /> Đặt lịch rửa xe mới
         </button>
         <button
           onClick={() => setBookingTab('history')}
-          className={`flex items-center gap-2 px-6 py-3 font-bold text-sm rounded-xl transition-all ${
-            bookingTab === 'history'
-              ? 'bg-blue-50 text-blue-600'
-              : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
-          }`}
+          className={`flex items-center gap-2 px-6 py-3 font-bold text-sm rounded-xl transition-all ${bookingTab === 'history'
+            ? 'bg-blue-50 text-blue-600'
+            : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800'
+            }`}
         >
           <History size={16} /> Lịch sử đặt lịch ({userHistory.length})
         </button>
@@ -868,7 +992,7 @@ export default function CustomerBookingPage() {
         /* TAB 1: GIAO DIỆN ĐẶT LỊCH MỚI (NEW BOOKING) */
         /* ========================================================================================= */
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          
+
           <div className="lg:col-span-2 space-y-8">
             {/* SECTION 1: CHỌN XE MÁY */}
             <section className="bg-white border border-slate-150 rounded-2xl p-6 shadow-sm space-y-4">
@@ -878,7 +1002,7 @@ export default function CustomerBookingPage() {
                   Chọn phương tiện dọn rửa
                 </h3>
                 {vehicles.length > 0 && (
-                  <button 
+                  <button
                     onClick={openAddVehicleModal}
                     className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-bold"
                   >
@@ -890,7 +1014,7 @@ export default function CustomerBookingPage() {
               {vehicles.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {vehicles.map(veh => (
-                    <VehicleCard 
+                    <VehicleCard
                       key={veh.vehicleId || veh.id}
                       vehicle={veh}
                       isSelected={selectedVehicle?.vehicleId === veh.vehicleId}
@@ -909,7 +1033,7 @@ export default function CustomerBookingPage() {
                     <Car size={24} className="text-blue-500" />
                   </div>
                   <p>Ga-ra của bạn đang trống trơn. Hãy đăng ký chiếc xe đầu tiên của mình nhé!</p>
-                  <button 
+                  <button
                     onClick={openAddVehicleModal}
                     className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-xs font-bold shadow-md transition-all"
                   >
@@ -935,34 +1059,53 @@ export default function CustomerBookingPage() {
                   const currentPrice = calculatePackagePrice(pkg.basePrice);
                   const isSelected = selectedPackage?.id === pkg.id;
 
+                  // Kiểm tra xem có voucher nào khóa riêng cho gói rửa này không
+                  const exclusiveVoucher = availableVouchers.find(v => {
+                    if (!v.applicableServiceCode) return false;
+                    const lockCode = String(v.applicableServiceCode).toUpperCase();
+                    const pCode = String(pkg.serviceCode || pkg.code || pkg.name || '').toUpperCase();
+                    return pCode.includes(lockCode) || lockCode.includes(pCode) || lockCode === String(pkg.id);
+                  });
+
                   return (
-                    <div 
+                    <div
                       key={pkg.id}
                       id={`package-${pkg.id}`}
-                      onClick={() => setSelectedPackage(pkg)}
-                      className={`border rounded-2xl p-5 cursor-pointer transition-all flex flex-col justify-between h-56 text-left relative ${
-                        isSelected 
-                          ? 'border-blue-500 bg-blue-50/10 shadow-md ring-1 ring-blue-500' 
-                          : 'border-slate-200 hover:border-blue-300 hover:shadow'
-                      }`}
+                      onClick={() => handleSelectPackage(pkg)}
+                      className={`border rounded-2xl p-5 cursor-pointer transition-all flex flex-col justify-between h-60 text-left relative ${isSelected
+                        ? 'border-blue-500 bg-blue-50/10 shadow-md ring-1 ring-blue-500'
+                        : 'border-slate-200 hover:border-blue-300 hover:shadow'
+                        }`}
                     >
                       {isSelected && (
-                        <div className="absolute top-3 right-3 text-blue-600">
+                        <div className="absolute top-3 right-3 text-blue-600 z-10">
                           <CheckCircle size={18} fill="currentColor" className="text-blue-600 fill-blue-100" />
                         </div>
                       )}
+
+                      {exclusiveVoucher && (
+                        <div className="absolute -top-2.5 left-4 bg-gradient-to-r from-amber-500 to-rose-500 text-white text-[9px] font-black uppercase px-2.5 py-0.5 rounded-full shadow-sm flex items-center gap-1 z-10">
+                          <Sparkles size={10} /> Ưu đãi độc quyền
+                        </div>
+                      )}
+
                       <div>
-                        <h4 className="font-bold text-slate-800 text-sm">{pkg.name}</h4>
+                        <h4 className="font-bold text-slate-800 text-sm mt-1">{pkg.name}</h4>
                         <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded mt-1 inline-block">
                           ⏰ {pkg.duration}
                         </span>
-                        <p className="text-xs text-slate-500 mt-3 leading-relaxed line-clamp-3">{pkg.description}</p>
+                        <p className="text-xs text-slate-500 mt-2.5 leading-relaxed line-clamp-3">{pkg.description}</p>
                       </div>
-                      
-                      <div className="mt-4">
+
+                      <div className="mt-3 flex items-baseline justify-between border-t pt-2 border-slate-100">
                         <span className="font-mono text-base font-black text-blue-600">
                           {formatVnd(currentPrice)}
                         </span>
+                        {exclusiveVoucher && (
+                          <span className="text-[10px] font-extrabold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-lg border border-amber-200">
+                            Có mã giảm giá
+                          </span>
+                        )}
                       </div>
                     </div>
                   );
@@ -986,20 +1129,19 @@ export default function CustomerBookingPage() {
                   const isChecked = selectedAddons.includes(addon.id);
 
                   return (
-                    <div 
+                    <div
                       key={addon.id}
                       onClick={() => handleToggleAddon(addon.id)}
-                      className={`border rounded-xl p-4 cursor-pointer transition-all flex justify-between items-center ${
-                        isChecked 
-                          ? 'border-blue-500 bg-blue-50/15' 
-                          : 'border-slate-200 hover:border-blue-300'
-                      }`}
+                      className={`border rounded-xl p-4 cursor-pointer transition-all flex justify-between items-center ${isChecked
+                        ? 'border-blue-500 bg-blue-50/15'
+                        : 'border-slate-200 hover:border-blue-300'
+                        }`}
                     >
                       <div className="flex items-center gap-3">
-                        <input 
-                          type="checkbox" 
+                        <input
+                          type="checkbox"
                           checked={isChecked}
-                          onChange={() => {}}
+                          onChange={() => { }}
                           className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 border-slate-300 pointer-events-none"
                         />
                         <div>
@@ -1026,7 +1168,7 @@ export default function CustomerBookingPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Ngày hẹn dọn xe</label>
-                  <input 
+                  <input
                     type="date"
                     min={todayStr}
                     max={maxDateStr}
@@ -1074,19 +1216,18 @@ export default function CustomerBookingPage() {
                               setSelectedTimeSlotId(slot.slotId);
                             }
                           }}
-                          className={`py-2 px-1 text-[11px] font-bold rounded-xl border transition-all flex flex-col items-center justify-center min-h-[50px] ${
-                            isDayLocked
-                              ? 'opacity-60 bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
-                              : isPast 
-                                ? 'opacity-40 bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed pointer-events-none'
-                                : isOverlap
-                                  ? 'bg-orange-50 text-orange-500 border-orange-200 cursor-pointer opacity-70'
-                                  : selectedTime === slot.time
-                                    ? 'bg-blue-600 text-white border-blue-600'
-                                    : isFull
-                                      ? 'bg-slate-100 text-slate-300 border-slate-150 cursor-not-allowed'
-                                      : 'bg-white text-slate-700 border-slate-200 hover:border-blue-500 hover:text-blue-600'
-                          }`}
+                          className={`py-2 px-1 text-[11px] font-bold rounded-xl border transition-all flex flex-col items-center justify-center min-h-[50px] ${isDayLocked
+                            ? 'opacity-60 bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed'
+                            : isPast
+                              ? 'opacity-40 bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed pointer-events-none'
+                              : isOverlap
+                                ? 'bg-orange-50 text-orange-500 border-orange-200 cursor-pointer opacity-70'
+                                : selectedTime === slot.time
+                                  ? 'bg-blue-600 text-white border-blue-600'
+                                  : isFull
+                                    ? 'bg-slate-100 text-slate-300 border-slate-150 cursor-not-allowed'
+                                    : 'bg-white text-slate-700 border-slate-200 hover:border-blue-500 hover:text-blue-600'
+                            }`}
                         >
                           <span>{slot.time}</span>
                           {isDayLocked ? (
@@ -1140,8 +1281,8 @@ export default function CustomerBookingPage() {
                 <div className="flex justify-between items-start">
                   <span className="text-slate-400 font-medium">Tiện ích kèm:</span>
                   <span className="text-slate-800 font-bold text-right">
-                    {selectedAddons.length > 0 
-                      ? selectedAddons.map(id => addonServices.find(a => a.id === id)?.name).join(', ') 
+                    {selectedAddons.length > 0
+                      ? selectedAddons.map(id => addonServices.find(a => a.id === id)?.name).join(', ')
                       : 'Không chọn'}
                   </span>
                 </div>
@@ -1153,37 +1294,213 @@ export default function CustomerBookingPage() {
                   </span>
                 </div>
 
-                {/* Chọn Voucher từ Ví cá nhân */}
-                <div className="border-t my-4 pt-4 space-y-2">
-                  <span className="text-slate-400 font-bold block uppercase text-[10px]">Ưu đãi của bạn:</span>
-                  {availableVouchers && availableVouchers.length > 0 ? (
-                    <select
-                      value={selectedVoucher ? selectedVoucher.voucherCode : ''}
-                      onChange={(e) => {
-                        const code = e.target.value;
-                        const v = availableVouchers.find(x => x.voucherCode === code);
-                        setSelectedVoucher(v || null);
-                      }}
-                      className="w-full border border-slate-200 rounded-xl px-3 py-2 text-xs focus:border-blue-500 outline-none font-medium text-slate-700 bg-white"
-                    >
-                      <option value="">-- Áp dụng Voucher giảm giá --</option>
-                      {availableVouchers.map(v => {
-                        const discountDesc = v.discountType === 'FREE_SERVICE' 
-                          ? 'Miễn phí rửa xe' 
-                          : v.discountType === 'PERCENTAGE' 
-                            ? `Giảm ${v.value}%` 
-                            : `Giảm ${Number(v.value).toLocaleString('vi-VN')} đ`;
-                        return (
-                          <option key={v.voucherCode} value={v.voucherCode}>
-                            [{v.voucherCode}] {v.title || 'Voucher'} ({discountDesc})
-                          </option>
-                        );
-                      })}
-                    </select>
-                  ) : (
-                    <p className="text-[10px] text-slate-400 italic">Ví của bạn hiện chưa có voucher khả dụng.</p>
-                  )}
-                </div>
+                {/* Chọn Voucher từ Ví cá nhân & Gợi ý tối ưu */}
+                {(() => {
+                  const { applicableVouchers, inapplicableVouchers, bestVoucher } = getEvaluatedVouchers();
+                  return (
+                    <div className="border-t my-4 pt-4 space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-400 font-bold block uppercase text-[10px]">
+                          Ưu đãi & Voucher của bạn:
+                        </span>
+                        {bestVoucher && (
+                          <span className="text-[9px] font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <Sparkles size={10} className="text-emerald-600" /> Đã chọn mã tốt nhất
+                          </span>
+                        )}
+                      </div>
+
+                      {availableVouchers && availableVouchers.length > 0 ? (
+                        <div className="space-y-2 relative">
+                          {/* Custom Selector Input Box */}
+                          {isVoucherDropdownOpen && (
+                            <div
+                              className="fixed inset-0 z-30"
+                              onClick={() => setIsVoucherDropdownOpen(false)}
+                            />
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={() => setIsVoucherDropdownOpen(!isVoucherDropdownOpen)}
+                            className="w-full border border-slate-200 hover:border-blue-400 rounded-xl px-3.5 py-2.5 text-xs text-left font-bold text-slate-700 bg-white shadow-sm flex items-center justify-between transition-all cursor-pointer relative z-20"
+                          >
+                            <div className="truncate flex items-center gap-1.5 min-w-0">
+                              {selectedVoucher ? (
+                                (() => {
+                                  const isBest = bestVoucher?.voucherCode === selectedVoucher.voucherCode;
+                                  const title = selectedVoucher.title || selectedVoucher.name || selectedVoucher.voucherCode;
+                                  let discountText = '';
+                                  if (selectedVoucher.discountType === 'FREE_SERVICE' || selectedVoucher.discountType === 'free_wash') {
+                                    discountText = 'Miễn phí rửa xe';
+                                  } else if (selectedVoucher.discountType === 'PERCENTAGE' || selectedVoucher.discountType === 'percent') {
+                                    const pct = Number(selectedVoucher.value) || 0;
+                                    const maxCap = (selectedVoucher.maxDiscountAmount != null && Number(selectedVoucher.maxDiscountAmount) > 0)
+                                      ? ` (tối đa ${Number(selectedVoucher.maxDiscountAmount).toLocaleString('vi-VN')} đ)`
+                                      : '';
+                                    discountText = `Giảm ${pct}%${maxCap}`;
+                                  } else {
+                                    const val = Number(selectedVoucher.value) || 0;
+                                    const maxCap = (selectedVoucher.maxDiscountAmount != null && Number(selectedVoucher.maxDiscountAmount) > 0)
+                                      ? ` (tối đa ${Number(selectedVoucher.maxDiscountAmount).toLocaleString('vi-VN')} đ)`
+                                      : '';
+                                    discountText = `Giảm ${val.toLocaleString('vi-VN')} đ${maxCap}`;
+                                  }
+
+                                  return (
+                                    <span className="flex items-center gap-1.5 font-bold truncate text-slate-800">
+                                      {isBest && (
+                                        <span className="font-extrabold text-amber-800 bg-amber-100 border border-amber-300 px-1.5 py-0.5 rounded text-[10px] shrink-0 font-sans tracking-tight">
+                                          [Tốt nhất]
+                                        </span>
+                                      )}
+                                      <span className="truncate">{title} <span className="text-slate-500 font-normal">- {discountText}</span></span>
+                                    </span>
+                                  );
+                                })()
+                              ) : (
+                                <span className="text-slate-400 font-medium">-- Chọn hoặc bấm để xem danh sách Voucher --</span>
+                              )}
+                            </div>
+                            <ChevronDown className={`w-4 h-4 text-slate-400 shrink-0 transition-transform ${isVoucherDropdownOpen ? 'rotate-180' : ''}`} />
+                          </button>
+
+                          {/* Popover Custom Dropdown Panel */}
+                          {isVoucherDropdownOpen && (
+                            <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-2xl z-40 max-h-80 overflow-y-auto divide-y divide-slate-100 text-xs animate-in fade-in zoom-in-95 duration-150">
+                              
+                              <button
+                                type="button"
+                                onClick={() => { setSelectedVoucher(null); setIsVoucherDropdownOpen(false); }}
+                                className="w-full px-4 py-2.5 text-left font-bold text-slate-500 hover:bg-slate-50 flex items-center justify-between cursor-pointer"
+                              >
+                                <span>-- Không sử dụng Voucher --</span>
+                                {!selectedVoucher && <Check size={14} className="text-slate-500" />}
+                              </button>
+
+                              {/* 🟢 VOUCHER KHẢ DỤNG (Header màu xanh lá) */}
+                              {applicableVouchers.length > 0 && (
+                                <div className="p-1 space-y-0.5">
+                                  <div className="px-3 py-1.5 text-[10px] font-extrabold text-emerald-700 bg-emerald-50 rounded-lg uppercase tracking-wider flex items-center gap-1">
+                                    <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+                                    <span>Voucher khả dụng ({applicableVouchers.length})</span>
+                                  </div>
+
+                                  {applicableVouchers.map((v, idx) => {
+                                    const isBest = idx === 0;
+                                    const isSelected = selectedVoucher?.voucherCode === v.voucherCode;
+                                    const title = v.title || v.name || v.voucherCode;
+                                    
+                                    let discountText = '';
+                                    if (v.discountType === 'FREE_SERVICE' || v.discountType === 'free_wash') {
+                                      discountText = 'Miễn phí rửa xe';
+                                    } else if (v.discountType === 'PERCENTAGE' || v.discountType === 'percent') {
+                                      const pct = Number(v.value) || 0;
+                                      const maxCap = (v.maxDiscountAmount != null && Number(v.maxDiscountAmount) > 0)
+                                        ? ` (tối đa ${Number(v.maxDiscountAmount).toLocaleString('vi-VN')} đ)`
+                                        : '';
+                                      discountText = `Giảm ${pct}%${maxCap}`;
+                                    } else {
+                                      const val = Number(v.value) || 0;
+                                      const maxCap = (v.maxDiscountAmount != null && Number(v.maxDiscountAmount) > 0)
+                                        ? ` (tối đa ${Number(v.maxDiscountAmount).toLocaleString('vi-VN')} đ)`
+                                        : '';
+                                      discountText = `Giảm ${val.toLocaleString('vi-VN')} đ${maxCap}`;
+                                    }
+
+                                    return (
+                                      <button
+                                        key={v.voucherCode}
+                                        type="button"
+                                        onClick={() => { setSelectedVoucher(v); setIsVoucherDropdownOpen(false); }}
+                                        className={`w-full px-3.5 py-2.5 text-left rounded-lg transition-all flex items-center justify-between gap-2 cursor-pointer ${
+                                          isSelected ? 'bg-blue-50 border border-blue-200' : 'hover:bg-slate-50'
+                                        }`}
+                                      >
+                                        <div className="flex items-center gap-1.5 min-w-0">
+                                          {/* Chữ [Tốt nhất] in đậm và màu vàng */}
+                                          {isBest && (
+                                            <span className="font-extrabold text-amber-800 bg-amber-100 border border-amber-300 px-1.5 py-0.5 rounded text-[10px] shrink-0 font-sans tracking-tight">
+                                              [Tốt nhất]
+                                            </span>
+                                          )}
+                                          {/* Tên & chi tiết màu chữ chuẩn rõ ràng */}
+                                          <span className="font-bold text-slate-800 truncate">
+                                            {title} <span className="text-slate-500 font-normal">- {discountText}</span>
+                                          </span>
+                                        </div>
+                                        {isSelected && <Check size={14} className="text-blue-600 shrink-0" />}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              )}
+
+                              {/* 🔴 VOUCHER KHÔNG KHẢ DỤNG (Header màu đỏ) */}
+                              {inapplicableVouchers.length > 0 && (
+                                <div className="p-1 space-y-0.5">
+                                  <div className="px-3 py-1.5 text-[10px] font-extrabold text-red-600 bg-red-50 rounded-lg uppercase tracking-wider flex items-center gap-1">
+                                    <span className="w-2 h-2 rounded-full bg-red-500"></span>
+                                    <span>Voucher không khả dụng ({inapplicableVouchers.length})</span>
+                                  </div>
+
+                                  {inapplicableVouchers.map(v => {
+                                    const title = v.title || v.name || v.voucherCode;
+                                    let discountText = '';
+                                    if (v.discountType === 'FREE_SERVICE' || v.discountType === 'free_wash') {
+                                      discountText = 'Miễn phí rửa xe';
+                                    } else if (v.discountType === 'PERCENTAGE' || v.discountType === 'percent') {
+                                      const pct = Number(v.value) || 0;
+                                      const maxCap = (v.maxDiscountAmount != null && Number(v.maxDiscountAmount) > 0)
+                                        ? ` (tối đa ${Number(v.maxDiscountAmount).toLocaleString('vi-VN')} đ)`
+                                        : '';
+                                      discountText = `Giảm ${pct}%${maxCap}`;
+                                    } else {
+                                      const val = Number(v.value) || 0;
+                                      const maxCap = (v.maxDiscountAmount != null && Number(v.maxDiscountAmount) > 0)
+                                        ? ` (tối đa ${Number(v.maxDiscountAmount).toLocaleString('vi-VN')} đ)`
+                                        : '';
+                                      discountText = `Giảm ${val.toLocaleString('vi-VN')} đ${maxCap}`;
+                                    }
+                                    const reason = v.inapplicableReason ? ` (${v.inapplicableReason})` : '';
+
+                                    return (
+                                      <div
+                                        key={v.voucherCode}
+                                        className="w-full px-3.5 py-2 text-left rounded-lg opacity-70 bg-slate-50 flex items-center justify-between gap-2 cursor-not-allowed"
+                                      >
+                                        <span className="font-medium text-slate-500 truncate">
+                                          {title} - {discountText} <span className="text-[10px] italic text-slate-400">{reason}</span>
+                                        </span>
+                                        <span className="text-[9px] font-bold text-slate-400 bg-slate-200 px-1.5 py-0.5 rounded shrink-0">
+                                          Khóa
+                                        </span>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+
+                            </div>
+                          )}
+
+                          {/* Chi tiết mã giảm đang áp dụng */}
+                          {selectedVoucher && (
+                            <div className="bg-emerald-50 border border-emerald-200 p-2.5 rounded-xl text-[11px] text-emerald-800 font-medium flex items-center justify-between">
+                              <div className="flex items-center gap-1.5">
+                                <CheckCircle size={14} className="text-emerald-600 shrink-0" />
+                                <span>Mã <strong className="font-mono uppercase">{selectedVoucher.voucherCode}</strong> giảm:</span>
+                              </div>
+                              <span className="font-black font-mono text-xs text-emerald-700">-{formatVnd(calculateDiscount())}</span>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-[10px] text-slate-400 italic">Ví của bạn hiện chưa có voucher khả dụng.</p>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 <div className="border-t my-4"></div>
 
@@ -1212,7 +1529,7 @@ export default function CustomerBookingPage() {
                   </div>
                 </div>
 
-                <button 
+                <button
                   disabled={isSubmitting}
                   onClick={handleOpenConfirmModal}
                   className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold shadow-md shadow-blue-200 transition-all flex items-center justify-center gap-2 disabled:bg-blue-400"
@@ -1223,7 +1540,8 @@ export default function CustomerBookingPage() {
                 <div className="flex items-start gap-2 bg-slate-50 p-3 rounded-xl border border-slate-100 mt-4 text-[10px] text-slate-500 leading-relaxed">
                   <AlertCircle size={14} className="text-blue-500 shrink-0 mt-0.5" />
                   <span>
-                    Không cần thanh toán trước! Bạn chỉ cần đến trạm đúng giờ hẹn để check-in và thực hiện rửa xe, tích điểm VIP.
+                    Không cần thanh toán trước! Bạn chỉ cần đến trạm đúng giờ hẹn để check-in và thực hiện rửa xe, tích điểm VIP.<br />
+                    <strong className="text-slate-700">* Khách hàng có thể hủy đơn bất kỳ lúc nào trước giờ hẹn (Tối đa 3 lần/ngày).</strong>
                   </span>
                 </div>
               </div>
@@ -1237,7 +1555,12 @@ export default function CustomerBookingPage() {
         /* ========================================================================================= */
         <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b pb-4 mb-4 gap-3">
-            <h3 className="font-bold text-slate-800 text-sm">Nhật ký lịch trình đặt hẹn rửa xe máy</h3>
+            <div>
+              <h3 className="font-bold text-slate-800 text-sm">Nhật ký lịch trình đặt hẹn rửa xe máy</h3>
+              <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+                Khách hàng có thể hủy đơn bất kỳ lúc nào trước giờ hẹn (Tối đa 3 lần/ngày).
+              </p>
+            </div>
 
             {/* Status Filter Tabs */}
             <div className="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
@@ -1251,18 +1574,17 @@ export default function CustomerBookingPage() {
                   key={tab.id}
                   type="button"
                   onClick={() => setHistoryStatusFilter(tab.id)}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${
-                    historyStatusFilter === tab.id
-                      ? 'bg-white text-blue-600 shadow-sm border border-slate-200/50'
-                      : 'text-slate-500 hover:text-slate-800'
-                  }`}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-all ${historyStatusFilter === tab.id
+                    ? 'bg-white text-blue-600 shadow-sm border border-slate-200/50'
+                    : 'text-slate-500 hover:text-slate-800'
+                    }`}
                 >
                   {tab.label}
                 </button>
               ))}
             </div>
           </div>
-          
+
           {filteredUserHistory.length > 0 ? (
             <div className="overflow-x-auto">
               <table className="w-full text-xs text-left text-slate-655 border-collapse">
@@ -1288,21 +1610,20 @@ export default function CustomerBookingPage() {
                       <td className="py-4 px-2">{b.packageName}</td>
                       <td className="py-4 px-2 text-right font-mono font-bold text-slate-800">{formatVnd(b.finalAmount)}</td>
                       <td className="py-4 px-2 text-center">
-                        <span className={`px-2.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${
-                          b.status?.toLowerCase() === 'completed'
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-250'
-                            : b.status?.toLowerCase() === 'pending' || b.status?.toLowerCase() === 'confirmed'
-                              ? 'bg-yellow-50 text-yellow-700 border border-yellow-250'
-                              : 'bg-red-50 text-red-700 border border-red-250'
-                        }`}>
+                        <span className={`px-2.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wider ${b.status?.toLowerCase() === 'completed'
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-250'
+                          : b.status?.toLowerCase() === 'pending' || b.status?.toLowerCase() === 'confirmed'
+                            ? 'bg-yellow-50 text-yellow-700 border border-yellow-250'
+                            : 'bg-red-50 text-red-700 border border-red-250'
+                          }`}>
                           {b.status}
                         </span>
                       </td>
                       <td className="py-4 px-2 text-right">
-                        {(b.status?.toLowerCase() === 'pending' || b.rawStatus === 'PENDING') ? (
-                          <button 
+                        {(['PENDING', 'CONFIRMED'].includes(b.rawStatus) || ['pending', 'confirmed'].includes(b.status?.toLowerCase())) ? (
+                          <button
                             onClick={() => handleCancelBooking(b.id)}
-                            className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1.5 rounded transition-all flex items-center gap-1 text-[10px] font-bold ml-auto"
+                            className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1.5 rounded transition-all flex items-center gap-1 text-[10px] font-bold ml-auto cursor-pointer"
                           >
                             <Trash2 size={12} /> Hủy lịch hẹn
                           </button>
@@ -1414,7 +1735,7 @@ export default function CustomerBookingPage() {
 
       {/* 4. Add New Vehicle Confirmation Modal */}
       {isVehicleConfirmModalOpen && vehiclePayloadToConfirm && (
-        <div 
+        <div
           className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4"
           onClick={(e) => { if (e.target === e.currentTarget) setIsVehicleConfirmModalOpen(false); }}
         >
@@ -1424,7 +1745,7 @@ export default function CustomerBookingPage() {
             </div>
 
             <h3 className="text-base font-extrabold text-slate-800 mb-3 text-center">Xác nhận đăng ký phương tiện</h3>
-            
+
             <div className="w-full bg-slate-50 rounded-xl p-4 mb-5 text-xs text-left space-y-2.5 border border-slate-100">
               <div className="flex justify-between">
                 <span className="text-slate-400 font-medium">Tên/Dòng xe máy:</span>
@@ -1470,7 +1791,7 @@ export default function CustomerBookingPage() {
 
       {/* Custom UI Modal Alert / Notification Dialog */}
       {alertModal.isOpen && (
-        <div 
+        <div
           className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4"
           onClick={(e) => { if (e.target === e.currentTarget) setAlertModal(prev => ({ ...prev, isOpen: false })); }}
         >
@@ -1510,7 +1831,7 @@ export default function CustomerBookingPage() {
 
       {/* Custom Confirm Modal Dialog */}
       {confirmModal.isOpen && (
-        <div 
+        <div
           className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4"
           onClick={(e) => { if (e.target === e.currentTarget) setConfirmModal(prev => ({ ...prev, isOpen: false })); }}
         >
@@ -1570,7 +1891,7 @@ export default function CustomerBookingPage() {
 
       {/* 1. DEFAULT VEHICLE CHANGE CONFIRMATION MODAL */}
       {isDefaultVehiclePromptOpen && pendingDefaultVehicle && (
-        <div 
+        <div
           className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4"
           onClick={(e) => { if (e.target === e.currentTarget) handleConfirmChangeDefaultVehicle(false); }}
         >
@@ -1578,7 +1899,7 @@ export default function CustomerBookingPage() {
             <div className="w-12 h-12 rounded-full bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600">
               <Car className="w-6 h-6" />
             </div>
-            
+
             <div className="space-y-1.5">
               <h3 className="text-base font-extrabold text-slate-800 font-sans">Đặt làm xe mặc định?</h3>
               <p className="text-xs text-slate-500 leading-relaxed font-medium px-2">
@@ -1621,7 +1942,7 @@ export default function CustomerBookingPage() {
 
       {/* 2. BOOKING CONFIRMATION DETAILS MODAL */}
       {isConfirmModalOpen && selectedVehicle && selectedPackage && (
-        <div 
+        <div
           className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4"
           onClick={(e) => { if (e.target === e.currentTarget) setIsConfirmModalOpen(false); }}
         >
@@ -1715,7 +2036,7 @@ export default function CustomerBookingPage() {
 
       {/* 3. STATUS NOTIFICATION MODALS (SUCCESS / ERROR) */}
       {isSuccessModalOpen && (
-        <div 
+        <div
           className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4"
           onClick={(e) => { if (e.target === e.currentTarget) { setIsSuccessModalOpen(false); setBookingTab('history'); } }}
         >
@@ -1745,7 +2066,7 @@ export default function CustomerBookingPage() {
       )}
 
       {isErrorModalOpen && (
-        <div 
+        <div
           className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4"
           onClick={(e) => { if (e.target === e.currentTarget) setIsErrorModalOpen(false); }}
         >

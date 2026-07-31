@@ -349,8 +349,57 @@ export default function AdminCustomersLoyaltyPage() {
 
   const [availablePackages, setAvailablePackages] = useState([]);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [editingCampaign, setEditingCampaign] = useState(null);
 
   const [estimatedCount, setEstimatedCount] = useState(0);
+
+  const handleOpenCreateModal = () => {
+    setEditingCampaign(null);
+    setCampaignForm({
+      code: '',
+      name: '',
+      description: '',
+      discountType: 'cash',
+      value: '',
+      costPoints: '0',
+      minTier: 'Member',
+      minRecencyDays: '0',
+      totalBudget: '100',
+      maxClaimPerUser: '1',
+      startDate: new Date().toISOString().split('T')[0],
+      endDate: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString().split('T')[0],
+      applicableServiceCode: '',
+      applicableDays: [],
+      maxDiscountAmount: '',
+      minOrderValue: ''
+    });
+    setIsCreateModalOpen(true);
+  };
+
+  const handleOpenEditModal = (camp) => {
+    setEditingCampaign(camp);
+    const discType = camp.discountType === 'PERCENTAGE' || camp.discountType === 'percent' ? 'percent' :
+                     (camp.discountType === 'FREE_SERVICE' || camp.discountType === 'free_wash' ? 'free_wash' : 'cash');
+    setCampaignForm({
+      code: camp.code || '',
+      name: camp.name || '',
+      description: camp.description || '',
+      discountType: discType,
+      value: camp.value !== undefined && camp.value !== null ? String(camp.value) : '',
+      costPoints: camp.costPoints !== undefined && camp.costPoints !== null ? String(camp.costPoints) : '0',
+      minTier: camp.minTier || 'Member',
+      minRecencyDays: camp.minRecencyDays !== undefined && camp.minRecencyDays !== null ? String(camp.minRecencyDays) : '0',
+      totalBudget: camp.totalBudget !== undefined && camp.totalBudget !== null ? String(camp.totalBudget) : '100',
+      maxClaimPerUser: camp.maxClaimPerUser !== undefined && camp.maxClaimPerUser !== null ? String(camp.maxClaimPerUser) : '1',
+      startDate: camp.startDate ? camp.startDate.split('T')[0] : new Date().toISOString().split('T')[0],
+      endDate: camp.endDate ? camp.endDate.split('T')[0] : new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString().split('T')[0],
+      applicableServiceCode: camp.applicableServiceCode || '',
+      applicableDays: camp.applicableDays ? (Array.isArray(camp.applicableDays) ? camp.applicableDays : String(camp.applicableDays).split(',').map(d => d.trim())) : [],
+      maxDiscountAmount: camp.maxDiscountAmount !== undefined && camp.maxDiscountAmount !== null ? String(camp.maxDiscountAmount) : '',
+      minOrderValue: camp.minOrderValue !== undefined && camp.minOrderValue !== null ? String(camp.minOrderValue) : ''
+    });
+    setIsCreateModalOpen(true);
+  };
 
   // Auto fetch audience preview on filter change (E2E-3 Target Preview)
   useEffect(() => {
@@ -398,7 +447,7 @@ export default function AdminCustomersLoyaltyPage() {
     }
   };
 
-  // Action: Launch campaign / voucher rule
+  // Action: Launch / Update campaign / voucher rule
   const handleLaunchCampaign = (e) => {
     e.preventDefault();
     if (!campaignForm.code.trim() || !campaignForm.name.trim()) {
@@ -476,9 +525,12 @@ export default function AdminCustomersLoyaltyPage() {
       minOrderValue: campaignForm.minOrderValue ? Number(campaignForm.minOrderValue) : null
     };
 
+    const isEditMode = Boolean(editingCampaign);
+    const campaignId = editingCampaign ? (editingCampaign.id || editingCampaign.promotionId) : null;
+
     setConfirmDialog({
-      title: 'Xác nhận tạo chiến dịch khuyến mãi',
-      confirmLabel: 'Xác nhận tạo',
+      title: isEditMode ? 'Xác nhận cập nhật chiến dịch khuyến mãi' : 'Xác nhận tạo chiến dịch khuyến mãi',
+      confirmLabel: isEditMode ? 'Xác nhận cập nhật' : 'Xác nhận tạo',
       cancelLabel: 'Kiểm tra lại',
       summary: [
         { label: 'Mã voucher', value: campaignForm.code.toUpperCase() },
@@ -490,50 +542,57 @@ export default function AdminCustomersLoyaltyPage() {
       ],
       onConfirm: async () => {
         try {
-          // 1. Tạo chiến dịch ở Backend
-          const createdPromo = await promotionApi.createPromotion(newCampaignData);
+          if (isEditMode && campaignId) {
+            await promotionApi.updatePromotion(campaignId, newCampaignData);
+            await loadPromotionsFromApi();
+            await loadPromotionKpi();
+            showToast('Cập nhật chiến dịch khuyến mãi thành công!');
+          } else {
+            // 1. Tạo chiến dịch ở Backend
+            const createdPromo = await promotionApi.createPromotion(newCampaignData);
 
-          // Tải lại danh sách promotions từ API
-          await loadPromotionsFromApi();
-          await loadPromotionKpi();
+            // Tải lại danh sách promotions từ API
+            await loadPromotionsFromApi();
+            await loadPromotionKpi();
 
-          let promoTargetCount = 0;
+            let promoTargetCount = 0;
 
-          // 2. Nếu là Campaign Marketing (Cost Points = 0), phát hành trực tiếp
-          if (pointsRequired === 0) {
-            // Fetch target count and customers dynamically
-            const targetList = customers.filter(c => {
-              const customerLevel = tierLevels[c.tier] ?? 0;
-              const targetLevel = tierLevels[campaignForm.minTier] ?? 0;
-              const matchRank = customerLevel >= targetLevel;
-              const matchRecency = c.lastVisitDays >= Number(campaignForm.minRecencyDays);
-              return matchRank && matchRecency;
-            });
+            // 2. Nếu là Campaign Marketing (Cost Points = 0), phát hành trực tiếp
+            if (pointsRequired === 0) {
+              const targetList = customers.filter(c => {
+                const customerLevel = tierLevels[c.tier] ?? 0;
+                const targetLevel = tierLevels[campaignForm.minTier] ?? 0;
+                const matchRank = customerLevel >= targetLevel;
+                const matchRecency = c.lastVisitDays >= Number(campaignForm.minRecencyDays);
+                return matchRank && matchRecency;
+              });
 
-            promoTargetCount = targetList.length;
+              promoTargetCount = targetList.length;
 
-            if (targetList.length > 0) {
-              const customerIds = targetList.map(c => c.customerId).filter(Boolean);
-              if (customerIds.length > 0) {
-                await promotionApi.grantDirect({
-                  promotionId: createdPromo.id,
-                  customerIds: customerIds
-                });
+              if (targetList.length > 0) {
+                const customerIds = targetList.map(c => c.customerId).filter(Boolean);
+                if (customerIds.length > 0) {
+                  await promotionApi.grantDirect({
+                    promotionId: createdPromo.id,
+                    customerIds: customerIds
+                  });
+                }
               }
             }
+
+            showToast('Tạo chiến dịch khuyến mãi thành công!');
+
+            setNotificationModal({
+              title: 'Tạo mới thành công!',
+              content: pointsRequired === 0
+                ? `Đã phát hành chiến dịch Voucher tiếp thị ${campaignForm.code.toUpperCase()}! Voucher đã được tặng trực tiếp vào ví của ${promoTargetCount} khách hàng thỏa mãn điều kiện.`
+                : `Đã khởi tạo quy định đổi điểm cho Voucher ${campaignForm.code.toUpperCase()}! Voucher trị giá ${discountLabel} (cần ${pointsRequired} Pts) đã xuất hiện tại Shop quy đổi.`,
+              type: 'success'
+            });
           }
 
-          showToast('Tạo chiến dịch khuyến mãi thành công!');
-
-          setNotificationModal({
-            title: 'Tạo mới thành công!',
-            content: pointsRequired === 0
-              ? `Đã phát hành chiến dịch Voucher tiếp thị ${campaignForm.code.toUpperCase()}! Voucher đã được tặng trực tiếp vào ví của ${promoTargetCount} khách hàng thỏa mãn điều kiện.`
-              : `Đã khởi tạo quy định đổi điểm cho Voucher ${campaignForm.code.toUpperCase()}! Voucher trị giá ${discountLabel} (cần ${pointsRequired} Pts) đã xuất hiện tại Shop quy đổi.`,
-            type: 'success'
-          });
-
           // Reset Form
+          setEditingCampaign(null);
           setCampaignForm({
             code: '',
             name: '',
@@ -555,8 +614,8 @@ export default function AdminCustomersLoyaltyPage() {
           setIsCreateModalOpen(false);
 
         } catch (err) {
-          console.error('Failed to create promotion campaign:', err);
-          showToast('Đã xảy ra lỗi khi tạo chiến dịch khuyến mãi: ' + (err.response?.data?.message || err.message), 'error');
+          console.error('Failed to save promotion campaign:', err);
+          showToast('Đã xảy ra lỗi khi lưu chiến dịch khuyến mãi: ' + (err.response?.data?.message || err.message), 'error');
         }
       }
     });
@@ -1036,7 +1095,7 @@ export default function AdminCustomersLoyaltyPage() {
                 </span>
                 {hasPermission('MANAGE_PROMOTIONS') && (
                   <button
-                    onClick={() => setIsCreateModalOpen(true)}
+                    onClick={handleOpenCreateModal}
                     className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[10px] font-black transition-all flex items-center gap-1 shadow-sm active:scale-[0.98] cursor-pointer"
                   >
                     <Plus className="w-3.5 h-3.5" />
@@ -1155,13 +1214,22 @@ export default function AdminCustomersLoyaltyPage() {
                           </td>
                           <td className="py-3 px-4 text-center">
                             {hasPermission('MANAGE_PROMOTIONS') && (
-                              <button
-                                onClick={() => handleDeleteCampaign(camp.id || camp.promotionId, camp.code)}
-                                className="p-1.5 bg-rose-50 border border-rose-100 text-rose-600 hover:bg-rose-100 rounded transition-all cursor-pointer inline-block"
-                                title="Xóa vĩnh viễn chiến dịch"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
+                              <div className="flex items-center justify-center gap-1.5">
+                                <button
+                                  onClick={() => handleOpenEditModal(camp)}
+                                  className="p-1.5 bg-blue-50 border border-blue-100 text-blue-600 hover:bg-blue-100 rounded transition-all cursor-pointer inline-block"
+                                  title="Chỉnh sửa voucher / chiến dịch"
+                                >
+                                  <Edit className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteCampaign(camp.id || camp.promotionId, camp.code)}
+                                  className="p-1.5 bg-rose-50 border border-rose-100 text-rose-600 hover:bg-rose-100 rounded transition-all cursor-pointer inline-block"
+                                  title="Xóa vĩnh viễn chiến dịch"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
                             )}
                           </td>
                         </tr>
@@ -1694,7 +1762,7 @@ export default function AdminCustomersLoyaltyPage() {
             <div className="flex items-center justify-between p-6 pb-4 border-b border-slate-150 shrink-0">
               <h3 className="font-extrabold text-slate-850 flex items-center gap-1.5 text-sm uppercase tracking-wide text-indigo-700">
                 <Sparkles className="w-5 h-5 text-indigo-650 animate-pulse" />
-                Tạo Chiến dịch Khuyến mãi & Quy đổi điểm mới
+                {editingCampaign ? 'Cập nhật Chiến dịch Khuyến mãi & Voucher' : 'Tạo Chiến dịch Khuyến mãi & Quy đổi điểm mới'}
               </h3>
               <button 
                 onClick={() => setIsCreateModalOpen(false)}
@@ -2078,7 +2146,7 @@ export default function AdminCustomersLoyaltyPage() {
                   type="submit"
                   className="px-5.5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-xl shadow-md transition-all active:scale-[0.98] cursor-pointer"
                 >
-                  Kích hoạt & Phát hành chiến dịch
+                  {editingCampaign ? 'Lưu cập nhật chiến dịch' : 'Kích hoạt & Phát hành chiến dịch'}
                 </button>
               </div>
 

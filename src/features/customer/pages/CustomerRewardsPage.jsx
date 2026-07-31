@@ -1,17 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Gift, 
-  Award, 
-  Wallet, 
-  ArrowRight, 
-  CheckCircle2, 
-  AlertCircle, 
-  Crown, 
-  Sparkles, 
-  Clock, 
-  Lock, 
-  Coins, 
+import {
+  Gift,
+  Award,
+  Wallet,
+  ArrowRight,
+  CheckCircle2,
+  AlertCircle,
+  Crown,
+  Sparkles,
+  Clock,
+  Lock,
+  Coins,
   Tag,
   Loader2,
   HelpCircle,
@@ -194,7 +194,7 @@ export default function CustomerRewardsPage() {
             await customerApi.exchangePoints(item.id, cId);
           }
           showAlert(`Đổi quà thành công! Đơn hàng ưu đãi "${item.title}" đã được gửi vào ví của bạn.`, 'success', 'Thành công');
-          
+
           // Tải lại thông tin sau khi đổi thành công
           await loadProfileData();
           window.dispatchEvent(new Event('profileUpdated'));
@@ -247,7 +247,7 @@ export default function CustomerRewardsPage() {
 
   return (
     <div className="space-y-8 pb-16 text-slate-800 font-sans relative">
-      
+
       {/* KHỐI HEADER TRÊN CÙNG: PHIÊN BẢN SLIM & SANG TRỌNG */}
       <div className="relative overflow-hidden rounded-[24px] bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 px-6 py-5 shadow-lg border border-white/10 text-white flex flex-col md:flex-row md:items-center justify-between gap-4">
         {/* Glow Effects */}
@@ -261,7 +261,7 @@ export default function CustomerRewardsPage() {
           </div>
           <div className="text-left">
             <h2 className="text-base font-black tracking-tight flex items-center flex-wrap gap-2 text-white">
-              Chào {profile.fullName || 'Khách hàng'}, 
+              Chào {profile.fullName || 'Khách hàng'},
               <span className="text-[10px] uppercase tracking-widest text-amber-300 font-extrabold bg-amber-500/20 border border-amber-400/30 px-2.5 py-0.5 rounded-full">
                 {profile.tierName || 'MEMBER'}
               </span>
@@ -295,31 +295,28 @@ export default function CustomerRewardsPage() {
       <div className="flex bg-slate-100 p-1.5 rounded-2xl max-w-lg overflow-x-auto no-scrollbar">
         <button
           onClick={() => setActiveTab('shop')}
-          className={`flex-1 flex items-center justify-center gap-2.5 py-3.5 px-4 font-black text-xs rounded-xl transition-all uppercase cursor-pointer whitespace-nowrap ${
-            activeTab === 'shop'
-              ? 'bg-white text-indigo-700 shadow-md shadow-indigo-500/5'
-              : 'text-slate-500 hover:text-slate-800'
-          }`}
+          className={`flex-1 flex items-center justify-center gap-2.5 py-3.5 px-4 font-black text-xs rounded-xl transition-all uppercase cursor-pointer whitespace-nowrap ${activeTab === 'shop'
+            ? 'bg-white text-indigo-700 shadow-md shadow-indigo-500/5'
+            : 'text-slate-500 hover:text-slate-800'
+            }`}
         >
           <Gift size={15} /> Cửa hàng đổi điểm (Shop Pts)
         </button>
         <button
           onClick={() => setActiveTab('wallet')}
-          className={`flex-1 flex items-center justify-center gap-2.5 py-3.5 px-4 font-black text-xs rounded-xl transition-all uppercase cursor-pointer whitespace-nowrap ${
-            activeTab === 'wallet'
-              ? 'bg-white text-indigo-700 shadow-md shadow-indigo-500/5'
-              : 'text-slate-500 hover:text-slate-800'
-          }`}
+          className={`flex-1 flex items-center justify-center gap-2.5 py-3.5 px-4 font-black text-xs rounded-xl transition-all uppercase cursor-pointer whitespace-nowrap ${activeTab === 'wallet'
+            ? 'bg-white text-indigo-700 shadow-md shadow-indigo-500/5'
+            : 'text-slate-500 hover:text-slate-800'
+            }`}
         >
           <Wallet size={15} /> Ví của tôi ({myVouchers.filter(v => !v.isExpired).length})
         </button>
         <button
           onClick={() => setActiveTab('history')}
-          className={`flex-1 flex items-center justify-center gap-2.5 py-3.5 px-4 font-black text-xs rounded-xl transition-all uppercase cursor-pointer whitespace-nowrap ${
-            activeTab === 'history'
-              ? 'bg-white text-indigo-700 shadow-md shadow-indigo-500/5'
-              : 'text-slate-500 hover:text-slate-800'
-          }`}
+          className={`flex-1 flex items-center justify-center gap-2.5 py-3.5 px-4 font-black text-xs rounded-xl transition-all uppercase cursor-pointer whitespace-nowrap ${activeTab === 'history'
+            ? 'bg-white text-indigo-700 shadow-md shadow-indigo-500/5'
+            : 'text-slate-500 hover:text-slate-800'
+            }`}
         >
           <Clock size={15} /> Lịch sử điểm ({pointHistory.length})
         </button>
@@ -327,10 +324,10 @@ export default function CustomerRewardsPage() {
 
       {/* NỘI DUNG CHÍNH */}
       <div className="space-y-8">
-        
+
         {activeTab === 'shop' && (
           <div className="space-y-10">
-            
+
             {/* 1. MỤC MỚI NHẬN / TRI ÂN MIỄN PHÍ */}
             {sortedFreeItems.length > 0 && (
               <div className="space-y-4">
@@ -356,7 +353,7 @@ export default function CustomerRewardsPage() {
                   <Coins className="w-4 h-4 text-indigo-600" /> Quầy đổi điểm nhận ưu đãi
                 </h3>
               </div>
-              
+
               {sortedExchangeItems.length > 0 ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {sortedExchangeItems.map(item => (
@@ -397,7 +394,7 @@ export default function CustomerRewardsPage() {
                   <p className="font-bold text-slate-600">Ví voucher của bạn đang trống</p>
                   <p className="text-xs text-slate-400">Hãy tích lũy điểm và đổi lấy những ưu đãi rửa xe hấp dẫn nhé!</p>
                 </div>
-                <button 
+                <button
                   onClick={() => setActiveTab('shop')}
                   className="mt-2.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black rounded-xl transition-all shadow cursor-pointer"
                 >
@@ -422,7 +419,7 @@ export default function CustomerRewardsPage() {
                 <div className="divide-y divide-slate-100">
                   {pointHistory.map((tx, idx) => {
                     const isPlus = tx.points > 0;
-                    
+
                     // Format type name and colors
                     let typeText = 'Cộng điểm';
                     let typeColor = 'text-emerald-600 bg-emerald-50 border-emerald-100';
@@ -445,9 +442,8 @@ export default function CustomerRewardsPage() {
                     return (
                       <div key={tx.pointTransactionId || idx} className="p-4 flex items-center justify-between hover:bg-slate-50/50 transition-colors">
                         <div className="flex items-center gap-4 text-left">
-                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${
-                            isPlus ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-slate-50 text-slate-500 border-slate-200'
-                          }`}>
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border ${isPlus ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-slate-50 text-slate-500 border-slate-200'
+                            }`}>
                             {isPlus ? <Coins className="w-5 h-5" /> : <Tag className="w-5 h-5" />}
                           </div>
                           <div>
@@ -500,7 +496,7 @@ export default function CustomerRewardsPage() {
 
       {/* Custom UI Modal Alert / Notification Dialog */}
       {alertModal.isOpen && (
-        <div 
+        <div
           className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4"
           onClick={(e) => { if (e.target === e.currentTarget) setAlertModal(prev => ({ ...prev, isOpen: false })); }}
         >
@@ -535,7 +531,7 @@ export default function CustomerRewardsPage() {
 
       {/* Custom Confirm Modal Dialog for Redemption */}
       {confirmModal.isOpen && confirmModal.rewardItem && (
-        <div 
+        <div
           className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4"
           onClick={(e) => { if (e.target === e.currentTarget && !isRedeeming) setConfirmModal(prev => ({ ...prev, isOpen: false })); }}
         >
@@ -601,7 +597,7 @@ export default function CustomerRewardsPage() {
   /* ========================================================================================= */
   function RewardTicketCard({ item, canRedeem, onRedeem, themeColor }) {
     const isFree = item.pointsCost === 0;
-    
+
     // Theme color mappings
     const colors = {
       rose: {
@@ -630,17 +626,16 @@ export default function CustomerRewardsPage() {
     };
 
     return (
-      <div 
-        className={`flex h-full min-h-[175px] rounded-2xl overflow-hidden bg-white border border-slate-200/80 shadow-sm hover:shadow-md transition-all duration-300 relative items-stretch ${
-          item.isGrayscale ? 'opacity-85 saturate-[95%] grayscale-[12%]' : ''
-        }`}
+      <div
+        className={`flex h-full min-h-[175px] rounded-2xl overflow-hidden bg-white border border-slate-200/80 shadow-sm hover:shadow-md transition-all duration-300 relative items-stretch ${item.isGrayscale ? 'opacity-85 saturate-[95%] grayscale-[12%]' : ''
+          }`}
       >
         {/* Cánh trái: Hiển thị Mệnh giá ưu đãi thanh thoát */}
         <div className={`w-28 self-stretch flex flex-col justify-center items-center text-white p-3 relative shrink-0 bg-gradient-to-b ${colors.gradient}`}>
           {/* Semicircles Decorative cutouts */}
           <div className="absolute top-0 right-0 w-3 h-3 bg-slate-50 rounded-bl-full pointer-events-none"></div>
           <div className="absolute bottom-0 right-0 w-3 h-3 bg-slate-50 rounded-tl-full pointer-events-none"></div>
-          
+
           <div className="bg-white/15 p-2 rounded-full border border-white/20 mb-1.5">
             <Tag className="w-5 h-5 text-white" />
           </div>
@@ -665,9 +660,9 @@ export default function CustomerRewardsPage() {
                 {isFree ? 'FREE' : `${item.pointsCost} Pts`}
               </span>
             </div>
-            
+
             <p className="text-xs text-slate-500 leading-relaxed font-medium line-clamp-2">{item.description}</p>
-            
+
             {/* RÀNG BUỘC CHI TIẾT (Nếu có) */}
             <div className="flex flex-wrap gap-1 pt-1">
               {item.applicableServiceCode && (
@@ -682,7 +677,7 @@ export default function CustomerRewardsPage() {
               )}
               {Number(item.maxDiscountAmount) > 0 && (
                 <span className="text-[9px] font-bold bg-rose-50 border border-rose-100 text-rose-600 px-2 py-0.5 rounded-md">
-                  Trần giảm: {Number(item.maxDiscountAmount).toLocaleString('vi-VN')}đ
+                  Tối đa: {Number(item.maxDiscountAmount).toLocaleString('vi-VN')}đ
                 </span>
               )}
               {Number(item.minOrderValue) > 0 && (
@@ -705,14 +700,13 @@ export default function CustomerRewardsPage() {
             <span className="flex items-center gap-1 text-[9px] text-slate-400 font-bold">
               <Clock size={11} className="text-slate-400" /> Hết hạn: {item.endDate ? new Date(item.endDate).toLocaleDateString('vi-VN') : '30 ngày'}
             </span>
-            
+
             <button
               onClick={onRedeem}
-              className={`px-3.5 py-1.5 rounded-xl text-[10px] font-black tracking-wider uppercase transition-all active:scale-[0.98] cursor-pointer ${
-                item.isGrayscale 
-                  ? 'bg-slate-100 text-slate-500 border border-slate-200 hover:bg-slate-200 shadow-none' 
-                  : colors.button
-              }`}
+              className={`px-3.5 py-1.5 rounded-xl text-[10px] font-black tracking-wider uppercase transition-all active:scale-[0.98] cursor-pointer ${item.isGrayscale
+                ? 'bg-slate-100 text-slate-500 border border-slate-200 hover:bg-slate-200 shadow-none'
+                : colors.button
+                }`}
             >
               {item.isGrayscale ? 'Chưa mở khóa' : isFree ? 'Nhận ngay' : 'Đổi điểm'}
             </button>
@@ -727,21 +721,19 @@ export default function CustomerRewardsPage() {
   /* ========================================================================================= */
   function WalletTicketCard({ voucher, onUse }) {
     return (
-      <div 
-        className={`flex h-full min-h-[175px] rounded-2xl overflow-hidden bg-white border border-slate-200/80 shadow-sm hover:shadow-md transition-all duration-300 relative items-stretch ${
-          voucher.isExpired ? 'opacity-60 bg-slate-50' : ''
-        }`}
+      <div
+        className={`flex h-full min-h-[175px] rounded-2xl overflow-hidden bg-white border border-slate-200/80 shadow-sm hover:shadow-md transition-all duration-300 relative items-stretch ${voucher.isExpired ? 'opacity-60 bg-slate-50' : ''
+          }`}
       >
         {/* Cánh trái: Hiển thị Mệnh giá */}
-        <div className={`w-28 self-stretch flex flex-col justify-center items-center text-white p-3 relative shrink-0 ${
-          voucher.isExpired 
-            ? 'bg-slate-400' 
-            : 'bg-gradient-to-b from-indigo-600 via-blue-600 to-indigo-700 shadow-md shadow-indigo-500/10'
-        }`}>
+        <div className={`w-28 self-stretch flex flex-col justify-center items-center text-white p-3 relative shrink-0 ${voucher.isExpired
+          ? 'bg-slate-400'
+          : 'bg-gradient-to-b from-indigo-600 via-blue-600 to-indigo-700 shadow-md shadow-indigo-500/10'
+          }`}>
           {/* Semicircles Cutouts */}
           <div className="absolute top-0 right-0 w-3 h-3 bg-slate-50 rounded-bl-full pointer-events-none"></div>
           <div className="absolute bottom-0 right-0 w-3 h-3 bg-slate-50 rounded-tl-full pointer-events-none"></div>
-          
+
           <div className="bg-white/15 p-2 rounded-full border border-white/20 mb-1.5">
             <Wallet className="w-5 h-5 text-white" />
           </div>
@@ -766,9 +758,9 @@ export default function CustomerRewardsPage() {
                 Khả dụng
               </span>
             </div>
-            
+
             <p className="text-xs text-slate-500 leading-relaxed font-medium line-clamp-2">{voucher.description}</p>
-            
+
             {/* RÀNG BUỘC SỬ DỤNG */}
             <div className="flex flex-wrap gap-1 pt-1">
               {voucher.applicableServiceCode && (
@@ -783,7 +775,7 @@ export default function CustomerRewardsPage() {
               )}
               {Number(voucher.maxDiscountAmount) > 0 && (
                 <span className="text-[9px] font-bold bg-rose-50 border border-rose-100 text-rose-600 px-2 py-0.5 rounded-md">
-                  Trần giảm: {Number(voucher.maxDiscountAmount).toLocaleString('vi-VN')}đ
+                  Tối đa: {Number(voucher.maxDiscountAmount).toLocaleString('vi-VN')}đ
                 </span>
               )}
               {Number(voucher.minOrderValue) > 0 && (
@@ -798,13 +790,12 @@ export default function CustomerRewardsPage() {
             <span className="flex items-center gap-1 text-[9px] text-slate-400 font-bold">
               <Clock size={11} className="text-slate-400" /> Hết hạn: {voucher.expiryDate || 'N/A'}
             </span>
-            
+
             <button
               disabled={voucher.isExpired}
               onClick={onUse}
-              className={`px-4 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-[10px] font-black tracking-wider uppercase shadow transition-all active:scale-[0.98] ${
-                voucher.isExpired ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none' : 'cursor-pointer'
-              }`}
+              className={`px-4 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-[10px] font-black tracking-wider uppercase shadow transition-all active:scale-[0.98] ${voucher.isExpired ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none' : 'cursor-pointer'
+                }`}
             >
               Sử dụng
             </button>

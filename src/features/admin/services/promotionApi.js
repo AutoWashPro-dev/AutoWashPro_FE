@@ -107,6 +107,34 @@ export const promotionApi = {
     return res.data;
   },
 
+  updatePromotion: async (id, data) => {
+    let backendType = 'FIXED_AMOUNT';
+    if (data.discountType === 'percent' || data.discountType === 'PERCENTAGE') backendType = 'PERCENTAGE';
+    if (data.discountType === 'free_wash' || data.discountType === 'FREE_SERVICE') backendType = 'FREE_SERVICE';
+    
+    const payload = {
+      code: data.code,
+      name: data.name,
+      description: data.description || '',
+      discountType: backendType,
+      value: Number(data.value) || 0,
+      costPoints: Number(data.costPoints) || 0,
+      minTier: data.minTier || 'Member',
+      minRecencyDays: Number(data.minRecencyDays) || 0,
+      maxClaimPerUser: Number(data.maxClaimPerUser) || 0,
+      totalBudget: Number(data.totalBudget) || 0,
+      startDate: data.startDate ? (data.startDate.includes('T') ? data.startDate : `${data.startDate}T00:00:00`) : null,
+      endDate: data.endDate ? (data.endDate.includes('T') ? data.endDate : `${data.endDate}T23:59:59`) : null,
+      applicableServiceCode: data.applicableServiceCode || null,
+      applicableDays: data.applicableDays || null,
+      maxDiscountAmount: data.maxDiscountAmount != null ? Number(data.maxDiscountAmount) : null,
+      minOrderValue: data.minOrderValue != null ? Number(data.minOrderValue) : null
+    };
+
+    const res = await api.put(`/admin/promotions/${id}`, payload);
+    return res.data;
+  },
+
   updateStatus: async (id, status) => {
     const res = await api.put(`/admin/promotions/${id}/status?status=${status}`);
     return res.data;

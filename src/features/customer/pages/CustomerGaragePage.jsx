@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { Plus, Car, ShieldCheck, AlertCircle, X, Loader2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Plus, Car, ShieldCheck, AlertCircle, X, Loader2, Calendar } from 'lucide-react';
 import VehicleCard from '../components/VehicleCard';
 import { customerApi } from '../services/customerApi';
 import { formatLicensePlate, validateLicensePlate } from '../../../utils/validationUtils';
 
 export default function CustomerGaragePage() {
+  const navigate = useNavigate();
   const [vehicles, setVehicles] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [deleteTargetVehicle, setDeleteTargetVehicle] = useState(null);
@@ -223,7 +225,8 @@ export default function CustomerGaragePage() {
         isOpen: true,
         type: 'success',
         title: 'Xóa thành công',
-        message: 'Đã xóa phương tiện thành công!'
+        message: 'Đã xóa phương tiện thành công!',
+        showCta: false
       });
       window.dispatchEvent(new Event('vehicleListUpdated'));
     } catch (err) {
@@ -233,7 +236,8 @@ export default function CustomerGaragePage() {
         isOpen: true,
         type: 'error',
         title: 'Lỗi xóa phương tiện',
-        message: errMsg
+        message: errMsg,
+        showCta: true
       });
     } finally {
       setDeleteTargetVehicle(null);
@@ -516,11 +520,23 @@ export default function CustomerGaragePage() {
             </div>
             <h3 className="font-extrabold text-slate-800 text-base">{garageAlert.title}</h3>
             <p className="text-xs text-slate-500 leading-relaxed font-medium">{garageAlert.message}</p>
-            <div className="pt-2">
+            <div className="pt-2 flex flex-col gap-2">
+              {garageAlert.type === 'error' && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setGarageAlert({ isOpen: false, type: 'success', title: '', message: '' });
+                    navigate('/customer/book');
+                  }}
+                  className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl cursor-pointer flex items-center justify-center gap-1.5 transition-colors shadow-sm"
+                >
+                  <Calendar size={14} /> Đi tới Quản lý / Hủy lịch đặt xe
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => setGarageAlert({ isOpen: false, type: 'success', title: '', message: '' })}
-                className="w-full py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold rounded-xl cursor-pointer"
+                className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl cursor-pointer transition-colors"
               >
                 Đóng
               </button>

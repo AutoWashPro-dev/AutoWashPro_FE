@@ -209,7 +209,12 @@ export default function CustomerDashboardPage() {
           await fetchDashboardData();
         } catch (error) {
           console.error("Lỗi hủy đặt lịch:", error);
-          showAlert("Không thể hủy lịch hẹn: " + (error.response?.data?.message || error.message), "error", "Lỗi");
+          const errMsg = error.response?.data?.message || error.message || '';
+          if (errMsg.includes("vượt quá số lần hủy") || errMsg.includes("Tối đa 3 lần") || errMsg.includes("3 lần/ngày")) {
+            showAlert("Bạn đã hủy tối đa 3 đơn trong ngày hôm nay.", "error", "Giới hạn hủy đơn");
+          } else {
+            showAlert("Không thể hủy lịch hẹn: " + (errMsg || "Có lỗi xảy ra"), "error", "Lỗi");
+          }
         } finally {
           setIsCanceling(false);
         }
@@ -300,7 +305,7 @@ export default function CustomerDashboardPage() {
                   </p>
                 </div>
                 
-                <div className="flex gap-2 w-full md:w-auto shrink-0">
+                <div className="flex gap-2 w-full md:w-auto shrink-0 flex-col items-end">
                   <button 
                     onClick={() => handleCancelBooking(upcomingBooking.bookingId)}
                     disabled={isCanceling}
@@ -309,6 +314,9 @@ export default function CustomerDashboardPage() {
                     {isCanceling && <Loader2 size={12} className="animate-spin" />}
                     Hủy lịch hẹn
                   </button>
+                  <span className="text-[10px] text-slate-400 font-medium text-right">
+                    * Hủy trước giờ hẹn (Tối đa 3 lần/ngày)
+                  </span>
                 </div>
               </div>
             ) : (
