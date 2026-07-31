@@ -2191,9 +2191,25 @@ export default function CustomerBookingPage() {
                     </div>
                   ))
                 ) : (
-                  <div className="text-center py-4 text-slate-400 text-xs bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-                    Gói bao gồm các bước rửa bọt tuyết, xịt khô và lau bóng sơn xe.
-                  </div>
+                  (detailPackageModal.description || 'Rửa bọt tuyết chuyên dụng, xịt khô, lau bóng')
+                    .split(/[,.]/)
+                    .map(s => s.trim())
+                    .filter(Boolean)
+                    .map((stepText, idx) => (
+                      <div key={idx} className="p-3 bg-white border border-slate-200/80 rounded-2xl shadow-sm flex items-start gap-3">
+                        <div className="w-6 h-6 rounded-full bg-emerald-50 text-emerald-600 font-black text-[11px] flex items-center justify-center shrink-0 border border-emerald-100 mt-0.5">
+                          {idx + 1}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h5 className="font-extrabold text-slate-800 text-xs">
+                            {stepText.charAt(0).toUpperCase() + stepText.slice(1)}
+                          </h5>
+                          <p className="text-[11px] text-slate-500 mt-0.5 font-medium">
+                            Công đoạn dọn rửa chuẩn quy trình dịch vụ.
+                          </p>
+                        </div>
+                      </div>
+                    ))
                 )}
               </div>
             </div>
