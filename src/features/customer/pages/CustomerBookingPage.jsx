@@ -1074,14 +1074,14 @@ export default function CustomerBookingPage() {
                       key={pkg.id}
                       id={`package-${pkg.id}`}
                       onClick={() => handleSelectPackage(pkg)}
-                      className={`border rounded-2xl p-5 cursor-pointer transition-all flex flex-col justify-between text-left relative ${isSelected
-                        ? 'border-blue-500 bg-blue-50/10 shadow-md ring-1 ring-blue-500'
-                        : 'border-slate-200 hover:border-blue-300 hover:shadow'
+                      className={`border rounded-2xl p-5 cursor-pointer transition-all duration-200 flex flex-col justify-between h-52 text-left relative ${isSelected
+                        ? 'border-blue-500 bg-blue-50/20 shadow-md ring-2 ring-blue-500/20'
+                        : 'border-slate-200 hover:border-blue-300 hover:shadow-md bg-white'
                         }`}
                     >
                       {isSelected && (
-                        <div className="absolute top-3 right-3 text-blue-600 z-10">
-                          <CheckCircle size={18} fill="currentColor" className="text-blue-600 fill-blue-100" />
+                        <div className="absolute top-3.5 right-3.5 text-blue-600 z-10">
+                          <CheckCircle size={20} fill="currentColor" className="text-blue-600 fill-blue-100" />
                         </div>
                       )}
 
@@ -1091,31 +1091,17 @@ export default function CustomerBookingPage() {
                         </div>
                       )}
 
-                      <div className="flex-1">
-                        <h4 className="font-bold text-slate-800 text-sm mt-1">{pkg.name}</h4>
-                        <span className="text-[10px] font-semibold text-slate-400 bg-slate-100 px-2 py-0.5 rounded mt-1 inline-block">
-                          ⏰ {pkg.duration}
+                      <div>
+                        <h4 className="font-extrabold text-slate-800 text-sm mt-0.5 pr-6">{pkg.name}</h4>
+                        <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md mt-1.5 inline-block">
+                          ⏱️ {pkg.duration}
                         </span>
-
-                        {pkg.includedServices && pkg.includedServices.length > 0 ? (
-                          <div className="mt-3 pt-2.5 border-t border-slate-100 space-y-1.5 text-left">
-                            <div className="text-[11px] font-extrabold text-slate-700 mb-1 flex items-center gap-1">
-                              <Sparkles size={11} className="text-blue-500" />
-                              <span>Quy trình gồm các công đoạn:</span>
-                            </div>
-                            {pkg.includedServices.map((srv, idx) => (
-                              <div key={srv.serviceId || idx} className="flex items-center gap-1.5 text-[11px] text-slate-600 font-medium">
-                                <CheckCircle className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                                <span className="truncate">{srv.serviceName}</span>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-xs text-slate-500 mt-2.5 leading-relaxed">{pkg.description}</p>
-                        )}
+                        <p className="text-xs text-slate-500 mt-2.5 leading-relaxed line-clamp-2 font-medium">
+                          {pkg.description || 'Gói dịch vụ dọn rửa xe máy chuyên nghiệp tiêu chuẩn.'}
+                        </p>
                       </div>
 
-                      <div className="mt-3 pt-2 flex flex-col gap-2 border-t border-slate-100">
+                      <div className="pt-2 flex flex-col gap-2 border-t border-slate-100">
                         <div className="flex items-baseline justify-between">
                           <span className="font-mono text-base font-black text-blue-600">
                             {formatVnd(currentPrice)}
@@ -1133,7 +1119,7 @@ export default function CustomerBookingPage() {
                             e.stopPropagation();
                             setDetailPackageModal(pkg);
                           }}
-                          className="w-full py-1.5 px-3 bg-blue-50 hover:bg-blue-100 text-blue-700 font-extrabold text-[11px] rounded-xl border border-blue-200/80 flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-2xs hover:shadow-sm"
+                          className="w-full py-1.5 px-3 bg-blue-50/80 hover:bg-blue-100 text-blue-700 font-extrabold text-[11px] rounded-xl border border-blue-200/60 flex items-center justify-center gap-1.5 transition-all cursor-pointer hover:shadow-xs"
                         >
                           <Info size={13} className="text-blue-600 shrink-0" />
                           <span>Tìm hiểu thêm quy trình</span>
