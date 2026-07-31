@@ -57,9 +57,7 @@ export const serviceCatalogApi = {
         includedServices: item.includedServices || []
       }));
     } catch (err) {
-      console.warn('API /admin/services offline or error, using localStorage fallback:', err.message);
-      const saved = localStorage.getItem('autowash_admin_services_db');
-      if (saved) return JSON.parse(saved);
+      console.warn('API /admin/services offline or error, using full catalog fallback:', err.message);
       const srvFoamSpec = { id: 'SRV-10', serviceId: 10, serviceCode: 'SRV-FOAM-SPEC', name: 'Rửa bọt tuyết chuyên dụng', price: 10000, duration: 5, type: 'addons', serviceType: 'ADDON', desc: 'Xịt bọt tuyết làm sạch cặn bẩn toàn thân xe chuyên dụng', isActive: true };
       const srvDry = { id: 'SRV-11', serviceId: 11, serviceCode: 'SRV-DRY', name: 'Xịt khô', price: 10000, duration: 5, type: 'addons', serviceType: 'ADDON', desc: 'Xịt khô kiệt nước bằng súng hơi cao áp', isActive: true };
       const srvShine = { id: 'SRV-12', serviceId: 12, serviceCode: 'SRV-SHINE', name: 'Lau bóng', price: 10000, duration: 5, type: 'addons', serviceType: 'ADDON', desc: 'Lau bóng mặt sơn bằng khăn microfiber chuyên dụng', isActive: true };

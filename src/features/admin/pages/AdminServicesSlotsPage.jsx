@@ -146,7 +146,7 @@ const [availableSlots, setAvailableSlots] = useState([]);
         const sortedSlots = sortAndReIndexSlots(slotsData);
         setSlots(sortedSlots);
         setClosures(closuresData);
-        localStorage.setItem('autowash_admin_services_db', JSON.stringify(sortedPackages));
+        localStorage.removeItem('autowash_admin_services_db');
         localStorage.setItem('autowash_slots', JSON.stringify(sortedSlots));
       } catch (err) {
         console.error('Failed to load catalog/slots/closures from API:', err);
