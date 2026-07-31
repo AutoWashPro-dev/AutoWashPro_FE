@@ -50,8 +50,8 @@ export const serviceCatalogApi = {
         name: item.serviceName || item.name,
         price: item.price,
         duration: item.durationMinutes || item.duration || 15,
-        type: (item.serviceType === 'PACKAGE' || item.type === 'core') ? 'core' : (item.serviceType === 'SINGLE_SERVICE' ? 'single' : 'addons'),
-        serviceType: item.serviceType,
+        type: (item.serviceType === 'PACKAGE' || item.type === 'core') ? 'core' : 'addons',
+        serviceType: item.serviceType || (item.type === 'core' ? 'PACKAGE' : 'ADDON'),
         desc: item.description || item.desc || '',
         isActive: item.isActive !== undefined ? item.isActive : true,
         includedServices: item.includedServices || []
@@ -64,6 +64,14 @@ export const serviceCatalogApi = {
         { id: 'S-01', serviceId: 1, serviceCode: 'PKG-STD', name: 'Rửa xe máy tiêu chuẩn', price: 30000, duration: 15, type: 'core', serviceType: 'PACKAGE', desc: 'Rửa bọt tuyết chuyên dụng, xịt khô, lau bóng', isActive: true },
         { id: 'S-02', serviceId: 2, serviceCode: 'PKG-DELUXE', name: 'Rửa xe máy cao cấp', price: 50000, duration: 25, type: 'core', serviceType: 'PACKAGE', desc: 'Rửa bọt tuyết, tẩy nhờn lốc máy, dưỡng bóng lốp', isActive: true },
         { id: 'S-03', serviceId: 3, serviceCode: 'PKG-ULTIMATE', name: 'Rửa xe máy siêu cấp & bảo dưỡng', price: 80000, duration: 40, type: 'core', serviceType: 'PACKAGE', desc: 'Rửa chi tiết toàn diện, tẩy ố xích chíp, dưỡng nhựa nhám, tra dầu xích', isActive: true },
+        { id: 'SRV-01', serviceId: 10, serviceCode: 'SRV-FOAM', name: 'Rửa bọt tuyết chuyên dụng', price: 10000, duration: 5, type: 'addons', serviceType: 'ADDON', desc: 'Xịt bọt tuyết làm sạch cặn bẩn toàn thân xe', isActive: true },
+        { id: 'SRV-02', serviceId: 11, serviceCode: 'SRV-DRY', name: 'Xịt khô toàn thân xe', price: 10000, duration: 5, type: 'addons', serviceType: 'ADDON', desc: 'Xịt khô kiệt nước bằng súng hơi cao áp', isActive: true },
+        { id: 'SRV-03', serviceId: 12, serviceCode: 'SRV-SHINE', name: 'Lau bóng bề mặt sơn', price: 10000, duration: 5, type: 'addons', serviceType: 'ADDON', desc: 'Lau bóng mặt sơn bằng khăn microfiber chuyên dụng', isActive: true },
+        { id: 'SRV-04', serviceId: 13, serviceCode: 'SRV-DEGREASE', name: 'Tẩy nhờn lốc máy & gầm', price: 10000, duration: 5, type: 'addons', serviceType: 'ADDON', desc: 'Tẩy sạch mảng bám dầu nhờn lốc máy và gầm xe', isActive: true },
+        { id: 'SRV-05', serviceId: 14, serviceCode: 'SRV-TYRE', name: 'Dưỡng bóng lốp xe cao cấp', price: 10000, duration: 5, type: 'addons', serviceType: 'ADDON', desc: 'Quét lớp dưỡng đen bảo vệ lốp xe', isActive: true },
+        { id: 'SRV-06', serviceId: 15, serviceCode: 'SRV-CHAIN-CLEAN', name: 'Tẩy ố xích nhông đĩa', price: 15000, duration: 5, type: 'addons', serviceType: 'ADDON', desc: 'Tẩy cặn bẩn rỉ ố trên xích nhông đĩa', isActive: true },
+        { id: 'SRV-07', serviceId: 16, serviceCode: 'SRV-PLASTIC', name: 'Dưỡng nhựa nhám phục hồi màu', price: 15000, duration: 5, type: 'addons', serviceType: 'ADDON', desc: 'Phục hồi màu nhựa nhám chống bạc màu do nắng', isActive: true },
+        { id: 'SRV-08', serviceId: 17, serviceCode: 'SRV-CHAIN-LUBE', name: 'Tra dầu xích bôi trơn chuyên dụng', price: 10000, duration: 5, type: 'addons', serviceType: 'ADDON', desc: 'Tra mỡ bôi trơn chuyên dụng giúp xích vận hành êm ái', isActive: true },
         { id: 'A-01', serviceId: 4, serviceCode: 'ADD-CHAIN', name: 'Tẩy rửa và dưỡng xích (sên)', price: 20000, duration: 10, type: 'addons', serviceType: 'ADDON', desc: 'Tẩy sạch cặn bẩn xích, tra dầu bôi trơn chuyên dụng', isActive: true },
         { id: 'A-02', serviceId: 5, serviceCode: 'ADD-HELMET', name: 'Vệ sinh mũ bảo hiểm khử khuẩn', price: 15000, duration: 10, type: 'addons', serviceType: 'ADDON', desc: 'Khử mùi bọt nano, sấy khô mũ bảo hiểm', isActive: true }
       ];

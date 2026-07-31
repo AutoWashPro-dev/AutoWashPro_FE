@@ -1158,19 +1158,19 @@ const handleDeleteClosure = (closureId) => {
                   <div className="flex items-center justify-between">
                     <label className="font-extrabold text-slate-800 flex items-center gap-1 text-xs">
                       <Layers className="w-4 h-4 text-blue-600" />
-                      <span>Chọn công đoạn thành phần *</span>
+                      <span>Chọn các gói Add-on thành phần *</span>
                     </label>
                     <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-100">
-                      ⏱️ Tổng: {services.filter(s => (s.serviceType === 'SINGLE_SERVICE' || s.type === 'single') && (serviceForm.includedServiceIds || []).includes(s.serviceId || s.id)).reduce((acc, c) => acc + Number(c.durationMinutes || c.duration || 0), 0)} phút
+                      ⏱️ Tổng: {services.filter(s => s.type === 'addons').filter(s => (serviceForm.includedServiceIds || []).includes(s.serviceId || s.id)).reduce((acc, c) => acc + Number(c.durationMinutes || c.duration || 0), 0)} phút
                     </span>
                   </div>
                   <p className="text-[10px] text-slate-500 font-medium leading-relaxed">
-                    Tích chọn các công đoạn thành phần. Thời lượng gói chính sẽ <strong>tự động cộng dồn</strong> từ tổng số phút của các công đoạn được chọn.
+                    Tích chọn các dịch vụ Add-on. Thời lượng gói chính sẽ <strong>tự động cộng dồn</strong> từ tổng số phút của các dịch vụ Add-on được chọn.
                   </p>
 
-                  <div className="max-h-44 overflow-y-auto space-y-1.5 p-2 bg-slate-50 border border-slate-200 rounded-xl">
-                    {services.filter(s => s.serviceType === 'SINGLE_SERVICE' || s.type === 'single').length > 0 ? (
-                      services.filter(s => s.serviceType === 'SINGLE_SERVICE' || s.type === 'single').map((srv) => {
+                  <div className="max-h-48 overflow-y-auto space-y-1.5 p-2 bg-slate-50 border border-slate-200 rounded-xl">
+                    {services.filter(s => s.type === 'addons').length > 0 ? (
+                      services.filter(s => s.type === 'addons').map((srv) => {
                         const srvId = srv.serviceId || srv.id;
                         const isChecked = (serviceForm.includedServiceIds || []).includes(srvId);
                         return (
@@ -1184,8 +1184,8 @@ const handleDeleteClosure = (closureId) => {
                                   const next = e.target.checked
                                     ? [...current, srvId]
                                     : current.filter(id => id !== srvId);
-                                  const singleItems = services.filter(s => s.serviceType === 'SINGLE_SERVICE' || s.type === 'single');
-                                  const newDuration = singleItems.filter(s => next.includes(s.serviceId || s.id)).reduce((acc, c) => acc + Number(c.durationMinutes || c.duration || 0), 0);
+                                  const addonItems = services.filter(s => s.type === 'addons');
+                                  const newDuration = addonItems.filter(s => next.includes(s.serviceId || s.id)).reduce((acc, c) => acc + Number(c.durationMinutes || c.duration || 0), 0);
                                   setServiceForm({
                                     ...serviceForm,
                                     includedServiceIds: next,
@@ -1194,9 +1194,12 @@ const handleDeleteClosure = (closureId) => {
                                 }}
                                 className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 accent-blue-600 cursor-pointer"
                               />
-                              <span className="font-bold text-slate-800 text-xs">{srv.name || srv.serviceName}</span>
+                              <div>
+                                <span className="font-bold text-slate-800 text-xs block">{srv.name || srv.serviceName}</span>
+                                {srv.desc && <span className="text-[10px] text-slate-400 font-normal block">{srv.desc}</span>}
+                              </div>
                             </div>
-                            <span className="text-[10px] font-extrabold text-blue-700 bg-blue-100/60 px-2 py-0.5 rounded-md">
+                            <span className="text-[10px] font-extrabold text-blue-700 bg-blue-100/60 px-2 py-0.5 rounded-md shrink-0">
                               ⏱️ {srv.durationMinutes || srv.duration || 5} phút
                             </span>
                           </label>
@@ -1204,7 +1207,7 @@ const handleDeleteClosure = (closureId) => {
                       })
                     ) : (
                       <div className="text-center py-3 text-slate-400 text-[11px]">
-                        Không tìm thấy dịch vụ thành phần lẻ nào.
+                        Không tìm thấy gói Add-on nào.
                       </div>
                     )}
                   </div>
