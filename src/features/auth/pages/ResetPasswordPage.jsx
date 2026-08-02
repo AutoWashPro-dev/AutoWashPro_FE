@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { authApi } from '../services/authApi';
+import logoImg from '../../../assets/logo.png';
 import { Sparkles, Lock, Eye, EyeOff, ArrowRight, CheckCircle2, KeyRound, ShieldCheck, Droplets, ChevronLeft } from 'lucide-react';
 
 export default function ResetPasswordPage() {
@@ -85,7 +86,7 @@ export default function ResetPasswordPage() {
             <p className="mt-2 text-xs text-slate-600 leading-relaxed font-medium px-2">
               {isClaim 
                 ? 'Tài khoản của bạn đã chính thức được kích hoạt và bảo mật bằng mật khẩu mới.' 
-                : 'Mật khẩu của bạn đã được cập nhật an toàn vào hệ thống AutoWash Pro.'}
+                : 'Mật khẩu của bạn đã được cập nhật an toàn vào hệ thống NovaWash.'}
             </p>
             <p className="mt-1.5 text-xs text-blue-600 font-bold">
               Vui lòng dùng mật khẩu mới để đăng nhập.
@@ -128,8 +129,8 @@ export default function ResetPasswordPage() {
 
           {/* Compact Header */}
           <div className="flex flex-col items-center text-center mb-6">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 via-sky-500 to-indigo-600 flex items-center justify-center shadow-md shadow-blue-500/20 mb-3">
-              <KeyRound className="w-6 h-6 text-white" />
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-sky-50 to-blue-50 border border-blue-100 flex items-center justify-center shadow-md shadow-blue-500/10 mb-3 p-2">
+              <img src={logoImg} alt="NovaWash Logo" className="w-full h-full object-contain" />
             </div>
             <h2 className="text-xl font-black text-slate-900 tracking-tight">
               {isClaim ? 'Kích Hoạt Tài Khoản VIP' : 'Đặt Lại Mật Khẩu'}
@@ -234,3 +235,4 @@ export default function ResetPasswordPage() {
     </div>
   );
 }
+

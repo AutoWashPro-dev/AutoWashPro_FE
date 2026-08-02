@@ -13,6 +13,7 @@ import {
   MessageSquare
 } from 'lucide-react';
 import { customerApi } from '../features/customer/services/customerApi';
+import logoImg from '../assets/logo.png';
 
 export default function CustomerLayout() {
   const navigate = useNavigate();
@@ -149,9 +150,7 @@ export default function CustomerLayout() {
       <aside className="hidden lg:flex flex-col w-[280px] bg-white border-r border-slate-200 shrink-0 h-full">
         {/* Logo trạm */}
         <div className="p-6 border-b border-slate-100 flex items-center gap-3">
-          <div className="w-9 h-9 bg-blue-600 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-md shadow-blue-200">
-            A
-          </div>
+          <img src={logoImg} alt="NovaWash Logo" className="w-9 h-9 rounded-xl object-contain shadow-md shadow-blue-200" />
           <div>
             <h1 className="font-bold text-slate-800 text-base leading-tight">NovaWash</h1>
             <span className="text-[10px] text-slate-400 font-semibold tracking-wider uppercase">Cổng Khách Hàng</span>

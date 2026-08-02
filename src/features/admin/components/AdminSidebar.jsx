@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 
 import { hasPermission } from '../../../utils/rbac';
+import logoImg from '../../../assets/logo.png';
 
 const menuItems = [
   { to: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard, perm: 'VIEW_DASHBOARD' },
@@ -94,9 +95,7 @@ export default function AdminSidebar() {
       <aside className="w-[260px] shrink-0 bg-white border-r border-slate-200 flex flex-col h-full z-20 shadow-sm">
         {/* Logo Header */}
         <div className="px-6 py-5 border-b border-slate-100 flex items-center gap-2.5">
-          <div className="w-9 h-9 bg-[#0047AB] rounded-lg flex items-center justify-center shadow-md shadow-[#0047AB]/20">
-            <Droplets className="text-white w-5.5 h-5.5" />
-          </div>
+          <img src={logoImg} alt="NovaWash Logo" className="w-9 h-9 rounded-lg object-contain shadow-md" />
           <div className="flex flex-col">
             <span className="text-[#181c1e] font-bold text-sm tracking-wide leading-tight">NovaWash</span>
             <span className="text-[#848a9c] text-[10px] font-bold tracking-wider uppercase mt-0.5">Enterprise Admin</span>

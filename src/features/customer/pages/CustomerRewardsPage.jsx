@@ -266,7 +266,7 @@ export default function CustomerRewardsPage() {
                 {profile.tierName || 'MEMBER'}
               </span>
             </h2>
-            <p className="text-xs text-slate-400 font-medium">Hội viên chương trình chăm sóc xe AutoWash Pro</p>
+            <p className="text-xs text-slate-400 font-medium">Hội viên chương trình chăm sóc xe NovaWash</p>
           </div>
         </div>
 
@@ -292,33 +292,36 @@ export default function CustomerRewardsPage() {
       </div>
 
       {/* CHUYỂN ĐỔI TAB */}
-      <div className="flex bg-slate-100 p-1.5 rounded-2xl max-w-lg overflow-x-auto no-scrollbar">
+      <div className="flex bg-slate-100/90 p-1.5 rounded-2xl w-full max-w-2xl border border-slate-200/60 overflow-x-auto no-scrollbar">
         <button
           onClick={() => setActiveTab('shop')}
-          className={`flex-1 flex items-center justify-center gap-2.5 py-3.5 px-4 font-black text-xs rounded-xl transition-all uppercase cursor-pointer whitespace-nowrap ${activeTab === 'shop'
+          className={`flex-1 flex items-center justify-center gap-2 py-3 px-3.5 font-extrabold text-xs rounded-xl transition-all uppercase cursor-pointer whitespace-nowrap ${activeTab === 'shop'
             ? 'bg-white text-indigo-700 shadow-md shadow-indigo-500/5'
             : 'text-slate-500 hover:text-slate-800'
             }`}
         >
-          <Gift size={15} /> Cửa hàng đổi điểm (Shop Pts)
+          <Gift size={16} className="shrink-0 text-indigo-600" />
+          <span>Cửa hàng đổi điểm (Shop Pts)</span>
         </button>
         <button
           onClick={() => setActiveTab('wallet')}
-          className={`flex-1 flex items-center justify-center gap-2.5 py-3.5 px-4 font-black text-xs rounded-xl transition-all uppercase cursor-pointer whitespace-nowrap ${activeTab === 'wallet'
+          className={`flex-1 flex items-center justify-center gap-2 py-3 px-3.5 font-extrabold text-xs rounded-xl transition-all uppercase cursor-pointer whitespace-nowrap ${activeTab === 'wallet'
             ? 'bg-white text-indigo-700 shadow-md shadow-indigo-500/5'
             : 'text-slate-500 hover:text-slate-800'
             }`}
         >
-          <Wallet size={15} /> Ví của tôi ({myVouchers.filter(v => !v.isExpired).length})
+          <Wallet size={16} className="shrink-0 text-indigo-600" />
+          <span>Ví của tôi ({myVouchers.filter(v => !v.isExpired).length})</span>
         </button>
         <button
           onClick={() => setActiveTab('history')}
-          className={`flex-1 flex items-center justify-center gap-2.5 py-3.5 px-4 font-black text-xs rounded-xl transition-all uppercase cursor-pointer whitespace-nowrap ${activeTab === 'history'
+          className={`flex-1 flex items-center justify-center gap-2 py-3 px-3.5 font-extrabold text-xs rounded-xl transition-all uppercase cursor-pointer whitespace-nowrap ${activeTab === 'history'
             ? 'bg-white text-indigo-700 shadow-md shadow-indigo-500/5'
             : 'text-slate-500 hover:text-slate-800'
             }`}
         >
-          <Clock size={15} /> Lịch sử điểm ({pointHistory.length})
+          <Clock size={16} className="shrink-0 text-indigo-600" />
+          <span>Lịch sử điểm ({pointHistory.length})</span>
         </button>
       </div>
 
@@ -805,3 +808,4 @@ export default function CustomerRewardsPage() {
     );
   }
 }
+

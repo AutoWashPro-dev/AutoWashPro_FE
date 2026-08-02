@@ -18,10 +18,10 @@ export default function VIPCard({ customer }) {
   return (
     <div className={`rounded-2xl p-6 border shadow-lg relative overflow-hidden ${getTierStyles(customer.tier?.tierName)}`}>
       <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-white/5 rounded-full blur-xl pointer-events-none"></div>
-      
+
       <div className="flex justify-between items-start mb-8">
         <div>
-          <span className="text-xs uppercase tracking-widest opacity-75">Thẻ VIP Thành Viên</span>
+          <span className="text-xs uppercase tracking-widest opacity-75">Thẻ Thành Viên</span>
           <h3 className="text-xl font-bold font-mono tracking-wider mt-1">{customer.fullName?.toUpperCase()}</h3>
         </div>
         <span className="px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-xs font-bold uppercase tracking-wider border border-white/10">

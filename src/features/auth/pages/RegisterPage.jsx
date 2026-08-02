@@ -1,21 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { authApi } from '../services/authApi';
-import { 
-  Sparkles, 
-  User, 
-  Phone, 
-  Mail, 
-  Lock, 
-  Eye, 
-  EyeOff, 
-  ArrowRight, 
-  CheckCircle2, 
-  MailCheck, 
+import logoImg from '../../../assets/logo.png';
+import {
+  Sparkles,
+  User,
+  Phone,
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+  ArrowRight,
+  CheckCircle2,
+  MailCheck,
   ExternalLink,
   ShieldCheck,
   Droplets,
   ChevronLeft,
+  ChevronRight,
   RefreshCw
 } from 'lucide-react';
 import { cleanPhoneNumber, validatePhoneNumber, validateGmail } from '../../../utils/validationUtils';
@@ -137,7 +139,7 @@ export default function RegisterPage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-sky-50 via-blue-50/70 to-indigo-100/50 flex items-center justify-center p-4 sm:p-6 selection:bg-blue-600 selection:text-white relative overflow-hidden font-sans text-slate-800">
         <div className="absolute top-1/3 left-1/2 w-80 h-80 bg-emerald-400/20 rounded-full blur-3xl pointer-events-none -translate-x-1/2 -translate-y-1/2 animate-pulse" />
-        
+
         <div className="w-full max-w-md relative z-10">
           <div className="bg-white/95 backdrop-blur-2xl py-8 px-6 sm:px-8 shadow-2xl shadow-blue-900/10 rounded-3xl border border-white text-center relative overflow-hidden">
             <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-emerald-400 via-teal-500 to-sky-500" />
@@ -145,17 +147,17 @@ export default function RegisterPage() {
             <div className="w-14 h-14 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-sm">
               <MailCheck className="w-8 h-8 text-emerald-600 animate-bounce" />
             </div>
-            
+
             <h3 className="text-xl font-black text-slate-900 tracking-tight">
               Đăng Ký Thành Công!
             </h3>
             <p className="text-xs text-slate-500 mt-1">
-              Tài khoản Khách hàng VIP đã sẵn sàng kích hoạt
+              Tài khoản của bạn đã sẵn sàng kích hoạt
             </p>
-            
+
             <div className="mt-4 p-4 rounded-2xl bg-slate-50 border border-slate-200/80 text-xs text-slate-700 leading-relaxed text-left font-medium space-y-2">
               <p>
-                Chào mừng <strong className="text-blue-600 font-bold">{formData.fullName}</strong> đến với AutoWash Pro.
+                Chào mừng <strong className="text-blue-600 font-bold">{formData.fullName}</strong> đến với NovaWash.
               </p>
               <p>
                 Vui lòng kiểm tra hộp thư email (và mục Thư rác/Spam) để kích hoạt tài khoản:
@@ -176,11 +178,10 @@ export default function RegisterPage() {
                 type="button"
                 disabled={resendCountdown > 0}
                 onClick={handleResendEmail}
-                className={`w-full py-2.5 px-4 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${
-                  resendCountdown > 0
-                    ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
-                    : 'bg-white hover:bg-slate-50 text-blue-650 border border-slate-200 shadow-sm cursor-pointer'
-                }`}
+                className={`w-full py-2.5 px-4 rounded-xl text-xs font-black transition-all flex items-center justify-center gap-1.5 ${resendCountdown > 0
+                  ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed'
+                  : 'bg-white hover:bg-slate-50 text-blue-650 border border-slate-200 shadow-sm cursor-pointer'
+                  }`}
               >
                 <RefreshCw className={`w-3.5 h-3.5 ${resendCountdown > 0 ? '' : 'animate-spin'}`} style={{ animationDuration: '3s' }} />
                 <span>{resendCountdown > 0 ? `Gửi lại email sau (${resendCountdown}s)` : 'Gửi lại email xác nhận'}</span>
@@ -190,7 +191,7 @@ export default function RegisterPage() {
                 to="/login"
                 className="w-full py-3 px-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-extrabold shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer mt-2"
               >
-                <span>Đã Xác Thực Email? Đăng Nhập Ngay</span>
+                <span>Đã xác thực email? Đăng nhập ngay!</span>
                 <ChevronRight className="w-4 h-4" />
               </Link>
             </div>
@@ -201,7 +202,7 @@ export default function RegisterPage() {
                 className="inline-flex items-center gap-1.5 font-extrabold text-xs text-blue-600 hover:text-indigo-600 transition"
               >
                 <ChevronLeft className="w-4 h-4" />
-                <span>Quay lại Cổng Đăng Nhập</span>
+                <span>Quay lại cổng đăng nhập</span>
               </Link>
             </div>
           </div>
@@ -212,27 +213,27 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-sky-50 via-blue-50/70 to-indigo-100/50 flex items-center justify-center p-4 sm:p-6 selection:bg-blue-600 selection:text-white relative overflow-hidden font-sans text-slate-800">
-      
+
       {/* Ambient water bubbles */}
       <div className="absolute top-10 right-10 w-80 h-80 bg-sky-300/30 rounded-full blur-3xl pointer-events-none animate-pulse" style={{ animationDuration: '7s' }} />
       <div className="absolute bottom-10 left-10 w-96 h-96 bg-blue-400/20 rounded-full blur-3xl pointer-events-none" />
-      
+
       {/* Decorative floating droplets */}
       <div className="absolute top-12 left-1/3 text-sky-400/30 pointer-events-none animate-bounce" style={{ animationDuration: '5s' }}>
         <Droplets className="w-10 h-10" />
       </div>
 
       <div className="w-full max-w-xl mx-auto relative z-10 py-4">
-        
+
         <div className="bg-white/95 backdrop-blur-2xl p-6 sm:p-8 shadow-2xl shadow-blue-900/10 rounded-3xl border border-white relative overflow-hidden">
-          
+
           {/* Top Accent Bar */}
           <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-sky-400 via-blue-600 to-indigo-600" />
 
           {/* Compact Header */}
           <div className="flex flex-col items-center text-center mb-6">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 via-sky-500 to-indigo-600 flex items-center justify-center shadow-md shadow-blue-500/20 mb-3">
-              <Sparkles className="w-6 h-6 text-white animate-spin" style={{ animationDuration: '10s' }} />
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-sky-50 to-blue-50 border border-blue-100 flex items-center justify-center shadow-md shadow-blue-500/10 mb-3 p-2">
+              <img src={logoImg} alt="NovaWash Logo" className="w-full h-full object-contain" />
             </div>
             <h2 className="text-xl font-black text-slate-900 tracking-tight">
               Đăng Ký Thành Viên VIP
@@ -397,7 +398,10 @@ export default function RegisterPage() {
                 </div>
               </div>
             </div>
-
+            <div className="mt-3 flex items-center justify-center gap-1 text-[10px] font-semibold text-slate-500">
+              <input type="checkbox" className="w-3.5 h-3.5 text-emerald-500" />
+              <span>Đã đọc & đồng ý với <Link to="/register" className="text-blue-600 hover:text-indigo-600 transition underline">Điều khoản & Bảo mật</Link></span>
+            </div>
             <div className="pt-2">
               <button
                 type="submit"
@@ -419,7 +423,7 @@ export default function RegisterPage() {
           {/* Clean Footer / Login Link */}
           <div className="mt-5 pt-4 border-t border-slate-100 text-center">
             <p className="text-xs font-medium text-slate-600">
-              Bạn đã có tài khoản Khách hàng hoặc Quản trị?{' '}
+              Bạn đã có tài khoản?{' '}
               <Link to="/login" className="font-extrabold text-blue-600 hover:text-indigo-600 transition inline-flex items-center gap-0.5 ml-0.5">
                 <span>Đăng nhập ngay</span>
               </Link>
@@ -427,10 +431,7 @@ export default function RegisterPage() {
           </div>
 
           {/* Compact Security Trust badge */}
-          <div className="mt-3 flex items-center justify-center gap-1 text-[10px] font-semibold text-slate-400">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-            <span>Bảo mật dữ liệu 256-bit Encryption Chuẩn SSL</span>
-          </div>
+
 
         </div>
       </div>

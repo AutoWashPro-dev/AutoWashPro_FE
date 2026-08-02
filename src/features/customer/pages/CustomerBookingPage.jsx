@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Calendar as CalendarIcon,
@@ -1150,7 +1150,7 @@ export default function CustomerBookingPage() {
             <section className="bg-white border border-slate-150 rounded-2xl p-6 shadow-sm space-y-4">
               <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wider flex items-center gap-2">
                 <span className="w-6 h-6 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold">3</span>
-                Tiện ích cộng thêm (Add-ons)
+                Tiện ích cộng thêm
               </h3>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1306,7 +1306,7 @@ export default function CustomerBookingPage() {
                 </div>
 
                 <div className="flex justify-between items-start">
-                  <span className="text-slate-400 font-medium">Tiện ích kèm:</span>
+                  <span className="text-slate-400 font-medium">Tiện ích cộng thêm:</span>
                   <span className="text-slate-800 font-bold text-right">
                     {selectedAddons.length > 0
                       ? selectedAddons.map(id => addonServices.find(a => a.id === id)?.name).join(', ')
@@ -1315,7 +1315,7 @@ export default function CustomerBookingPage() {
                 </div>
 
                 <div className="flex justify-between items-start">
-                  <span className="text-slate-400 font-medium">Lịch hẹn dọn:</span>
+                  <span className="text-slate-400 font-medium">Lịch hẹn:</span>
                   <span className="text-slate-800 font-bold text-right">
                     {selectedDate && selectedTime ? `${selectedTime} ngày ${selectedDate}` : 'Chưa chọn'}
                   </span>
@@ -1395,7 +1395,7 @@ export default function CustomerBookingPage() {
                           {/* Popover Custom Dropdown Panel */}
                           {isVoucherDropdownOpen && (
                             <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-2xl z-40 max-h-80 overflow-y-auto divide-y divide-slate-100 text-xs animate-in fade-in zoom-in-95 duration-150">
-                              
+
                               <button
                                 type="button"
                                 onClick={() => { setSelectedVoucher(null); setIsVoucherDropdownOpen(false); }}
@@ -1417,7 +1417,7 @@ export default function CustomerBookingPage() {
                                     const isBest = idx === 0;
                                     const isSelected = selectedVoucher?.voucherCode === v.voucherCode;
                                     const title = v.title || v.name || v.voucherCode;
-                                    
+
                                     let discountText = '';
                                     if (v.discountType === 'FREE_SERVICE' || v.discountType === 'free_wash') {
                                       discountText = 'Miễn phí rửa xe';
@@ -1440,9 +1440,8 @@ export default function CustomerBookingPage() {
                                         key={v.voucherCode}
                                         type="button"
                                         onClick={() => { setSelectedVoucher(v); setIsVoucherDropdownOpen(false); }}
-                                        className={`w-full px-3.5 py-2.5 text-left rounded-lg transition-all flex items-center justify-between gap-2 cursor-pointer ${
-                                          isSelected ? 'bg-blue-50 border border-blue-200' : 'hover:bg-slate-50'
-                                        }`}
+                                        className={`w-full px-3.5 py-2.5 text-left rounded-lg transition-all flex items-center justify-between gap-2 cursor-pointer ${isSelected ? 'bg-blue-50 border border-blue-200' : 'hover:bg-slate-50'
+                                          }`}
                                       >
                                         <div className="flex items-center gap-1.5 min-w-0">
                                           {/* Chữ [Tốt nhất] in đậm và màu vàng */}
@@ -1735,7 +1734,7 @@ export default function CustomerBookingPage() {
               <div className="flex items-start gap-2 rounded-xl border border-blue-100 bg-blue-50/50 p-3 text-[10px] leading-relaxed text-slate-500">
                 <AlertCircle size={14} className="mt-0.5 shrink-0 text-blue-500" />
                 <span>
-                  * Dịch vụ dọn rửa xe được đồng giá cho mọi dòng xe số, xe ga và PKL. Biển số xe sẽ được ghi nhận vào phiếu check-in đối soát.
+                  * Dịch vụ dọn rửa xe được đồng giá cho mọi dòng xe số, xe ga và PKL. Biển số xe sẽ được ghi nhận vào phiếu check-in.
                 </span>
               </div>
 
@@ -2018,7 +2017,7 @@ export default function CustomerBookingPage() {
               <div className="flex justify-between items-start py-1.5 border-b border-dashed border-slate-100">
                 <span className="text-slate-400 font-medium shrink-0">Địa điểm / Chi nhánh:</span>
                 <span className="text-slate-800 font-bold text-right">
-                  AutoWash Pro - Trạm Dịch Vụ Thông Minh
+                  NovaWash - Trạm Dịch Vụ Thông Minh
                 </span>
               </div>
 
@@ -2233,3 +2232,4 @@ export default function CustomerBookingPage() {
     </div>
   );
 }
+

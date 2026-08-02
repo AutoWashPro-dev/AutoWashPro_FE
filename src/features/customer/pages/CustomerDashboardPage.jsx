@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Calendar, 
@@ -301,7 +301,7 @@ export default function CustomerDashboardPage() {
                   <p className="text-xs text-slate-650 flex flex-wrap items-center gap-3 pt-1">
                     <span className="flex items-center gap-1 font-medium"><Calendar size={12} /> {upcomingBooking.slotDate}</span>
                     <span className="flex items-center gap-1 font-medium"><Clock size={12} /> {upcomingBooking.slotTime} (GMT+7)</span>
-                    <span className="flex items-center gap-1 font-medium"><MapPin size={12} /> AutoWash Pro</span>
+                    <span className="flex items-center gap-1 font-medium"><MapPin size={12} /> NovaWash</span>
                   </p>
                 </div>
                 
@@ -460,3 +460,4 @@ export default function CustomerDashboardPage() {
     </div>
   );
 }
+

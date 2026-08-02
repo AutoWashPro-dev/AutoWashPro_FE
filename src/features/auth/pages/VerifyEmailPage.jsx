@@ -1,12 +1,14 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { authApi } from '../services/authApi';
+import logoImg from '../../../assets/logo.png';
 import { CheckCircle2, XCircle, Loader2, ArrowRight, ShieldCheck, Sparkles, Droplets } from 'lucide-react';
 
 export default function VerifyEmailPage() {
   const location = useLocation();
   const navigate = useNavigate();
   const [status, setStatus] = useState('VERIFYING'); // VERIFYING, SUCCESS, ERROR
+  const [message, setMessage] = useState('');
   const [countdown, setCountdown] = useState(3);
   const calledRef = useRef(false);
 
@@ -68,7 +70,7 @@ export default function VerifyEmailPage() {
       <div className="absolute top-12 left-1/3 text-sky-400/30 pointer-events-none animate-bounce" style={{ animationDuration: '5s' }}>
         <Droplets className="w-10 h-10" />
       </div>
-      
+
       <div className="w-full max-w-md relative z-10 py-4">
         <div className="bg-white/95 backdrop-blur-2xl py-8 px-6 sm:px-8 shadow-2xl shadow-blue-900/10 rounded-3xl border border-white text-center relative overflow-hidden">
           <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-sky-400 via-blue-600 to-indigo-600" />
@@ -77,10 +79,10 @@ export default function VerifyEmailPage() {
             <div className="py-6">
               <Loader2 className="w-12 h-12 text-blue-600 animate-spin mx-auto mb-4" />
               <h3 className="text-xl font-black text-slate-900 tracking-tight">
-                Đang Xác Thực...
+                Đang xác thực...
               </h3>
               <p className="mt-2 text-xs text-slate-500 font-medium px-4">
-                Vui lòng đợi giây lát, hệ thống đang kích hoạt tài khoản VIP của bạn.
+                Vui lòng đợi giây lát, hệ thống đang kích hoạt tài khoản của bạn.
               </p>
             </div>
           )}
@@ -90,15 +92,15 @@ export default function VerifyEmailPage() {
               <div className="w-14 h-14 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-sm animate-bounce">
                 <CheckCircle2 className="w-8 h-8 text-emerald-600" />
               </div>
-              
+
               <h3 className="text-xl font-black text-slate-900 tracking-tight">
-                Xác Thực Mail Thành Công! 🎉
+                XÁC THỰC THÀNH CÔNG!
               </h3>
-              
-              <p className="mt-2 text-xs text-slate-600 px-2 leading-relaxed font-medium">
+
+              <p className="mt-2 text-[10.8px] text-slate-600 px-2 leading-relaxed font-medium">
                 {message}
               </p>
-              
+
               <div className="mt-3">
                 <span className="text-[11px] text-blue-600 font-bold bg-blue-50 py-1.5 px-3 rounded-lg border border-blue-100 inline-block">
                   Tự động chuyển qua trang đăng nhập sau <strong className="text-blue-700 font-black">{countdown}s</strong>...
@@ -123,12 +125,12 @@ export default function VerifyEmailPage() {
               <div className="w-14 h-14 bg-red-50 border border-red-200 rounded-2xl flex items-center justify-center mx-auto mb-5 shadow-sm">
                 <XCircle className="w-8 h-8 text-red-600" />
               </div>
-              
+
               <h3 className="text-xl font-black text-slate-900 tracking-tight">
-                Xác Thực Thất Bại
+                XÁC THỰC THẤT BẠI!
               </h3>
-              
-              <p className="mt-2 text-xs text-red-600 px-2 font-medium">
+
+              <p className="mt-2 text-[10.9px] text-red-600 px-2 font-medium">
                 {message}
               </p>
 
@@ -138,7 +140,7 @@ export default function VerifyEmailPage() {
                   onClick={() => navigate('/login')}
                   className="w-full flex justify-center items-center gap-2 py-3.5 px-4 rounded-xl shadow-md text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 transition"
                 >
-                  <span>Đến Trang Đăng Nhập</span>
+                  <span>Đến trang đăng nhập</span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
               </div>

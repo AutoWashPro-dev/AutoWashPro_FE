@@ -33,8 +33,8 @@ export default function TierProgressBar() {
     );
   }
 
-  const tierSpending = profileData?.tierSpending !== undefined && profileData?.tierSpending !== null 
-    ? profileData.tierSpending 
+  const tierSpending = profileData?.tierSpending !== undefined && profileData?.tierSpending !== null
+    ? profileData.tierSpending
     : (profileData?.totalSpending || 0);
   const tierName = profileData?.tierName || 'MEMBER';
   const progressPercentage = profileData?.progressPercentage || 0;
@@ -52,7 +52,7 @@ export default function TierProgressBar() {
     <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm">
       <div className="flex justify-between items-center mb-2">
         <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-          Tiến trình xét hạng VIP ({tierName})
+          Tiến trình ({tierName})
         </span>
         {!isPlatinum && nextTierName && (
           <span className="text-xs text-slate-500 font-medium">
@@ -63,8 +63,8 @@ export default function TierProgressBar() {
 
       {/* Thanh Progress Bar */}
       <div className="w-full bg-slate-100 rounded-full h-3.5 relative overflow-hidden mb-3">
-        <div 
-          className="bg-gradient-to-r from-blue-500 to-indigo-600 h-3.5 rounded-full transition-all duration-500" 
+        <div
+          className="bg-gradient-to-r from-blue-500 to-indigo-600 h-3.5 rounded-full transition-all duration-500"
           style={{ width: `${progressPercentage}%` }}
         ></div>
       </div>

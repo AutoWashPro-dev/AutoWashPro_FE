@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { authApi } from '../services/authApi';
-import { 
-  Sparkles, 
-  User, 
-  Lock, 
-  Eye, 
-  EyeOff, 
-  ArrowRight, 
-  ShieldCheck, 
-  Car, 
+import logoImg from '../../../assets/logo.png';
+import {
+  Sparkles,
+  User,
+  Lock,
+  Eye,
+  EyeOff,
+  ArrowRight,
+  ShieldCheck,
+  Car,
   CheckCircle2,
   ChevronRight,
   Droplets,
@@ -31,7 +32,7 @@ export default function LoginPage() {
   const handleLogin = async (e) => {
     e.preventDefault();
     setError('');
-    
+
     if (!loginId.trim() || !password) {
       setError('Vui lòng nhập đầy đủ thông tin tài khoản và mật khẩu.');
       return;
@@ -40,7 +41,7 @@ export default function LoginPage() {
     setIsLoading(true);
     try {
       const res = await authApi.login({ loginId: loginId.trim(), password });
-      
+
       // Store in sessionStorage to isolate tab sessions
       sessionStorage.setItem('autowash_token', res.accessToken);
       sessionStorage.setItem('autowash_user', JSON.stringify(res.user || res));
@@ -58,7 +59,7 @@ export default function LoginPage() {
       if (res.roles || res.user?.roles) {
         localStorage.setItem('user_roles', JSON.stringify(res.roles || res.user?.roles));
       }
-      
+
       if (res.redirectUrl) {
         navigate(res.redirectUrl, { replace: true });
       } else {
@@ -79,11 +80,11 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-sky-50 via-blue-50/70 to-indigo-100/50 flex items-center justify-center p-4 sm:p-6 lg:p-8 selection:bg-blue-600 selection:text-white relative overflow-hidden font-sans text-slate-800">
-      
+
       {/* Bright, sparkling ambient water bubbles */}
       <div className="absolute top-10 left-10 w-80 h-80 bg-sky-300/30 rounded-full blur-3xl pointer-events-none animate-pulse" style={{ animationDuration: '7s' }} />
       <div className="absolute bottom-10 right-10 w-96 h-96 bg-blue-400/20 rounded-full blur-3xl pointer-events-none" />
-      
+
       {/* Decorative floating icons */}
       <div className="absolute top-12 left-1/4 text-sky-400/30 pointer-events-none animate-bounce" style={{ animationDuration: '5s' }}>
         <Droplets className="w-10 h-10" />
@@ -94,11 +95,15 @@ export default function LoginPage() {
 
       {/* Main Content Container - Compact & Perfectly Balanced */}
       <div className="w-full max-w-6xl mx-auto flex flex-col lg:flex-row items-center justify-between gap-8 lg:gap-12 relative z-10 py-4">
-        
+
         {/* Left Section: Bright & Sparkling Overview (60%) */}
         <div className="w-full lg:w-7/12 flex flex-col justify-center space-y-5">
-          
+
           {/* Top Badge */}
+          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/80 backdrop-blur border border-blue-100 shadow-sm w-fit mb-1">
+            <img src={logoImg} alt="NovaWash Logo" className="w-6 h-6 object-contain" />
+            <span className="text-xs font-bold text-blue-700">NovaWash VIP Care</span>
+          </div>
 
           {/* Heading */}
           <div className="space-y-2.5">
@@ -109,8 +114,8 @@ export default function LoginPage() {
                 <Sparkles className="w-8 h-8 text-sky-500 inline animate-spin" style={{ animationDuration: '10s' }} />
               </span>
             </h1>
-            <p className="text-slate-600 text-sm sm:text-base max-w-lg font-normal leading-relaxed">
-              Chào mừng đến với <strong className="text-blue-700 font-bold">NovaWash</strong>! Cổng truy cập hợp nhất giúp Khách hàng đặt lịch chăm sóc xe và Quản lý điều hành xưởng chuyên nghiệp.
+            <p className="text-slate-600 text-xsm sm:text-base max-w-lg font-normal leading-relaxed">
+              Chào mừng đến với <strong className="text-blue-700 font-bold">NovaWash</strong> - Nơi giúp bạn đặt lịch chăm sóc xe vô cùng tiện lợi!
             </p>
           </div>
 
@@ -129,7 +134,7 @@ export default function LoginPage() {
             </div>
             <div className="flex items-center gap-1.5">
               <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>Bảo hành sáng bóng</span>
+              <span>Bảo dưỡng chuyên nghiệp</span>
             </div>
           </div>
 
@@ -138,14 +143,14 @@ export default function LoginPage() {
         {/* Right Section: Compact & Balanced Login Card (40%) */}
         <div className="w-full lg:w-5/12 max-w-md">
           <div className="bg-white/95 backdrop-blur-2xl p-6 sm:p-8 shadow-2xl shadow-blue-900/10 rounded-3xl border border-white relative overflow-hidden">
-            
+
             {/* Top Aqua-Blue Gloss Accent Bar */}
             <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-sky-400 via-blue-600 to-indigo-600" />
 
             {/* Compact Header */}
             <div className="flex flex-col items-center text-center mb-6">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 via-sky-500 to-indigo-600 flex items-center justify-center shadow-md shadow-blue-500/20 mb-3">
-                <Droplets className="w-6 h-6 text-white" />
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-sky-50 to-blue-50 border border-blue-100 flex items-center justify-center shadow-md shadow-blue-500/10 mb-3 p-2">
+                <img src={logoImg} alt="NovaWash Logo" className="w-full h-full object-contain" />
               </div>
               <h2 className="text-xl font-black text-slate-900 tracking-tight">
                 Đăng Nhập Tài Khoản
@@ -231,7 +236,7 @@ export default function LoginPage() {
                   className="h-3.5 w-3.5 rounded border-slate-300 text-blue-600 focus:ring-blue-600 cursor-pointer"
                 />
                 <label htmlFor="remember-me" className="ml-2 block text-xs font-medium text-slate-600 cursor-pointer select-none">
-                  Ghi nhớ đăng nhập trên máy này
+                  Ghi nhớ đăng nhập
                 </label>
               </div>
 
@@ -264,11 +269,10 @@ export default function LoginPage() {
               </p>
             </div>
 
-            {/* Compact Security Trust badge */}
             <div className="mt-4 flex items-center justify-center gap-1 text-[10px] font-semibold text-slate-400">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" />
-              <span>Bảo mật 256-bit Encryption Chuẩn SSL</span>
+              <Link to="/terms" className="text-blue-600 hover:text-indigo-600 transition inline-flex items-center gap-0.5 ml-0.5"><span>Điều khoản & Chính sách</span></Link>
             </div>
+
 
           </div>
         </div>

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { authApi } from '../services/authApi';
+import logoImg from '../../../assets/logo.png';
 import { Sparkles, Mail, ArrowRight, CheckCircle2, ShieldCheck, ChevronLeft, KeyRound, Droplets } from 'lucide-react';
 import { validateGmail } from '../../../utils/validationUtils';
 
@@ -111,8 +112,8 @@ export default function ForgotPasswordPage() {
 
           {/* Compact Header */}
           <div className="flex flex-col items-center text-center mb-6">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-600 via-sky-500 to-indigo-600 flex items-center justify-center shadow-md shadow-blue-500/20 mb-3">
-              <KeyRound className="w-6 h-6 text-white" />
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-sky-50 to-blue-50 border border-blue-100 flex items-center justify-center shadow-md shadow-blue-500/10 mb-3 p-2">
+              <img src={logoImg} alt="NovaWash Logo" className="w-full h-full object-contain" />
             </div>
             <h2 className="text-xl font-black text-slate-900 tracking-tight">
               Quên Mật Khẩu?
