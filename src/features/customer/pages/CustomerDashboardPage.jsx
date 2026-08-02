@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Calendar, 
@@ -279,7 +279,7 @@ export default function CustomerDashboardPage() {
                 onClick={() => navigate('/customer/book')} 
                 className="text-xs text-blue-600 hover:text-blue-800 font-bold flex items-center cursor-pointer"
               >
-                Xem chi tiết <ChevronRight size={14} />
+                <span>Đặt lịch ngay</span> <ChevronRight size={14} />
               </button>
             </div>
 
@@ -320,9 +320,21 @@ export default function CustomerDashboardPage() {
                 </div>
               </div>
             ) : (
-              <div className="text-center py-12 text-slate-400 text-xs bg-slate-50/50 rounded-xl border border-dashed border-slate-200 flex flex-col items-center justify-center gap-2">
-                <Calendar size={20} className="text-slate-350" />
-                <span>Bạn chưa có lịch hẹn dọn rửa nào sắp tới.</span>
+              <div className="text-center py-10 text-slate-500 text-xs bg-slate-50/50 rounded-xl border border-dashed border-slate-200 flex flex-col items-center justify-center gap-3 animate-fade-in">
+                <div className="w-10 h-10 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shadow-sm">
+                  <Calendar size={20} />
+                </div>
+                <div className="space-y-1">
+                  <p className="font-extrabold text-slate-700 text-xs">Bạn chưa có lịch hẹn dọn rửa nào sắp tới.</p>
+                  <p className="text-[11px] text-slate-400 font-medium">Hãy đặt lịch dọn rửa xe ngay để chăm sóc xế cưng của bạn tại NovaWash!</p>
+                </div>
+                <button
+                  onClick={() => navigate('/customer/book')}
+                  className="mt-1 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/15 hover:shadow-lg transition-all flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Calendar size={14} />
+                  <span>Đặt lịch ngay</span>
+                </button>
               </div>
             )}
           </div>
