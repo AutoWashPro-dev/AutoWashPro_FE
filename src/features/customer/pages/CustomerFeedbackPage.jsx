@@ -33,13 +33,14 @@ export default function CustomerFeedbackPage() {
   const fetchCompletedBookings = async () => {
     setIsBookingsLoading(true);
     try {
-      // 1. Fetch completed & paid bookings from API
-      const bookingsData = await customerApi.getMyBookings({ status: 'COMPLETED', paymentStatus: 'PAID' });
+      // 1. Fetch all bookings from API (same as CustomerBookingPage.jsx)
+      const bookingsData = await customerApi.getMyBookings();
 
-      // Strict client-side safety filtering to guarantee only successfully paid completed orders are returned
-      const eligible = bookingsData.filter(
-        booking => booking.status === 'COMPLETED' && (booking.paymentStatus === 'PAID' || booking.isPaid === true)
-      );
+      // Client-side safety filtering for completed orders
+      const eligible = bookingsData.filter(b => {
+        const rawStatus = String(b.status || b.rawStatus || '').toUpperCase();
+        return rawStatus === 'COMPLETED' || rawStatus === 'FINISHED' || rawStatus === 'PAID';
+      });
 
       // 2. Fetch existing feedbacks to perform unreviewed filtering
       const feedbacksData = await customerApi.getMyFeedbacks();
@@ -77,13 +78,23 @@ export default function CustomerFeedbackPage() {
 
         const totalAmount = Number(b.finalAmount != null ? b.finalAmount : (b.totalAmount != null ? b.totalAmount : (b.finalPrice != null ? b.finalPrice : (b.price != null ? b.price : (b.amount != null ? b.amount : 0)))));
 
+        const dateStr = String(b.bookingDate || b.date || 'N/A');
+        const timeStr = b.startTime ? b.startTime.substring(0, 5) : (b.time || '');
+        const formattedDateTime = timeStr ? `${dateStr} vào ${timeStr}` : dateStr;
+
+        const plateStr = b.licensePlate || (b.vehicle ? (b.vehicle.licensePlate || b.vehicle.plate) : 'N/A');
+        const modelStr = b.model || (b.vehicle ? b.vehicle.model : '');
+        const vehicleDisplayStr = modelStr ? `${modelStr} (${plateStr})` : plateStr;
+
         return {
           bookingId: b.bookingId || b.id,
           bookingCode: b.bookingCode,
-          date: b.bookingDate || b.date || 'N/A',
-          time: b.startTime ? b.startTime.substring(0, 5) : (b.time || ''),
-          licensePlate: b.licensePlate || (b.vehicle ? (b.vehicle.licensePlate || b.vehicle.plate) : 'N/A'),
-          vehicleModel: b.model || (b.vehicle ? b.vehicle.model : ''),
+          date: dateStr,
+          time: timeStr,
+          dateTimeDisplay: formattedDateTime,
+          licensePlate: plateStr,
+          vehicleModel: modelStr,
+          vehicleDisplay: vehicleDisplayStr,
           mainServiceName: mainName,
           serviceName: fullServiceName,
           addonList: addonList,
@@ -367,11 +378,11 @@ export default function CustomerFeedbackPage() {
                         <div className="space-y-1 text-[11px] text-slate-600 font-medium">
                           <div className="flex items-center gap-1.5">
                             <Car className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                            <span>Xe: <strong className="text-slate-800 font-bold">{b.licensePlate}</strong></span>
+                            <span>Xe: <strong className="text-slate-800 font-bold">{b.vehicleDisplay || b.licensePlate}</strong></span>
                           </div>
                           <div className="flex items-center gap-1.5">
                             <Calendar className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                            <span>Ngày rửa: <span className="text-slate-700">{b.date}</span></span>
+                            <span>Ngày rửa: <span className="text-slate-700">{b.dateTimeDisplay || b.date}</span></span>
                           </div>
                         </div>
                       </div>
