@@ -473,7 +473,11 @@ export default function CustomerGaragePage() {
                 <button
                   type="submit"
                   disabled={!model.trim() || !licensePlate.trim() || !!licensePlateError}
-                  className={`px-5 py-2 rounded-xl text-xs font-bold shadow-sm transition disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${tierTheme.btnPrimary}`}
+                  className={`rounded-xl px-5 py-2.5 text-xs font-extrabold transition-all cursor-pointer ${
+                    (!model.trim() || !licensePlate.trim() || !!licensePlateError)
+                      ? 'bg-slate-200 text-slate-500 border border-slate-300 cursor-not-allowed shadow-none'
+                      : tierTheme.btnPrimary
+                  }`}
                 >
                   {editingVehicle ? 'Lưu thay đổi' : 'Đăng ký ngay'}
                 </button>

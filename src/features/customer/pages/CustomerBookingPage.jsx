@@ -1840,7 +1840,11 @@ export default function CustomerBookingPage() {
                 <button
                   type="submit"
                   disabled={!vehicleModel.trim() || !vehicleLicensePlate.trim() || !!vehicleLicensePlateError}
-                  className={`rounded-xl px-5 py-2 text-xs font-bold shadow-sm transition disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${tierTheme.btnPrimary}`}
+                  className={`rounded-xl px-5 py-2.5 text-xs font-extrabold transition-all cursor-pointer ${
+                    (!vehicleModel.trim() || !vehicleLicensePlate.trim() || !!vehicleLicensePlateError)
+                      ? 'bg-slate-200 text-slate-500 border border-slate-300 cursor-not-allowed shadow-none'
+                      : tierTheme.btnPrimary
+                  }`}
                 >
                   {editingVehicle ? 'Lưu thay đổi' : 'Đăng ký ngay'}
                 </button>
