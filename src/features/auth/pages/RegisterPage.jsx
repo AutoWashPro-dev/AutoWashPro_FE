@@ -31,6 +31,7 @@ export default function RegisterPage() {
     password: '',
     confirmPassword: '',
   });
+  const [agreeTerms, setAgreeTerms] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -90,6 +91,11 @@ export default function RegisterPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+
+    if (!agreeTerms) {
+      setError('Vui lòng tích chọn đồng ý với Điều khoản & Bảo mật để tiếp tục.');
+      return;
+    }
 
     if (!formData.fullName.trim() || !formData.username.trim() || !formData.phoneNumber.trim() || !formData.email.trim() || !formData.password) {
       setError('Vui lòng điền đầy đủ tất cả các trường thông tin bắt buộc.');
@@ -398,14 +404,22 @@ export default function RegisterPage() {
                 </div>
               </div>
             </div>
-            <div className="mt-3 flex items-center justify-center gap-1 text-[10px] font-semibold text-slate-500">
-              <input type="checkbox" className="w-3.5 h-3.5 text-emerald-500" />
-              <span>Đã đọc & đồng ý với <Link to="/register" className="text-blue-600 hover:text-indigo-600 transition underline">Điều khoản & Bảo mật</Link></span>
+            <div className="mt-3 flex items-center justify-center gap-1.5 text-xs font-medium text-slate-600">
+              <input
+                id="agreeTerms"
+                type="checkbox"
+                checked={agreeTerms}
+                onChange={(e) => setAgreeTerms(e.target.checked)}
+                className="w-4 h-4 text-blue-600 rounded border-slate-300 focus:ring-blue-500 cursor-pointer"
+              />
+              <label htmlFor="agreeTerms" className="cursor-pointer text-[11px] font-semibold text-slate-600">
+                Đã đọc & đồng ý với <Link to="/register" className="text-blue-600 font-extrabold hover:text-indigo-600 transition underline">Điều khoản & Bảo mật</Link>
+              </label>
             </div>
             <div className="pt-2">
               <button
                 type="submit"
-                disabled={isLoading || !!phoneNumberError || !!emailError || !formData.phoneNumber || !formData.email}
+                disabled={isLoading || !agreeTerms || !!phoneNumberError || !!emailError || !formData.phoneNumber || !formData.email}
                 className="w-full flex justify-center items-center gap-2 py-3.5 px-4 border border-transparent rounded-xl shadow-lg shadow-blue-600/25 text-sm font-bold text-white bg-gradient-to-r from-blue-600 via-sky-600 to-indigo-600 hover:from-blue-700 hover:via-sky-700 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-600 transition-all duration-300 transform active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer group"
               >
                 {isLoading ? (
