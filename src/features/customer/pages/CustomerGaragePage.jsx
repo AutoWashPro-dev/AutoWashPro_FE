@@ -318,7 +318,7 @@ export default function CustomerGaragePage() {
   return (
     <div className="space-y-8 pb-12">
 
-      {/* KHU VỰC THÔNG TIN TIÊU ĐỀ */}
+      {/* 1. KHU VỰC THÔNG TIN TIÊU ĐỀ */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-left">
         <div>
           <h1 className="text-xl font-extrabold text-slate-800 tracking-wide flex items-center gap-2">
@@ -328,65 +328,164 @@ export default function CustomerGaragePage() {
         </div>
         <button
           onClick={handleOpenAddModal}
-          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 self-start sm:self-auto ${tierTheme.btnPrimary}`}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer shrink-0 self-start sm:self-auto ${tierTheme.btnPrimary}`}
         >
           <Plus size={16} /> Đăng ký xe máy mới
         </button>
       </div>
 
-      {/* LƯỚI THỂ HIỂN THỊ DANH SÁCH XE */}
-      {isLoading ? (
-        <div className="flex justify-center items-center py-20 text-slate-400 gap-2">
-          <Loader2 className="animate-spin" size={24} /> Đang tải danh sách xe...
-        </div>
-      ) : vehicles.length > 0 ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-
-          {/* Card đăng ký xe nhanh (Dạng nét đứt) */}
-          <div
-            onClick={handleOpenAddModal}
-            className="border-2 border-dashed border-slate-350 hover:border-blue-500 rounded-xl p-6 flex flex-col justify-center items-center gap-2 cursor-pointer transition-all hover:bg-blue-50/5 h-44 group"
-          >
-            <div className="w-10 h-10 bg-slate-100 group-hover:bg-blue-100 rounded-full flex items-center justify-center text-slate-500 group-hover:text-blue-600 transition-colors">
-              <Plus size={20} />
-            </div>
-            <span className="text-xs font-bold text-slate-600 group-hover:text-blue-600 transition-colors">Đăng ký thêm xe</span>
+      {/* 2. THỐNG KÊ THÔNG MINH GA-RA */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 text-left">
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs flex items-center gap-3.5">
+          <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${tierTheme.btnSecondary}`}>
+            <Car className="w-5 h-5" />
           </div>
-
-          {/* Render danh sách xe */}
-          {vehicles.map(veh => (
-            <div
-              key={veh.vehicleId}
-              className="relative group cursor-pointer"
-              onClick={() => setDetailVehicleModal(veh)}
-            >
-              <VehicleCard
-                vehicle={veh}
-                isDefault={veh.isDefault}
-                isSelectable={true}
-                onSelect={() => setDetailVehicleModal(veh)}
-                onEdit={() => handleOpenEditModal(veh)}
-                onDelete={() => handleDeleteVehicle(veh)}
-                onSetDefault={() => handleSetDefault(veh)}
-              />
-            </div>
-          ))}
-
-        </div>
-      ) : (
-        <div className="text-center py-16 text-slate-400 text-sm bg-white border border-dashed rounded-2xl flex flex-col items-center justify-center gap-4">
-          <div className="w-12 h-12 bg-slate-50 rounded-full flex items-center justify-center text-slate-300">
-            <Car size={24} />
+          <div>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Xe trong Ga-ra</span>
+            <p className="text-base font-black text-slate-800 mt-0.5">{vehicles.length} chiếc xe máy</p>
           </div>
-          <p>Ga-ra của bạn đang trống trơn. Hãy đăng ký chiếc xe đầu tiên của mình nhé!</p>
+        </div>
+
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs flex items-center gap-3.5">
+          <div className="w-11 h-11 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600 shrink-0">
+            <ShieldCheck className="w-5 h-5" />
+          </div>
+          <div className="min-w-0">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Xe rửa mặc định</span>
+            <p className="text-sm font-extrabold text-slate-800 mt-0.5 truncate font-mono">
+              {vehicles.find(v => v.isDefault)?.model ? `${vehicles.find(v => v.isDefault).model} (${vehicles.find(v => v.isDefault).licensePlate})` : 'Chưa thiết lập'}
+            </p>
+          </div>
+        </div>
+
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-2xs flex items-center gap-3.5">
+          <div className="w-11 h-11 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 shrink-0">
+            <Sparkles className="w-5 h-5" />
+          </div>
+          <div>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Lượt rửa đã dọn</span>
+            <p className="text-base font-black text-slate-800 mt-0.5">
+              {userBookings.filter(b => {
+                const s = String(b.status || b.rawStatus || '').toUpperCase();
+                return s === 'COMPLETED' || s === 'FINISHED' || s === 'PAID';
+              }).length} lượt rửa xe
+            </p>
+          </div>
+        </div>
+
+        <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-zinc-900 border border-slate-800 rounded-2xl p-4 shadow-md text-white flex items-center justify-between">
+          <div>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Đặt lịch dọn rửa</span>
+            <p className="text-xs font-bold text-slate-200 mt-0.5">Sẵn sàng chăm sóc xe</p>
+          </div>
           <button
-            onClick={handleOpenAddModal}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-bold"
+            onClick={() => navigate('/customer/book')}
+            className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${tierTheme.btnPrimary}`}
           >
-            Đăng ký xe ngay
+            Đặt lịch ngay
           </button>
         </div>
-      )}
+      </div>
+
+      {/* 3. LƯỚI THỂ HIỂN THỊ DANH SÁCH XE */}
+      <div>
+        <div className="flex justify-between items-center mb-4 text-left">
+          <h3 className="font-extrabold text-slate-800 text-sm uppercase tracking-wider flex items-center gap-2">
+            <Wrench size={16} className={tierTheme.textAccent} /> Danh sách phương tiện cá nhân ({vehicles.length})
+          </h3>
+        </div>
+
+        {isLoading ? (
+          <div className="flex justify-center items-center py-20 text-slate-400 gap-2">
+            <Loader2 className="animate-spin" size={24} /> Đang tải danh sách xe...
+          </div>
+        ) : vehicles.length > 0 ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+            {/* Card đăng ký xe nhanh (Dạng nét đứt trang trí) */}
+            <div
+              onClick={handleOpenAddModal}
+              className="border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-2xl p-6 flex flex-col justify-center items-center gap-3 cursor-pointer transition-all hover:bg-blue-50/20 min-h-[180px] group text-center shadow-2xs hover:shadow-md"
+            >
+              <div className="w-12 h-12 bg-slate-100 group-hover:bg-blue-100 rounded-full flex items-center justify-center text-slate-500 group-hover:text-blue-600 transition-colors shadow-xs">
+                <Plus size={24} />
+              </div>
+              <div>
+                <span className="text-xs font-extrabold text-slate-700 group-hover:text-blue-600 transition-colors block">Đăng ký thêm phương tiện mới</span>
+                <p className="text-[10px] text-slate-400 mt-1 font-medium">Bổ sung xe tay ga, xe số hoặc PKL vào Ga-ra</p>
+              </div>
+            </div>
+
+            {/* Render danh sách xe */}
+            {vehicles.map(veh => (
+              <div
+                key={veh.vehicleId}
+                className="relative group cursor-pointer"
+                onClick={() => setDetailVehicleModal(veh)}
+              >
+                <VehicleCard
+                  vehicle={veh}
+                  isDefault={veh.isDefault}
+                  isSelectable={true}
+                  onSelect={() => setDetailVehicleModal(veh)}
+                  onEdit={() => handleOpenEditModal(veh)}
+                  onDelete={() => handleDeleteVehicle(veh)}
+                  onSetDefault={() => handleSetDefault(veh)}
+                />
+              </div>
+            ))}
+
+          </div>
+        ) : (
+          <div className="text-center py-16 text-slate-400 text-sm bg-white border border-dashed rounded-2xl flex flex-col items-center justify-center gap-4 shadow-2xs">
+            <div className="w-14 h-14 bg-slate-50 rounded-full flex items-center justify-center text-slate-300">
+              <Car size={28} />
+            </div>
+            <p className="font-medium text-slate-600">Ga-ra của bạn đang trống trơn. Hãy đăng ký chiếc xe đầu tiên của mình nhé!</p>
+            <button
+              onClick={handleOpenAddModal}
+              className={`px-5 py-2.5 rounded-xl text-xs font-bold shadow-sm transition ${tierTheme.btnPrimary}`}
+            >
+              Đăng ký xe ngay
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* 4. CẨM NANG BẢO DƯỠNG XẾ CƯNG TỪ CHUYÊN GIA NOVAWASH */}
+      <div className="space-y-4 text-left pt-4 border-t border-slate-200/80">
+        <div className="flex justify-between items-center">
+          <h3 className="font-extrabold text-slate-800 text-sm uppercase tracking-wider flex items-center gap-2">
+            <Sparkles size={16} className="text-amber-500" /> Cẩm nang bảo dưỡng xế cưng NovaWash
+          </h3>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-2xs hover:shadow-md transition-all space-y-2.5">
+            <div className="w-10 h-10 rounded-xl bg-indigo-50 border border-indigo-200 flex items-center justify-center text-indigo-600">
+              <Wrench className="w-5 h-5" />
+            </div>
+            <h4 className="font-extrabold text-slate-900 text-xs">Vệ sinh sên & xích định kỳ</h4>
+            <p className="text-[11px] text-slate-500 leading-relaxed font-medium">Tẩy bụi đất bám nhớt cũ trên xích đĩa sau mỗi 500km giúp xe vận hành êm ái, tránh hao mòn nhông xích.</p>
+          </div>
+
+          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-2xs hover:shadow-md transition-all space-y-2.5">
+            <div className="w-10 h-10 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600">
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <h4 className="font-extrabold text-slate-900 text-xs">Phủ sáp bóng bảo vệ dàn áo</h4>
+            <p className="text-[11px] text-slate-500 leading-relaxed font-medium">Nên phủ sáp Wax bóng hoặc Ceramic 1 tháng/lần để bảo vệ màu sơn nguyên bản không bị ố phai dưới nắng mưa.</p>
+          </div>
+
+          <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-2xs hover:shadow-md transition-all space-y-2.5">
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-600">
+              <ShieldCheck className="w-5 h-5" />
+            </div>
+            <h4 className="font-extrabold text-slate-900 text-xs">Hút bụi khoang cốp & bảo vệ lốp</h4>
+            <p className="text-[11px] text-slate-500 leading-relaxed font-medium">Thường xuyên xịt dung dịch dưỡng lốp chống nứt nẻ và dọn dẹp cốp xe để không gây mùi ẩm mốc khi di chuyển.</p>
+          </div>
+        </div>
+      </div>
 
       {/* POPUP MODAL THÊM / SỬA THÔNG TIN XE MÁY */}
       {isModalOpen && (
