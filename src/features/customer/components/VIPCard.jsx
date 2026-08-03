@@ -28,22 +28,22 @@ const TIER_THEMES = {
     iconBox: 'bg-slate-200 text-slate-800'
   },
   GOLD: {
-    name: 'HẠNG VÀNG (GOLD)',
+    name: 'HẠNG VÀNG (GOLD VIP)',
     voucherAccess: 'Voucher độc quyền Hạng Vàng + Tất cả Voucher từ Hạng Vàng trở xuống',
-    cardGradient: 'bg-gradient-to-br from-amber-500 via-amber-600 to-yellow-800 text-white border-amber-400',
-    headerBg: 'bg-gradient-to-r from-amber-600 via-amber-800 to-yellow-950 text-white',
-    badgeBg: 'bg-amber-100 text-amber-900 border-amber-300',
+    cardGradient: 'bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-[#FFE58F] via-[#C8963E] via-45% to-[#3D2702] text-amber-50 border-[#FCE482]/60 shadow-2xl shadow-amber-950/40',
+    headerBg: 'from-[#3D2702] via-[#8C6219] to-[#E2B755]',
+    badgeBg: 'bg-gradient-to-r from-[#FFF0B3] via-[#E2B755] to-[#B38728] text-slate-950 font-black border border-[#FFF8D6] shadow-md',
     highlightBorder: 'border-amber-400',
-    accentColor: 'text-amber-600',
-    bgLight: 'bg-amber-50/80 border-amber-200',
-    buttonBg: 'bg-amber-600 hover:bg-amber-700 text-white',
+    accentColor: 'text-amber-700',
+    bgLight: 'bg-amber-50/90 border-amber-200',
+    buttonBg: 'bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-700 hover:to-yellow-700 text-white shadow-md',
     iconBox: 'bg-amber-100 text-amber-800'
   },
   PLATINUM: {
     name: 'HẠNG BẠCH KIM (PLATINUM)',
     voucherAccess: 'Đặc quyền Voucher Platinum tối thượng + Mọi Voucher toàn hệ thống',
     cardGradient: 'bg-gradient-to-br from-slate-900 via-purple-950 to-zinc-950 text-purple-100 border-purple-500/50',
-    headerBg: 'bg-gradient-to-r from-purple-950 via-slate-900 to-zinc-950 text-white',
+    headerBg: 'from-purple-950 via-slate-900 to-zinc-950',
     badgeBg: 'bg-purple-100 text-purple-900 border-purple-300',
     highlightBorder: 'border-purple-500',
     accentColor: 'text-purple-600',
@@ -118,33 +118,35 @@ export default function VIPCard({ customer }) {
         onClick={() => setIsModalOpen(true)}
         className={`rounded-2xl p-6 border shadow-lg relative overflow-hidden transition-all duration-300 transform hover:scale-[1.015] hover:shadow-2xl cursor-pointer group ${theme.cardGradient}`}
       >
-        <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-white/5 rounded-full blur-xl pointer-events-none"></div>
+        {/* Shimmer Light Reflection Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/15 to-transparent opacity-80 pointer-events-none"></div>
+        <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-white/10 rounded-full blur-xl pointer-events-none"></div>
 
         {/* Top hint badge */}
-        <div className="flex justify-between items-start mb-6">
+        <div className="flex justify-between items-start mb-6 relative z-10">
           <div className="text-left">
-            <span className="text-[10px] uppercase tracking-widest opacity-75 font-semibold">Thẻ Thành Viên VIP</span>
-            <h3 className="text-xl font-extrabold font-mono tracking-wider mt-0.5">{customer?.fullName?.toUpperCase() || 'KHÁCH HÀNG'}</h3>
+            <span className="text-[10px] uppercase tracking-widest opacity-80 font-bold">Thẻ Thành Viên VIP</span>
+            <h3 className="text-xl font-extrabold font-mono tracking-wider mt-0.5 drop-shadow-sm">{customer?.fullName?.toUpperCase() || 'KHÁCH HÀNG'}</h3>
           </div>
           <div className="flex flex-col items-end gap-1.5">
-            <span className="px-3 py-1 bg-white/20 backdrop-blur-md rounded-full text-xs font-black uppercase tracking-wider border border-white/20 shadow-sm flex items-center gap-1">
-              <Crown className="w-3.5 h-3.5 text-amber-300" />
+            <span className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider shadow-sm flex items-center gap-1 ${currentTierKey === 'GOLD' ? 'bg-gradient-to-r from-[#FFF0B3] via-[#E2B755] to-[#B38728] text-slate-950 border border-[#FFF8D6]' : 'bg-white/20 backdrop-blur-md border border-white/20 text-white'}`}>
+              <Crown className={`w-3.5 h-3.5 ${currentTierKey === 'GOLD' ? 'text-slate-900' : 'text-amber-300'}`} />
               {currentTierKey}
             </span>
-            <span className="text-[10px] bg-black/20 hover:bg-black/30 px-2 py-0.5 rounded-full text-white/90 font-medium transition flex items-center gap-1 group-hover:scale-105">
+            <span className="text-[10px] bg-black/25 hover:bg-black/40 px-2 py-0.5 rounded-full text-white/95 font-medium transition flex items-center gap-1 group-hover:scale-105 border border-white/10">
               <Sparkles className="w-3 h-3 text-amber-300 animate-spin" style={{ animationDuration: '4s' }} /> Xem quyền lợi
             </span>
           </div>
         </div>
 
-        <div className="flex justify-between items-end pt-2 text-left">
+        <div className="flex justify-between items-end pt-2 text-left relative z-10">
           <div>
-            <span className="text-xs opacity-75 font-medium">Điểm Tích Lũy</span>
-            <p className="text-3xl font-black tracking-tight mt-0.5">{customer?.loyaltyPoints?.toLocaleString('vi-VN') || 0} <span className="text-sm font-bold opacity-80">Pts</span></p>
+            <span className="text-xs opacity-80 font-medium">Điểm Tích Lũy</span>
+            <p className="text-3xl font-black tracking-tight mt-0.5 drop-shadow-sm">{customer?.loyaltyPoints?.toLocaleString('vi-VN') || 0} <span className="text-sm font-bold opacity-80">Pts</span></p>
           </div>
           <div className="text-right">
-            <span className="text-[10px] uppercase tracking-wider opacity-75 font-semibold block">Chi tiêu tích lũy</span>
-            <span className="text-sm font-extrabold font-mono text-amber-200">
+            <span className="text-[10px] uppercase tracking-wider opacity-80 font-semibold block">Chi tiêu tích lũy</span>
+            <span className="text-sm font-extrabold font-mono text-amber-100 drop-shadow-sm">
               {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(customer?.lifetimeSpend || customer?.tierSpending || customer?.totalSpending || 0)}
             </span>
           </div>

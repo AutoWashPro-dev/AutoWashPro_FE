@@ -215,7 +215,7 @@ export default function CustomerAccountPage() {
   const getTierBadgeStyle = (tierName) => {
     const tier = (tierName || '').toUpperCase();
     if (tier.includes('PLATINUM')) return 'bg-violet-100 text-violet-700 border-violet-200';
-    if (tier.includes('GOLD')) return 'bg-amber-100 text-amber-700 border-amber-200';
+    if (tier.includes('GOLD')) return 'bg-gradient-to-r from-[#FFF0B3] via-[#E2B755] to-[#B38728] text-slate-950 font-black border border-[#FFF8D6] shadow-sm';
     if (tier.includes('SILVER')) return 'bg-slate-200 text-slate-700 border-slate-300';
     return 'bg-blue-100 text-blue-700 border-blue-200'; // MEMBER default
   };

@@ -116,12 +116,11 @@ export default function CustomerLayout() {
 
   // Cấu hình màu sắc thẻ nhỏ theo hạng VIP trên sidebar
   const getBadgeClass = (tier) => {
-    switch (tier?.toUpperCase()) {
-      case 'PLATINUM MEMBER': return 'bg-zinc-900 text-zinc-100 border-zinc-700';
-      case 'GOLD MEMBER': return 'bg-amber-500 text-white border-amber-400';
-      case 'SILVER MEMBER': return 'bg-slate-300 text-slate-800 border-slate-200';
-      default: return 'bg-indigo-600 text-white border-indigo-400';
-    }
+    const t = String(tier || '').toUpperCase();
+    if (t.includes('PLATINUM')) return 'bg-zinc-900 text-zinc-100 border-zinc-700';
+    if (t.includes('GOLD')) return 'bg-gradient-to-r from-[#FFF0B3] via-[#E2B755] to-[#B38728] text-slate-950 font-black border border-[#FFF8D6] shadow-sm';
+    if (t.includes('SILVER')) return 'bg-slate-300 text-slate-800 border-slate-200';
+    return 'bg-indigo-600 text-white border-indigo-400';
   };
 
   const menuItems = [
