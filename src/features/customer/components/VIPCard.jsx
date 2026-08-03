@@ -1,67 +1,103 @@
 import React, { useState, useEffect } from 'react';
 import { Crown, Sparkles, X, CheckCircle2, ShieldCheck, Zap, Calendar, Gift, Award } from 'lucide-react';
 
-const TIER_BENEFITS = [
-  {
+const TIER_CONFIG = {
+  MEMBER: {
     tierKey: 'MEMBER',
-    name: 'Thành Viên (Member)',
+    name: 'HẠNG THÀNH VIÊN (MEMBER)',
     minSpendText: '0đ',
-    badgeBg: 'bg-blue-100 text-blue-700 border-blue-200',
-    multiplier: 'x1.0',
-    advanceDays: '7 ngày',
-    voucherAccess: 'Kho Voucher cơ bản toàn hệ thống',
+    multiplier: '1x hệ số',
+    advanceDays: 'Đặt trước 7 ngày',
+    voucherAccess: 'Kho Voucher cơ bản toàn hệ thống NovaWash',
+    theme: {
+      cardGradient: 'from-blue-600 via-indigo-600 to-blue-800 text-white border-indigo-400',
+      headerBg: 'from-blue-700 via-indigo-900 to-blue-900 text-white',
+      badgeBg: 'bg-blue-100 text-blue-800 border-blue-200',
+      highlightBorder: 'border-blue-400',
+      accentColor: 'text-blue-600',
+      bgLight: 'bg-blue-50/70 border-blue-200/80',
+      buttonBg: 'bg-blue-600 hover:bg-blue-700 text-white',
+      iconBox: 'bg-blue-100 text-blue-700'
+    },
     perks: [
-      'Tích lũy x1.0 điểm thưởng cho mọi đơn dọn rửa xe',
-      'Được quyền đặt lịch trước tối đa 7 ngày',
-      'Tham gia chương trình đổi quà bằng điểm tích lũy'
+      'Hệ số nhân điểm thưởng: 1x hệ số (Mỗi 10.000đ chi tiêu = 1 điểm)',
+      'Thời gian đặt lịch trước: Đặt trước tối đa 7 ngày',
+      'Tham gia chương trình tích điểm thưởng Loyalty & Đổi quà tri ân'
     ]
   },
-  {
+  SILVER: {
     tierKey: 'SILVER',
-    name: 'Hạng Bạc (Silver)',
+    name: 'HẠNG BẠC (SILVER)',
     minSpendText: '1.000.000đ',
-    badgeBg: 'bg-slate-200 text-slate-800 border-slate-300',
-    multiplier: 'x1.1',
-    advanceDays: '14 ngày',
-    voucherAccess: 'Sở hữu Voucher độc quyền Silver + Dùng tất cả Voucher từ Hạng Bạc trở xuống',
+    multiplier: '1.2x hệ số',
+    advanceDays: 'Đặt trước 10 ngày',
+    voucherAccess: 'Voucher độc quyền Hạng Bạc + Tất cả Voucher từ Hạng Bạc trở xuống',
+    theme: {
+      cardGradient: 'from-slate-400 via-zinc-500 to-slate-700 text-white border-slate-300',
+      headerBg: 'from-slate-800 via-zinc-900 to-slate-900 text-white',
+      badgeBg: 'bg-slate-200 text-slate-900 border-slate-300',
+      highlightBorder: 'border-slate-400',
+      accentColor: 'text-slate-700',
+      bgLight: 'bg-slate-100/90 border-slate-200',
+      buttonBg: 'bg-slate-800 hover:bg-slate-900 text-white',
+      iconBox: 'bg-slate-200 text-slate-800'
+    },
     perks: [
-      'Tăng 10% điểm thưởng tích lũy (Hệ số x1.1)',
-      'Ưu tiên đặt lịch trước tối đa 14 ngày',
+      'Hệ số nhân điểm thưởng: 1.2x hệ số (Thưởng thêm +20% điểm thưởng)',
+      'Thời gian đặt lịch trước: Ưu tiên đặt trước tối đa 10 ngày',
       'Sở hữu & sử dụng tất cả Voucher dành riêng cho Hạng Bạc trở xuống',
-      'Nhận Voucher quà tặng chúc mừng sinh nhật VIP'
+      'Nhận Voucher quà tặng ưu đãi mừng sinh nhật khách hàng VIP'
     ]
   },
-  {
+  GOLD: {
     tierKey: 'GOLD',
-    name: 'Hạng Vàng (Gold)',
+    name: 'HẠNG VÀNG (GOLD)',
     minSpendText: '5.000.000đ',
-    badgeBg: 'bg-amber-100 text-amber-800 border-amber-300',
-    multiplier: 'x1.2',
-    advanceDays: '30 ngày (Khung giờ Vàng)',
-    voucherAccess: 'Sở hữu Voucher độc quyền Gold + Dùng tất cả Voucher từ Hạng Vàng trở xuống',
+    multiplier: '1.5x hệ số',
+    advanceDays: 'Đặt trước 12 ngày',
+    voucherAccess: 'Voucher độc quyền Hạng Vàng + Tất cả Voucher từ Hạng Vàng trở xuống',
+    theme: {
+      cardGradient: 'from-amber-500 via-amber-600 to-yellow-800 text-white border-amber-400',
+      headerBg: 'from-amber-600 via-amber-800 to-yellow-950 text-white',
+      badgeBg: 'bg-amber-100 text-amber-900 border-amber-300',
+      highlightBorder: 'border-amber-400',
+      accentColor: 'text-amber-600',
+      bgLight: 'bg-amber-50/80 border-amber-200',
+      buttonBg: 'bg-amber-600 hover:bg-amber-700 text-white',
+      iconBox: 'bg-amber-100 text-amber-800'
+    },
     perks: [
-      'Tăng 20% điểm thưởng tích lũy (Hệ số x1.2)',
-      'Ưu tiên đặt lịch trước đến 30 ngày (Giữ trước khung giờ Vàng cao điểm)',
+      'Hệ số nhân điểm thưởng: 1.5x hệ số (Thưởng thêm +50% điểm thưởng)',
+      'Thời gian đặt lịch trước: Ưu tiên đặt trước 12 ngày (Giữ khung giờ Vàng cao điểm)',
       'Sở hữu & áp dụng toàn bộ Voucher dành riêng cho Hạng Vàng trở xuống',
-      'Hàng chờ ưu tiên tiếp nhận xe nhanh tại trạm NovaWash'
+      'Hàng chờ ưu tiên tiếp nhận xe dọn rửa nhanh tại trạm NovaWash'
     ]
   },
-  {
+  PLATINUM: {
     tierKey: 'PLATINUM',
-    name: 'Hạng Bạch Kim (Platinum)',
+    name: 'HẠNG BẠCH KIM (PLATINUM)',
     minSpendText: '10.000.000đ',
-    badgeBg: 'bg-purple-100 text-purple-800 border-purple-300',
-    multiplier: 'x1.5',
-    advanceDays: '60 ngày (Tối đa)',
+    multiplier: '2x hệ số',
+    advanceDays: 'Đặt trước 14 ngày',
     voucherAccess: 'Đặc quyền Voucher Platinum tối thượng + Mọi Voucher toàn hệ thống',
+    theme: {
+      cardGradient: 'from-slate-900 via-purple-950 to-zinc-950 text-purple-100 border-purple-500/50',
+      headerBg: 'from-purple-950 via-slate-900 to-zinc-950 text-white',
+      badgeBg: 'bg-purple-100 text-purple-900 border-purple-300',
+      highlightBorder: 'border-purple-500',
+      accentColor: 'text-purple-600',
+      bgLight: 'bg-purple-50/70 border-purple-200',
+      buttonBg: 'bg-purple-700 hover:bg-purple-800 text-white',
+      iconBox: 'bg-purple-100 text-purple-900'
+    },
     perks: [
-      'Tích điểm siêu tốc x1.5 cho mọi dịch vụ dọn rửa',
-      'Đặt lịch ưu tiên tuyệt đối lên tới 60 ngày',
-      'Sở hữu toàn bộ Voucher đặc quyền Platinum và Voucher hệ thống',
-      'Chăm sóc VIP 1-1 & Miễn phí dịch vụ dưỡng bóng lốp/sên đi kèm'
+      'Hệ số nhân điểm thưởng: 2x hệ số (Nhân đôi 100% điểm thưởng tích lũy)',
+      'Thời gian đặt lịch trước: Ưu tiên đặt trước 14 ngày (Cao nhất hệ thống)',
+      'Sở hữu toàn bộ Voucher đặc quyền Platinum và Voucher toàn hệ thống',
+      'Hỗ trợ chăm sóc VIP 1-1 & Miễn phí dịch vụ dưỡng bóng lốp/sên đi kèm'
     ]
   }
-];
+};
 
 export default function VIPCard({ customer }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -78,26 +114,15 @@ export default function VIPCard({ customer }) {
 
   const currentTierName = customer?.tier?.tierName || customer?.tierName || 'MEMBER';
   const currentTierKey = currentTierName.toUpperCase();
-
-  const getTierStyles = (tierName) => {
-    switch (tierName?.toUpperCase()) {
-      case 'PLATINUM':
-        return 'bg-gradient-to-br from-slate-800 via-slate-900 to-zinc-950 text-slate-100 border-zinc-700';
-      case 'GOLD':
-        return 'bg-gradient-to-br from-amber-500 via-amber-600 to-yellow-800 text-white border-amber-400';
-      case 'SILVER':
-        return 'bg-gradient-to-br from-slate-300 via-slate-400 to-zinc-500 text-slate-900 border-slate-200';
-      default: // MEMBER
-        return 'bg-gradient-to-br from-indigo-500 via-indigo-600 to-blue-800 text-white border-indigo-400';
-    }
-  };
+  const activeTier = TIER_CONFIG[currentTierKey] || TIER_CONFIG.MEMBER;
+  const theme = activeTier.theme;
 
   return (
     <>
       {/* THẺ LOYALTY CARD KHÁCH HÀNG (CÓ THỂ CLICK) */}
       <div 
         onClick={() => setIsModalOpen(true)}
-        className={`rounded-2xl p-6 border shadow-lg relative overflow-hidden transition-all duration-300 transform hover:scale-[1.015] hover:shadow-2xl cursor-pointer group ${getTierStyles(currentTierName)}`}
+        className={`rounded-2xl p-6 border shadow-lg relative overflow-hidden transition-all duration-300 transform hover:scale-[1.015] hover:shadow-2xl cursor-pointer group ${theme.cardGradient}`}
       >
         <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-white/5 rounded-full blur-xl pointer-events-none"></div>
 
@@ -113,7 +138,7 @@ export default function VIPCard({ customer }) {
               {currentTierKey}
             </span>
             <span className="text-[10px] bg-black/20 hover:bg-black/30 px-2 py-0.5 rounded-full text-white/90 font-medium transition flex items-center gap-1 group-hover:scale-105">
-              <Sparkles className="w-3 h-3 text-amber-300 animate-spin" style={{ animationDuration: '4s' }} /> Xem đặc quyền
+              <Sparkles className="w-3 h-3 text-amber-300 animate-spin" style={{ animationDuration: '4s' }} /> Xem quyền lợi
             </span>
           </div>
         </div>
@@ -132,32 +157,31 @@ export default function VIPCard({ customer }) {
         </div>
       </div>
 
-      {/* MODAL POPUP: CHI TIẾT HỒ SƠ & TẤT CẢ ĐẶC QUYỀN HẠNG VIP */}
+      {/* MODAL POPUP: CHỈ HIỂN THỊ ĐẶC QUYỀN VÀ TONE MÀU CỦA HẠNG ĐÓ */}
       {isModalOpen && (
         <div 
           className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/70 backdrop-blur-md p-4 animate-fade-in text-left"
           onClick={(e) => { if (e.target === e.currentTarget) setIsModalOpen(false); }}
         >
-          <div className="w-full max-w-2xl max-h-[90vh] rounded-3xl bg-white shadow-2xl border border-slate-100 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+          <div className="w-full max-w-xl rounded-3xl bg-white shadow-2xl border border-slate-100 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             
-            {/* Header Modal */}
-            <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-6 text-white relative overflow-hidden shrink-0">
-              <div className="absolute top-0 right-0 w-48 h-48 bg-amber-500/10 rounded-full blur-2xl pointer-events-none"></div>
+            {/* Header Modal theo Tone Màu của Hạng */}
+            <div className={`bg-gradient-to-r ${theme.headerBg} p-6 text-white relative overflow-hidden shrink-0`}>
+              <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
               
               <div className="flex items-center justify-between relative z-10">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-amber-400 to-yellow-300 flex items-center justify-center text-slate-900 shadow-lg shadow-amber-500/20 shrink-0">
-                    <Crown className="w-6 h-6" />
+                  <div className={`w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white border border-white/30 shadow-lg shrink-0`}>
+                    <Crown className="w-6 h-6 text-amber-300" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-black tracking-tight text-white flex items-center gap-2">
-                      Đặc Quyền Thành Viên VIP
-                      <span className="text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full bg-amber-400 text-slate-950">
-                        {currentTierKey}
-                      </span>
-                    </h3>
-                    <p className="text-xs text-slate-300 mt-0.5 font-medium">
-                      Hồ sơ thành viên & Quyền lợi độc quyền của {customer?.fullName}
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-lg font-black tracking-tight text-white">
+                        {activeTier.name}
+                      </h3>
+                    </div>
+                    <p className="text-xs text-white/80 mt-0.5 font-medium">
+                      Đặc quyền dành riêng cho khách hàng <strong className="text-white font-bold">{customer?.fullName}</strong>
                     </p>
                   </div>
                 </div>
@@ -172,94 +196,70 @@ export default function VIPCard({ customer }) {
               </div>
             </div>
 
-            {/* Modal Body (Scrollable) */}
-            <div className="p-6 overflow-y-auto space-y-6">
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto space-y-5">
               
               {/* Tóm tắt hồ sơ khách hàng */}
-              <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4.5 grid grid-cols-2 sm:grid-cols-3 gap-4 text-left">
+              <div className={`${theme.bgLight} rounded-2xl p-4.5 grid grid-cols-2 sm:grid-cols-3 gap-4 text-left border`}>
                 <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Họ và Tên</span>
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Họ và Tên</span>
                   <span className="text-sm font-black text-slate-800">{customer?.fullName}</span>
                 </div>
                 <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Điểm tích lũy</span>
-                  <span className="text-sm font-black text-amber-600 font-mono">{customer?.loyaltyPoints?.toLocaleString('vi-VN')} Pts</span>
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Điểm tích lũy</span>
+                  <span className={`text-sm font-black font-mono ${theme.accentColor}`}>{customer?.loyaltyPoints?.toLocaleString('vi-VN')} Pts</span>
                 </div>
                 <div>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Tổng chi tiêu</span>
-                  <span className="text-sm font-black text-indigo-600 font-mono">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Tổng chi tiêu</span>
+                  <span className="text-sm font-black text-slate-800 font-mono">
                     {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(customer?.lifetimeSpend || customer?.tierSpending || 0)}
                   </span>
                 </div>
               </div>
 
-              {/* Danh sách Quyền lợi từng Hạng Thành Viên */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h4 className="font-extrabold text-slate-800 text-sm flex items-center gap-2">
-                    <Award className="w-4 h-4 text-indigo-600" /> Bảng Đặc Quyền Hạng Thành Viên NovaWash
-                  </h4>
-                  <span className="text-[11px] text-slate-400 font-medium">Bảng so sánh chi tiết</span>
+              {/* Thông số Ma Trận Hạng VIP (Khớp với Cấu Hình Hệ Thống) */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 text-left">
+                  <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block flex items-center gap-1 mb-1">
+                    <Zap className="w-3.5 h-3.5 text-amber-500" /> Hệ số nhân điểm
+                  </span>
+                  <p className={`text-xl font-black font-mono ${theme.accentColor}`}>
+                    {activeTier.multiplier}
+                  </p>
+                  <span className="text-[11px] text-slate-500 font-medium block mt-0.5">Tích 1 điểm / 10.000 VNĐ</span>
                 </div>
 
-                <div className="space-y-4">
-                  {TIER_BENEFITS.map((tier) => {
-                    const isCurrent = tier.tierKey === currentTierKey;
-                    return (
-                      <div
-                        key={tier.tierKey}
-                        className={`rounded-2xl p-5 border transition-all relative text-left ${
-                          isCurrent
-                            ? 'border-2 border-amber-400 bg-gradient-to-br from-amber-50/60 via-white to-sky-50/30 shadow-md ring-2 ring-amber-400/20'
-                            : 'border-slate-200/80 bg-white hover:bg-slate-50/50'
-                        }`}
-                      >
-                        {/* Current Tier Badge */}
-                        {isCurrent && (
-                          <div className="absolute -top-3 right-4 bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 font-black text-[10px] uppercase px-3 py-0.5 rounded-full shadow-sm flex items-center gap-1">
-                            <Sparkles className="w-3 h-3" /> Hạng hiện tại của bạn
-                          </div>
-                        )}
+                <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 text-left">
+                  <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block flex items-center gap-1 mb-1">
+                    <Calendar className="w-3.5 h-3.5 text-blue-500" /> Đặt lịch trước
+                  </span>
+                  <p className="text-xl font-black text-slate-800 font-sans">
+                    {activeTier.advanceDays}
+                  </p>
+                  <span className="text-[11px] text-slate-500 font-medium block mt-0.5">Mốc min: {activeTier.minSpendText}</span>
+                </div>
+              </div>
 
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3 mb-3">
-                          <div className="flex items-center gap-2">
-                            <span className={`text-xs font-black px-2.5 py-1 rounded-lg border uppercase tracking-wider ${tier.badgeBg}`}>
-                              {tier.name}
-                            </span>
-                            <span className="text-xs font-medium text-slate-500">
-                              (Từ {tier.minSpendText})
-                            </span>
-                          </div>
+              {/* Chi tiết Quyền Lợi & Quy Tắc Voucher */}
+              <div className="space-y-3 pt-1">
+                <h4 className="font-extrabold text-slate-800 text-xs uppercase tracking-wider flex items-center gap-2">
+                  <Award className={`w-4 h-4 ${theme.accentColor}`} /> Đặc Quyền & Quyền Lợi Chi Tiết:
+                </h4>
 
-                          <div className="flex items-center gap-3 text-xs font-bold flex-wrap">
-                            <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-0.5 rounded-md flex items-center gap-1">
-                              <Zap className="w-3.5 h-3.5 text-emerald-600" /> Hệ số điểm: <strong className="font-mono text-emerald-800">{tier.multiplier}</strong>
-                            </span>
-                            <span className="bg-blue-50 text-blue-700 border border-blue-200 px-2.5 py-0.5 rounded-md flex items-center gap-1">
-                              <Calendar className="w-3.5 h-3.5 text-blue-600" /> Đặt trước: <strong className="font-mono text-blue-800">{tier.advanceDays}</strong>
-                            </span>
-                          </div>
-                        </div>
+                <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 space-y-2.5 text-xs text-left">
+                  <div className="flex items-start gap-2 text-slate-800 font-semibold">
+                    <Gift className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                    <span><strong>Quyền hạn Voucher:</strong> {activeTier.voucherAccess}</span>
+                  </div>
 
-                        {/* Privileges & Voucher Rules */}
-                        <div className="space-y-2 text-xs">
-                          <div className="flex items-start gap-2 text-slate-700 font-medium">
-                            <Gift className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-                            <span><strong>Quyền sử dụng Voucher:</strong> {tier.voucherAccess}</span>
-                          </div>
-
-                          <div className="space-y-1.5 pt-1">
-                            {tier.perks.map((perk, pIdx) => (
-                              <div key={pIdx} className="flex items-start gap-2 text-slate-600 font-medium">
-                                <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                                <span>{perk}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
+                  <div className="border-t border-slate-200/60 pt-2 space-y-2">
+                    {activeTier.perks.map((perk, idx) => (
+                      <div key={idx} className="flex items-start gap-2 text-slate-700 font-medium leading-relaxed">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                        <span>{perk}</span>
                       </div>
-                    );
-                  })}
+                    ))}
+                  </div>
                 </div>
               </div>
 
@@ -268,13 +268,13 @@ export default function VIPCard({ customer }) {
             {/* Footer Modal */}
             <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between shrink-0">
               <span className="text-[11px] text-slate-400 font-medium flex items-center gap-1">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" /> Bảo mật thông tin riêng tư khách hàng
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" /> Đồng bộ trực tiếp với Cấu hình Hệ thống
               </span>
 
               <button
                 type="button"
                 onClick={() => setIsModalOpen(false)}
-                className="px-5 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition cursor-pointer"
+                className={`px-5 py-2.5 rounded-xl text-xs font-bold transition cursor-pointer shadow-sm ${theme.buttonBg}`}
               >
                 Đóng cửa sổ
               </button>
