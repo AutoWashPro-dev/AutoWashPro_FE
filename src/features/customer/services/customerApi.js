@@ -42,33 +42,59 @@ export const customerApi = {
   // Get customer profile & loyalty progress details
   getCustomerProfile: async () => {
     try {
-      const res = await api.get('/customer/loyalty/profile');
-      const data = res.data || {};
-      let windowDays = data.bookingWindowDays;
+      // Gọi song song các API lấy profile, my-benefits (có chứa bookingWindowDays từ DB) và tiers config của admin
+      const [resProfile, resBenefits, resTiers] = await Promise.allSettled([
+        api.get('/customer/loyalty/profile'),
+        api.get('/customer/loyalty/my-benefits'),
+        api.get('/customer/loyalty/tiers')
+      ]);
+
+      const profileData = resProfile.status === 'fulfilled' ? (resProfile.value.data || {}) : {};
+      const benefitsData = resBenefits.status === 'fulfilled' ? (resBenefits.value.data || {}) : {};
+      const tiersData = resTiers.status === 'fulfilled' ? (resTiers.value.data || []) : [];
+
+      // Lưu danh sách tiers từ admin vào localStorage làm cache đồng bộ
+      if (Array.isArray(tiersData) && tiersData.length > 0) {
+        const mappedTiers = tiersData.map(item => ({
+          ...item,
+          tierId: item.tierId || item.id,
+          key: (item.tierName || item.name || '').toUpperCase(),
+          name: (item.tierName || item.name || '').toUpperCase(),
+          minSpend: item.minSpendVnd || item.minSpend || 0,
+          pointMultiplier: item.tierMultiplier !== undefined ? item.tierMultiplier : 1.0,
+          bookingWindow: item.bookingWindowDays || item.bookingWindow || 7,
+          bookingWindowDays: item.bookingWindowDays || item.bookingWindow || 7,
+          isActive: item.isActive !== undefined ? item.isActive : true
+        }));
+        localStorage.setItem('autowash_tiers', JSON.stringify(mappedTiers));
+      }
+
+      // Ưu tiên 1: bookingWindowDays từ my-benefits API (trực tiếp từ DB tier của customer)
+      let windowDays = benefitsData.bookingWindowDays || benefitsData.bookingWindow || profileData.bookingWindowDays;
+
+      // Ưu tiên 2: Khớp hạng tierName trong danh sách tiers từ API admin
+      const userTierName = (benefitsData.tierName || profileData.tierName || 'MEMBER').toUpperCase();
       if (!windowDays) {
-        const userTierName = (data.tierName || 'MEMBER').toUpperCase();
-        const tiersRaw = localStorage.getItem('autowash_tiers');
-        if (tiersRaw) {
+        const tiersList = Array.isArray(tiersData) && tiersData.length > 0 ? tiersData : (() => {
           try {
-            const tiers = JSON.parse(tiersRaw);
-            const foundTier = tiers.find(t => (t.key || t.name || '').toUpperCase() === userTierName);
-            if (foundTier) windowDays = Number(foundTier.bookingWindow || foundTier.bookingWindowDays || 7);
-          } catch (e) {}
-        }
-        if (!windowDays) {
-          if (userTierName === 'SILVER') windowDays = 10;
-          else if (userTierName === 'GOLD') windowDays = 12;
-          else if (userTierName === 'PLATINUM') windowDays = 14;
-          else windowDays = 7;
+            return JSON.parse(localStorage.getItem('autowash_tiers') || '[]');
+          } catch (e) { return []; }
+        })();
+
+        const matchedTier = tiersList.find(t => (t.tierName || t.name || t.key || '').toUpperCase() === userTierName);
+        if (matchedTier) {
+          windowDays = Number(matchedTier.bookingWindowDays || matchedTier.bookingWindow || 7);
         }
       }
+
       return {
-        ...data,
-        bookingWindowDays: windowDays
+        ...profileData,
+        ...benefitsData,
+        tierName: userTierName,
+        bookingWindowDays: Number(windowDays || 7)
       };
     } catch (err) {
       console.warn('API getCustomerProfile error, using fallback:', err.message);
-      // Fallback matching mock data
       const userRaw = localStorage.getItem('autowash_user');
       let userTierName = 'MEMBER';
       let totalSpending = 115000;
@@ -92,18 +118,13 @@ export const customerApi = {
       }
 
       let windowDays = 7;
-      const tiersRaw = localStorage.getItem('autowash_tiers');
-      if (tiersRaw) {
-        try {
-          const tiers = JSON.parse(tiersRaw);
-          const foundTier = tiers.find(t => (t.key || t.name || '').toUpperCase() === userTierName);
-          if (foundTier) windowDays = Number(foundTier.bookingWindow || foundTier.bookingWindowDays || 7);
-        } catch (e) {}
-      } else {
-        if (userTierName === 'SILVER') windowDays = 10;
-        else if (userTierName === 'GOLD') windowDays = 12;
-        else if (userTierName === 'PLATINUM') windowDays = 14;
-      }
+      try {
+        const tiers = JSON.parse(localStorage.getItem('autowash_tiers') || '[]');
+        const foundTier = tiers.find(t => (t.key || t.name || t.tierName || '').toUpperCase() === userTierName);
+        if (foundTier) {
+          windowDays = Number(foundTier.bookingWindowDays || foundTier.bookingWindow || 7);
+        }
+      } catch (e) {}
 
       return {
         customerId: customerId,
@@ -117,7 +138,7 @@ export const customerApi = {
         nextTierMinSpend: 1000000,
         spendNeededForNextTier: Math.max(0, 1000000 - totalSpending),
         progressPercentage: Math.min(100, Math.floor((totalSpending / 1000000) * 100)),
-        bookingWindowDays: windowDays
+        bookingWindowDays: Number(windowDays || 7)
       };
     }
   },
