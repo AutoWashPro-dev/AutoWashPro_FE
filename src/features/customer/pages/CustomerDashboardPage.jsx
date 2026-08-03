@@ -31,7 +31,7 @@ export default function CustomerDashboardPage() {
   ];
 
   const [customer, setCustomer] = useState(null);
-  const [upcomingBooking, setUpcomingBooking] = useState(null);
+  const [upcomingBookings, setUpcomingBookings] = useState([]);
   const [visitCount, setVisitCount] = useState(0);
   const [vouchersCount, setVouchersCount] = useState(0);
   const [recommendedServices, setRecommendedServices] = useState([]);
@@ -107,55 +107,51 @@ export default function CustomerDashboardPage() {
       };
       setCustomer(customerData);
 
-      // Calculate visits and find upcoming booking
+      // Calculate visits and find all upcoming/unpaid bookings
       if (Array.isArray(bookings)) {
         const completedBookings = bookings.filter(b => b.status === 'Completed' || b.status === 'COMPLETED');
         setVisitCount(completedBookings.length);
-
-        // Find first Pending/Confirmed booking for upcoming
-        const pending = bookings.find(b => ['Pending', 'PENDING', 'Confirmed', 'CONFIRMED'].includes(b.status));
-        if (pending) {
-          setUpcomingBooking({
-            bookingId: pending.bookingId || pending.id,
-            bookingCode: pending.bookingCode || `NV-${pending.bookingId || pending.id}`,
-            licensePlate: pending.vehicle?.plate || pending.vehicle?.licensePlate || pending.licensePlate || 'Chưa có',
-            model: pending.vehicle?.model || pending.model || 'Xe máy',
-            packageName: pending.service?.name || pending.serviceName || pending.packageName || 'Rửa xe',
-            slotDate: pending.bookingDate || pending.slotDate || pending.date || 'Sắp tới',
-            slotTime: pending.slotTime || pending.time || '',
-            status: pending.status?.toUpperCase()
-          });
-        } else {
-          setUpcomingBooking(null);
-        }
+        
+        // Find all Pending/Confirmed bookings (lịch hẹn dọn xe sắp tới chưa thanh toán)
+        const pendingList = bookings
+          .filter(b => ['Pending', 'PENDING', 'Confirmed', 'CONFIRMED', 'UNPAID'].includes(b.status))
+          .map(p => ({
+            bookingId: p.bookingId || p.id,
+            bookingCode: p.bookingCode || `NV-${p.bookingId || p.id}`,
+            licensePlate: p.vehicle?.plate || p.vehicle?.licensePlate || p.licensePlate || 'Chưa có',
+            model: p.vehicle?.model || p.model || 'Xe máy',
+            packageName: p.service?.name || p.serviceName || p.packageName || 'Rửa xe',
+            slotDate: p.bookingDate || p.slotDate || p.date || 'Sắp tới',
+            slotTime: p.slotTime || p.time || '',
+            status: p.status?.toUpperCase()
+          }));
+        setUpcomingBookings(pendingList);
       } else {
         // Flatten localStorage fallback for mock demo compatibility if no real array
         const dates = Object.keys(bookings).sort();
         let count = 0;
-        let foundPending = null;
-
+        const pendingList = [];
+        
         for (const dateKey of dates) {
           const dayList = bookings[dateKey] || [];
           count += dayList.filter(b => b.status?.toLowerCase() === 'completed').length;
-
-          if (!foundPending) {
-            const p = dayList.find(b => b.status?.toLowerCase() === 'pending' || b.status?.toLowerCase() === 'confirmed');
-            if (p) {
-              foundPending = {
-                bookingId: p.id,
-                bookingCode: p.bookingCode || `NV-${p.id}`,
-                licensePlate: p.vehicle?.plate || p.licensePlate || 'Chưa có',
-                model: p.vehicle?.model || p.model || 'Xe máy',
-                packageName: p.service?.name || p.packageName || 'Rửa xe',
-                slotDate: dateKey,
-                slotTime: p.slotTime,
-                status: p.status?.toUpperCase()
-              };
-            }
-          }
+          
+          const pList = dayList.filter(b => b.status?.toLowerCase() === 'pending' || b.status?.toLowerCase() === 'confirmed');
+          pList.forEach(p => {
+            pendingList.push({
+              bookingId: p.id,
+              bookingCode: p.bookingCode || `NV-${p.id}`,
+              licensePlate: p.vehicle?.plate || p.licensePlate || 'Chưa có',
+              model: p.vehicle?.model || p.model || 'Xe máy',
+              packageName: p.service?.name || p.packageName || 'Rửa xe',
+              slotDate: dateKey,
+              slotTime: p.slotTime,
+              status: p.status?.toUpperCase()
+            });
+          });
         }
         setVisitCount(count);
-        setUpcomingBooking(foundPending);
+        setUpcomingBookings(pendingList);
       }
 
       if (Array.isArray(vouchers)) {
@@ -269,15 +265,15 @@ export default function CustomerDashboardPage() {
         {/* CỘT PHẢI (RỘNG 2/3) - LỊCH HẸN VÀ THÔNG TIN DỊCH VỤ */}
         <div className="lg:col-span-2 space-y-6 text-left">
 
-          {/* KHỐI LỊCH HẸN SẮP TỚI */}
+          {/* KHỐI LỊCH HẸN SẮP TỚI CHƯA THANH TOÁN */}
           <div className="bg-white rounded-2xl border border-slate-150 p-6 shadow-sm">
             <div className="flex justify-between items-center mb-4">
               <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wider flex items-center gap-2">
-                <Clock size={16} className="text-blue-500" /> Lịch hẹn dọn xe sắp tới
+                <Clock size={16} className="text-blue-500" /> Lịch hẹn dọn xe sắp tới ({upcomingBookings.length})
               </h3>
-              {upcomingBooking || visitCount > 0 ? (
+              {upcomingBookings.length > 0 || visitCount > 0 ? (
                 <button
-                  onClick={() => navigate('/customer/book', { state: { tab: 'history' } })}
+                  onClick={() => navigate('/customer/book', { state: { tab: 'history', filter: 'PENDING' } })}
                   className="text-xs text-blue-600 hover:text-blue-800 font-bold flex items-center gap-1 cursor-pointer"
                 >
                   <span>Lịch sử đặt lịch</span> <ChevronRight size={14} />
@@ -292,41 +288,51 @@ export default function CustomerDashboardPage() {
               )}
             </div>
 
-            {upcomingBooking ? (
-              <div className="bg-slate-50 rounded-xl p-5 border border-slate-100 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div className="space-y-2 text-left">
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold text-blue-700 bg-blue-100 px-2 py-0.5 rounded">
-                      {upcomingBooking.status}
-                    </span>
-                    <span className="text-[10px] font-mono font-bold text-slate-400">
-                      Mã: {upcomingBooking.bookingCode}
-                    </span>
-                  </div>
-                  <h4 className="font-bold text-slate-800 text-base">{upcomingBooking.packageName}</h4>
-                  <p className="text-xs text-slate-500 flex items-center gap-1.5 font-medium">
-                    🏍️ {upcomingBooking.model} ({upcomingBooking.licensePlate})
-                  </p>
-                  <p className="text-xs text-slate-650 flex flex-wrap items-center gap-3 pt-1">
-                    <span className="flex items-center gap-1 font-medium"><Calendar size={12} /> {upcomingBooking.slotDate}</span>
-                    <span className="flex items-center gap-1 font-medium"><Clock size={12} /> {upcomingBooking.slotTime} (GMT+7)</span>
-                    <span className="flex items-center gap-1 font-medium"><MapPin size={12} /> NovaWash</span>
-                  </p>
-                </div>
-
-                <div className="flex gap-2 w-full md:w-auto shrink-0 flex-col items-end">
-                  <button
-                    onClick={() => handleCancelBooking(upcomingBooking.bookingId)}
-                    disabled={isCanceling}
-                    className="w-full md:w-auto px-4 py-2 bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-200 text-slate-600 hover:text-rose-600 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 disabled:opacity-50 cursor-pointer"
+            {upcomingBookings.length > 0 ? (
+              <div className="space-y-3">
+                {upcomingBookings.map(b => (
+                  <div
+                    key={b.bookingId}
+                    className="bg-slate-50/80 hover:bg-slate-50 rounded-2xl p-4.5 border border-slate-200/80 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 transition-all"
                   >
-                    {isCanceling && <Loader2 size={12} className="animate-spin" />}
-                    Hủy lịch hẹn
-                  </button>
-                  <span className="text-[10px] text-slate-400 font-medium text-right">
-                    * Hủy trước giờ hẹn (Tối đa 3 lần/ngày)
-                  </span>
-                </div>
+                    <div className="space-y-1.5 text-left">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-[10px] font-black font-mono bg-blue-600 text-white px-2 py-0.5 rounded-md">
+                          {b.bookingCode}
+                        </span>
+                        <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/80 flex items-center gap-1">
+                          <Clock className="w-3 h-3 text-amber-600" /> Chờ dọn rửa (Chưa thanh toán)
+                        </span>
+                      </div>
+
+                      <h4 className="font-extrabold text-slate-900 text-sm">{b.packageName}</h4>
+
+                      <p className="text-xs text-slate-600 flex items-center gap-1.5 font-medium">
+                        🏍️ <strong className="text-slate-800">{b.model}</strong> ({b.licensePlate})
+                      </p>
+
+                      <p className="text-xs text-slate-500 flex flex-wrap items-center gap-3 pt-0.5">
+                        <span className="flex items-center gap-1 font-medium"><Calendar size={12} className="text-blue-500" /> {b.slotDate}</span>
+                        <span className="flex items-center gap-1 font-medium"><Clock size={12} className="text-blue-500" /> {b.slotTime} (GMT+7)</span>
+                        <span className="flex items-center gap-1 font-medium"><MapPin size={12} className="text-blue-500" /> NovaWash</span>
+                      </p>
+                    </div>
+
+                    <div className="flex gap-2 w-full md:w-auto shrink-0 flex-col items-end">
+                      <button
+                        onClick={() => handleCancelBooking(b.bookingId)}
+                        disabled={isCanceling}
+                        className="w-full md:w-auto px-4 py-2 bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-200 text-slate-600 hover:text-rose-600 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 disabled:opacity-50 cursor-pointer shadow-sm"
+                      >
+                        {isCanceling && <Loader2 size={12} className="animate-spin" />}
+                        Hủy lịch hẹn
+                      </button>
+                      <span className="text-[10px] text-slate-400 font-medium text-right">
+                        * Hủy trước giờ hẹn (Tối đa 3 lần/ngày)
+                      </span>
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : (
               <div className="text-center py-10 text-slate-500 text-xs bg-slate-50/50 rounded-xl border border-dashed border-slate-200 flex flex-col items-center justify-center gap-3 animate-fade-in">

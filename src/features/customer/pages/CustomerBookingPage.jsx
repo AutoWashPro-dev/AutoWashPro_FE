@@ -33,6 +33,9 @@ export default function CustomerBookingPage() {
     if (location.state?.tab) {
       setBookingTab(location.state.tab);
     }
+    if (location.state?.filter) {
+      setHistoryStatusFilter(location.state.filter);
+    }
   }, [location.state]);
 
   // Mẫu dữ liệu xe máy của khách hàng
@@ -73,7 +76,7 @@ export default function CustomerBookingPage() {
   const [selectedTime, setSelectedTime] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [userHistory, setUserHistory] = useState([]);
-  const [historyStatusFilter, setHistoryStatusFilter] = useState('ALL'); // 'ALL' | 'PENDING' | 'COMPLETED' | 'CANCELLED'
+  const [historyStatusFilter, setHistoryStatusFilter] = useState(location.state?.filter || 'ALL'); // 'ALL' | 'PENDING' | 'COMPLETED' | 'CANCELLED'
   const [availableVouchers, setAvailableVouchers] = useState([]);
   const [selectedVoucher, setSelectedVoucher] = useState(null);
   const [isVoucherDropdownOpen, setIsVoucherDropdownOpen] = useState(false);
