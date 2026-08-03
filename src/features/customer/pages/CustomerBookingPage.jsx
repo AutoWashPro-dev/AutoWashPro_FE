@@ -247,7 +247,13 @@ export default function CustomerBookingPage() {
 
   React.useEffect(() => {
     window.addEventListener('vehicleListUpdated', loadUserProfile);
-    return () => window.removeEventListener('vehicleListUpdated', loadUserProfile);
+    window.addEventListener('autowash_tiers_updated', loadUserProfile);
+    window.addEventListener('storage', loadUserProfile);
+    return () => {
+      window.removeEventListener('vehicleListUpdated', loadUserProfile);
+      window.removeEventListener('autowash_tiers_updated', loadUserProfile);
+      window.removeEventListener('storage', loadUserProfile);
+    };
   }, []);
 
   const loadCustomerVouchers = async () => {

@@ -38,6 +38,26 @@ api.interceptors.response.use(
   }
 );
 
+const defaultTierIdMap = { MEMBER: 1, SILVER: 2, GOLD: 3, PLATINUM: 4 };
+
+const mapTier = (item, idx) => {
+  const name = item.tierName || item.name || item.key || 'MEMBER';
+  const upper = name.toUpperCase();
+  const tierId = item.tierId || item.id || defaultTierIdMap[upper] || (idx + 1);
+  return {
+    ...item,
+    tierId,
+    id: tierId,
+    key: upper,
+    name: upper,
+    minSpend: Number(item.minSpendVnd !== undefined ? item.minSpendVnd : (item.minSpend || 0)),
+    pointMultiplier: Number(item.tierMultiplier !== undefined ? item.tierMultiplier : (item.pointsMultiplier || item.pointMultiplier || 1.0)),
+    bookingWindow: Number(item.bookingWindowDays !== undefined ? item.bookingWindowDays : (item.bookingWindow || 7)),
+    bookingWindowDays: Number(item.bookingWindowDays !== undefined ? item.bookingWindowDays : (item.bookingWindow || 7)),
+    isActive: item.isActive !== undefined ? item.isActive : true
+  };
+};
+
 export const loyaltyApi = {
   /**
    * Lấy danh sách các Hạng thành viên VIP & Cấu hình Booking Window
@@ -45,25 +65,21 @@ export const loyaltyApi = {
   getAllTiers: async () => {
     try {
       const res = await api.get('/admin/loyalty/tiers');
-      return res.data.map(item => ({
-        ...item,
-        key: item.tierName || item.name || item.key,
-        name: item.tierName || item.name || item.key,
-        minSpend: item.minSpendVnd || item.minSpend || 0,
-        pointMultiplier: item.tierMultiplier !== undefined ? item.tierMultiplier : (item.pointsMultiplier || item.pointMultiplier || 1.0),
-        bookingWindow: item.bookingWindowDays || item.bookingWindow || 7,
-        isActive: item.isActive !== undefined ? item.isActive : true
-      }));
+      const mapped = (res.data || []).map(mapTier);
+      localStorage.setItem('autowash_tiers', JSON.stringify(mapped));
+      return mapped;
     } catch (err) {
       console.warn('API /admin/loyalty/tiers offline or error, using localStorage fallback:', err.message);
       const saved = localStorage.getItem('autowash_tiers');
       if (saved) return JSON.parse(saved);
-      return [
-        { key: 'MEMBER', name: 'MEMBER', minSpend: 0, pointMultiplier: 1.0, bookingWindow: 7, isActive: true },
-        { key: 'SILVER', name: 'SILVER', minSpend: 1000000, pointMultiplier: 1.2, bookingWindow: 10, isActive: true },
-        { key: 'GOLD', name: 'GOLD', minSpend: 5000000, pointMultiplier: 1.5, bookingWindow: 12, isActive: true },
-        { key: 'PLATINUM', name: 'PLATINUM', minSpend: 10000000, pointMultiplier: 2.0, bookingWindow: 14, isActive: true }
+      const fallback = [
+        { tierId: 1, key: 'MEMBER', name: 'MEMBER', minSpend: 0, pointMultiplier: 1.0, bookingWindow: 7, bookingWindowDays: 7, isActive: true },
+        { tierId: 2, key: 'SILVER', name: 'SILVER', minSpend: 1000000, pointMultiplier: 1.2, bookingWindow: 10, bookingWindowDays: 10, isActive: true },
+        { tierId: 3, key: 'GOLD', name: 'GOLD', minSpend: 5000000, pointMultiplier: 1.5, bookingWindow: 12, bookingWindowDays: 12, isActive: true },
+        { tierId: 4, key: 'PLATINUM', name: 'PLATINUM', minSpend: 10000000, pointMultiplier: 2.0, bookingWindow: 14, bookingWindowDays: 14, isActive: true }
       ];
+      localStorage.setItem('autowash_tiers', JSON.stringify(fallback));
+      return fallback;
     }
   },
 
@@ -73,9 +89,12 @@ export const loyaltyApi = {
    * @param {Object} data 
    */
   updateTierConfig: async (tierId, data) => {
+    const tierNameUpper = (data.name || data.key || '').toUpperCase();
+    const actualId = tierId || data.tierId || data.id || defaultTierIdMap[tierNameUpper] || 1;
+
     try {
       const payload = {
-        tierName: data.name || data.key,
+        tierName: tierNameUpper,
         minSpendVnd: Number(data.minSpend),
         minSpend: Number(data.minSpend),
         tierMultiplier: Number(data.pointMultiplier),
@@ -83,56 +102,63 @@ export const loyaltyApi = {
         bookingWindowDays: Number(data.bookingWindow),
         isActive: data.isActive !== undefined ? data.isActive : true
       };
-      const actualId = data.tierId || tierId || 1;
       const res = await api.put(`/admin/loyalty/tiers/${actualId}`, payload);
       
       // Đồng bộ vào localStorage để ứng dụng khách hàng sử dụng ngay
       const saved = localStorage.getItem('autowash_tiers');
-      if (saved) {
-        try {
-          const list = JSON.parse(saved);
-          const updated = list.map(t => {
-            const matchName = (t.key || t.name || '').toUpperCase() === (data.name || data.key || '').toUpperCase();
-            const matchId = (t.tierId || t.id) === actualId;
-            if (matchName || matchId) {
-              return {
-                ...t,
-                minSpend: Number(data.minSpend),
-                pointMultiplier: Number(data.pointMultiplier),
-                bookingWindow: Number(data.bookingWindow),
-                bookingWindowDays: Number(data.bookingWindow)
-              };
-            }
-            return t;
-          });
-          localStorage.setItem('autowash_tiers', JSON.stringify(updated));
-        } catch (e) {}
-      }
+      let list = saved ? JSON.parse(saved) : [
+        { tierId: 1, key: 'MEMBER', name: 'MEMBER', minSpend: 0, pointMultiplier: 1.0, bookingWindow: 7, isActive: true },
+        { tierId: 2, key: 'SILVER', name: 'SILVER', minSpend: 1000000, pointMultiplier: 1.2, bookingWindow: 10, isActive: true },
+        { tierId: 3, key: 'GOLD', name: 'GOLD', minSpend: 5000000, pointMultiplier: 1.5, bookingWindow: 12, isActive: true },
+        { tierId: 4, key: 'PLATINUM', name: 'PLATINUM', minSpend: 10000000, pointMultiplier: 2.0, bookingWindow: 14, isActive: true }
+      ];
+      const updated = list.map(t => {
+        const matchName = (t.key || t.name || '').toUpperCase() === tierNameUpper;
+        const matchId = (t.tierId || t.id) === actualId;
+        if (matchName || matchId) {
+          return {
+            ...t,
+            tierId: actualId,
+            id: actualId,
+            minSpend: Number(data.minSpend),
+            pointMultiplier: Number(data.pointMultiplier),
+            bookingWindow: Number(data.bookingWindow),
+            bookingWindowDays: Number(data.bookingWindow)
+          };
+        }
+        return t;
+      });
+      localStorage.setItem('autowash_tiers', JSON.stringify(updated));
+      window.dispatchEvent(new Event('autowash_tiers_updated'));
 
       return { ...data, ...res.data };
     } catch (err) {
       console.warn('API updateTierConfig fallback:', err.message);
       // Đồng bộ khi fallback
       const saved = localStorage.getItem('autowash_tiers');
-      if (saved) {
-        try {
-          const list = JSON.parse(saved);
-          const updated = list.map(t => {
-            const matchName = (t.key || t.name || '').toUpperCase() === (data.name || data.key || '').toUpperCase();
-            if (matchName) {
-              return {
-                ...t,
-                minSpend: Number(data.minSpend),
-                pointMultiplier: Number(data.pointMultiplier),
-                bookingWindow: Number(data.bookingWindow),
-                bookingWindowDays: Number(data.bookingWindow)
-              };
-            }
-            return t;
-          });
-          localStorage.setItem('autowash_tiers', JSON.stringify(updated));
-        } catch (e) {}
-      }
+      let list = saved ? JSON.parse(saved) : [
+        { tierId: 1, key: 'MEMBER', name: 'MEMBER', minSpend: 0, pointMultiplier: 1.0, bookingWindow: 7, isActive: true },
+        { tierId: 2, key: 'SILVER', name: 'SILVER', minSpend: 1000000, pointMultiplier: 1.2, bookingWindow: 10, isActive: true },
+        { tierId: 3, key: 'GOLD', name: 'GOLD', minSpend: 5000000, pointMultiplier: 1.5, bookingWindow: 12, isActive: true },
+        { tierId: 4, key: 'PLATINUM', name: 'PLATINUM', minSpend: 10000000, pointMultiplier: 2.0, bookingWindow: 14, isActive: true }
+      ];
+      const updated = list.map(t => {
+        const matchName = (t.key || t.name || '').toUpperCase() === tierNameUpper;
+        if (matchName) {
+          return {
+            ...t,
+            tierId: actualId,
+            id: actualId,
+            minSpend: Number(data.minSpend),
+            pointMultiplier: Number(data.pointMultiplier),
+            bookingWindow: Number(data.bookingWindow),
+            bookingWindowDays: Number(data.bookingWindow)
+          };
+        }
+        return t;
+      });
+      localStorage.setItem('autowash_tiers', JSON.stringify(updated));
+      window.dispatchEvent(new Event('autowash_tiers_updated'));
       return data;
     }
   },
