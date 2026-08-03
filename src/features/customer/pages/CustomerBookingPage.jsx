@@ -531,6 +531,15 @@ export default function CustomerBookingPage() {
     return basePrice;
   };
 
+  // Helper: lấy danh sách tên các dịch vụ/công đoạn có sẵn trong gói chính
+  const getPackageIncludedServiceNames = (pkg) => {
+    if (!pkg || !Array.isArray(pkg.includedServices) || pkg.includedServices.length === 0) return [];
+    return pkg.includedServices.map(item => {
+      if (typeof item === 'string') return item;
+      return item.serviceNameSnapshot || item.serviceName || item.name || '';
+    }).filter(Boolean);
+  };
+
   // Helper: kiểm tra tiện ích add-on có nằm trong gói chính được chọn hay không
   const isAddonInPackage = (addon, pkg) => {
     if (!addon || !pkg) return false;
@@ -545,7 +554,7 @@ export default function CustomerBookingPage() {
       if (typeof item === 'string') {
         const itemLower = item.toLowerCase().trim();
         return (addonName && itemLower === addonName) ||
-               (addonCode && itemLower === addonCode);
+          (addonCode && itemLower === addonCode);
       }
       const itemIdStr = String(item.id || item.serviceId || '');
       const itemName = String(item.serviceNameSnapshot || item.serviceName || item.name || '').toLowerCase().trim();
@@ -1080,8 +1089,8 @@ export default function CustomerBookingPage() {
       setSelectedTimeSlotId(null);
 
       setIsSuccessModalOpen(true);
-      try { await loadUserHistory(); } catch (e) {}
-      try { await loadCustomerVouchers(); } catch (e) {}
+      try { await loadUserHistory(); } catch (e) { }
+      try { await loadCustomerVouchers(); } catch (e) { }
     } catch (err) {
       console.error('Failed to create booking:', err);
       const message = err.response?.data?.message || err.response?.data?.error || err.message || 'Không thể lưu đặt lịch. Vui lòng thử lại.';
@@ -1291,12 +1300,11 @@ export default function CustomerBookingPage() {
                     <div
                       key={addon.id || addon.serviceId}
                       onClick={() => handleToggleAddon(addon.id || addon.serviceId)}
-                      className={`border rounded-xl p-4 cursor-pointer transition-all duration-200 flex justify-between items-center relative group ${
-                        isIncludedInPkg
-                          ? 'border-amber-300/80 bg-gradient-to-r from-amber-50/60 to-amber-100/30 hover:border-amber-400 hover:bg-amber-100/60 hover:shadow-sm'
-                          : isChecked
-                            ? 'border-2 border-blue-500 bg-blue-50/40 shadow-sm ring-1 ring-blue-500/20 hover:bg-blue-50/70 hover:border-blue-600'
-                            : 'border-slate-200 bg-white hover:border-blue-400 hover:bg-blue-50/10 hover:shadow-sm'
+                      className={`border rounded-xl p-4 cursor-pointer transition-all duration-200 flex justify-between items-center relative group ${isIncludedInPkg
+                        ? 'border-amber-300/80 bg-gradient-to-r from-amber-50/60 to-amber-100/30 hover:border-amber-400 hover:bg-amber-100/60 hover:shadow-sm'
+                        : isChecked
+                          ? 'border-2 border-blue-500 bg-blue-50/40 shadow-sm ring-1 ring-blue-500/20 hover:bg-blue-50/70 hover:border-blue-600'
+                          : 'border-slate-200 bg-white hover:border-blue-400 hover:bg-blue-50/10 hover:shadow-sm'
                         }`}
                     >
                       <div className="flex items-center gap-3">
@@ -1317,13 +1325,12 @@ export default function CustomerBookingPage() {
 
                         <div>
                           <div className="flex items-center gap-2 flex-wrap">
-                            <h4 className={`font-bold text-xs ${
-                              isIncludedInPkg
-                                ? 'text-amber-950'
-                                : isChecked
-                                  ? 'text-blue-900'
-                                  : 'text-slate-800 group-hover:text-blue-700'
-                            }`}>
+                            <h4 className={`font-bold text-xs ${isIncludedInPkg
+                              ? 'text-amber-950'
+                              : isChecked
+                                ? 'text-blue-900'
+                                : 'text-slate-800 group-hover:text-blue-700'
+                              }`}>
                               {addon.name}
                             </h4>
                             {isIncludedInPkg && (
@@ -1336,14 +1343,13 @@ export default function CustomerBookingPage() {
                         </div>
                       </div>
 
-                      <span className={`font-mono text-xs font-bold shrink-0 ml-3 ${
-                        isIncludedInPkg
-                          ? 'text-amber-800 font-extrabold bg-amber-100/80 px-2 py-0.5 rounded-lg border border-amber-200'
-                          : isChecked
-                            ? 'text-blue-700 font-extrabold'
-                            : 'text-slate-600 group-hover:text-blue-600'
-                      }`}>
-                        {isIncludedInPkg ? 'Bao gồm' : `+${formatVnd(addon.price)}`}
+                      <span className={`font-mono text-xs font-bold shrink-0 ml-3 ${isIncludedInPkg
+                        ? 'text-amber-800 font-extrabold bg-amber-100/80 px-2 py-0.5 rounded-lg border border-amber-200'
+                        : isChecked
+                          ? 'text-blue-700 font-extrabold'
+                          : 'text-slate-600 group-hover:text-blue-600'
+                        }`}>
+                        {isIncludedInPkg ? 'Đã bao gồm' : ``}
                       </span>
                     </div>
                   );
@@ -2127,23 +2133,33 @@ export default function CustomerBookingPage() {
       )}
 
       {/* 2. BOOKING CONFIRMATION DETAILS MODAL */}
-      {isConfirmModalOpen && selectedVehicle && selectedPackage && (
+      {isConfirmModalOpen && selectedVehicle && (selectedPackage || selectedAddons.length > 0) && (
         <div
-          className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4"
+          className="fixed inset-0 z-[110] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4 animate-fade-in"
           onClick={(e) => { if (e.target === e.currentTarget) setIsConfirmModalOpen(false); }}
         >
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl border border-slate-100 space-y-5 animate-in fade-in zoom-in-95 duration-250">
-            <div className="flex items-center gap-3 border-b pb-3">
-              <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 shrink-0">
-                <CalendarIcon className="w-5 h-5" />
+          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl border border-slate-100 space-y-4 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between border-b pb-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shrink-0">
+                  <CalendarIcon className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-extrabold text-slate-800">Xác nhận thông tin đặt lịch</h3>
+                  <p className="text-[11px] text-slate-400 font-medium">Vui lòng rà soát kỹ thông tin trước khi hoàn tất</p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-sm font-extrabold text-slate-800">Xác nhận thông tin đặt lịch</h3>
-                <p className="text-[11px] text-slate-400 font-medium">Vui lòng rà soát kỹ thông tin trước khi hoàn tất</p>
-              </div>
+              <button
+                type="button"
+                onClick={() => setIsConfirmModalOpen(false)}
+                className="w-7 h-7 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-slate-600 flex items-center justify-center transition cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
             </div>
 
-            <div className="space-y-3.5 text-xs">
+            <div className="space-y-3 text-xs">
+              {/* Phương tiện */}
               <div className="flex justify-between items-start py-1.5 border-b border-dashed border-slate-100">
                 <span className="text-slate-400 font-medium shrink-0">Phương tiện:</span>
                 <span className="text-slate-800 font-bold text-right font-mono">
@@ -2151,22 +2167,82 @@ export default function CustomerBookingPage() {
                 </span>
               </div>
 
+              {/* Tên Gói Dịch Vụ Chính / Custom */}
               <div className="flex justify-between items-start py-1.5 border-b border-dashed border-slate-100">
                 <span className="text-slate-400 font-medium shrink-0">Dịch vụ chính:</span>
-                <span className="text-slate-800 font-bold text-right">
+                <span className="text-blue-600 font-extrabold text-right">
                   {selectedPackage ? selectedPackage.name : 'Gói custom'}
                 </span>
               </div>
 
-              {selectedAddons.length > 0 && (
-                <div className="flex justify-between items-start py-1.5 border-b border-dashed border-slate-100">
-                  <span className="text-slate-400 font-medium shrink-0">Dịch vụ kèm:</span>
-                  <span className="text-slate-800 font-bold text-right">
-                    {selectedAddons.map(id => addonServices.find(a => String(a.id || a.serviceId) === String(id))?.name).filter(Boolean).join(', ')}
+              {/* Chi tiết nội dung các gói/dịch vụ có trong đơn */}
+              {selectedPackage ? (
+                /* TRƯỜNG HỢP: GÓI CHÍNH CÓ SẴN (Không phải Gói Custom) */
+                <>
+                  {/* Các công đoạn có sẵn trong gói chính */}
+                  {(() => {
+                    const includedNames = getPackageIncludedServiceNames(selectedPackage);
+                    if (includedNames.length > 0) {
+                      return (
+                        <div className="py-2 px-3 bg-slate-50 rounded-xl border border-slate-150 space-y-1.5">
+                          <span className="text-[10px] font-bold text-slate-500 uppercase block tracking-wider">
+                            ✨ Các công đoạn có sẵn trong {selectedPackage.name}:
+                          </span>
+                          <div className="flex flex-wrap gap-1">
+                            {includedNames.map((name, idx) => (
+                              <span key={idx} className="px-2 py-0.5 bg-white text-slate-700 text-[10px] font-semibold rounded border border-slate-200">
+                                ✓ {name}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
+
+                  {/* Dịch vụ tiện ích kèm theo (Add-on) */}
+                  {selectedAddons.length > 0 && (
+                    <div className="py-2 px-3 bg-blue-50/50 rounded-xl border border-blue-100 space-y-1.5">
+                      <span className="text-[10px] font-bold text-blue-700 uppercase block tracking-wider">
+                        ➕ Dịch vụ tiện ích kèm theo (Add-on):
+                      </span>
+                      <div className="flex flex-wrap gap-1">
+                        {selectedAddons.map(id => {
+                          const addonObj = addonServices.find(a => String(a.id || a.serviceId) === String(id));
+                          if (!addonObj) return null;
+                          return (
+                            <span key={id} className="px-2 py-0.5 bg-white text-blue-800 text-[10px] font-bold rounded border border-blue-200">
+                              +{addonObj.name} ({formatVnd(addonObj.price)})
+                            </span>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                /* TRƯỜNG HỢP: GÓI CUSTOM (Khách chọn lẻ các gói add-on) */
+                <div className="py-2.5 px-3.5 bg-gradient-to-r from-blue-50/80 to-indigo-50/80 rounded-xl border border-blue-200/80 space-y-2">
+                  <span className="text-[10px] font-extrabold text-blue-800 uppercase block tracking-wider">
+                    🛠 Các dịch vụ tiện ích có trong Gói custom:
                   </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {selectedAddons.map(id => {
+                      const addonObj = addonServices.find(a => String(a.id || a.serviceId) === String(id));
+                      if (!addonObj) return null;
+                      return (
+                        <span key={id} className="px-2.5 py-1 bg-white text-blue-900 text-xs font-bold rounded-lg border border-blue-200 shadow-2xs flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                          {addonObj.name} <span className="text-blue-600 font-mono text-[11px] font-extrabold">+{formatVnd(addonObj.price)}</span>
+                        </span>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
 
+              {/* Thời gian hẹn */}
               <div className="flex justify-between items-start py-1.5 border-b border-dashed border-slate-100">
                 <span className="text-slate-400 font-medium shrink-0">Thời gian hẹn:</span>
                 <span className="text-slate-800 font-bold text-right">
@@ -2174,6 +2250,7 @@ export default function CustomerBookingPage() {
                 </span>
               </div>
 
+              {/* Địa điểm */}
               <div className="flex justify-between items-start py-1.5 border-b border-dashed border-slate-100">
                 <span className="text-slate-400 font-medium shrink-0">Địa điểm / Chi nhánh:</span>
                 <span className="text-slate-800 font-bold text-right">
@@ -2181,6 +2258,7 @@ export default function CustomerBookingPage() {
                 </span>
               </div>
 
+              {/* Voucher */}
               {selectedVoucher && (
                 <div className="flex justify-between items-start py-1.5 border-b border-dashed border-slate-100 text-emerald-600 font-semibold">
                   <span className="shrink-0">Mã giảm giá áp dụng:</span>
@@ -2188,6 +2266,7 @@ export default function CustomerBookingPage() {
                 </div>
               )}
 
+              {/* Tổng thanh toán */}
               <div className="flex justify-between items-center pt-3 border-t">
                 <span className="text-slate-800 font-black text-sm">Tổng thanh toán tạm tính:</span>
                 <span className="font-mono text-base font-black text-blue-600">
