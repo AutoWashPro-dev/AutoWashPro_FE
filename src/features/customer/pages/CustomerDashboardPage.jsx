@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Calendar, 
-  Clock, 
-  MapPin, 
-  ChevronRight, 
-  Sparkles, 
+import {
+  Calendar,
+  Clock,
+  MapPin,
+  ChevronRight,
+  Sparkles,
   HelpCircle,
   TrendingUp,
   Award,
@@ -94,7 +94,7 @@ export default function CustomerDashboardPage() {
         customerApi.getMyVouchers(null, 'ISSUED'),
         customerApi.getActiveServices()
       ]);
-      
+
       // Add minimal defaults if profile is missing some fields
       const customerData = {
         ...profile,
@@ -111,7 +111,7 @@ export default function CustomerDashboardPage() {
       if (Array.isArray(bookings)) {
         const completedBookings = bookings.filter(b => b.status === 'Completed' || b.status === 'COMPLETED');
         setVisitCount(completedBookings.length);
-        
+
         // Find first Pending/Confirmed booking for upcoming
         const pending = bookings.find(b => ['Pending', 'PENDING', 'Confirmed', 'CONFIRMED'].includes(b.status));
         if (pending) {
@@ -133,11 +133,11 @@ export default function CustomerDashboardPage() {
         const dates = Object.keys(bookings).sort();
         let count = 0;
         let foundPending = null;
-        
+
         for (const dateKey of dates) {
           const dayList = bookings[dateKey] || [];
           count += dayList.filter(b => b.status?.toLowerCase() === 'completed').length;
-          
+
           if (!foundPending) {
             const p = dayList.find(b => b.status?.toLowerCase() === 'pending' || b.status?.toLowerCase() === 'confirmed');
             if (p) {
@@ -225,14 +225,14 @@ export default function CustomerDashboardPage() {
 
   return (
     <div className="space-y-8 pb-10 relative">
-      
+
       {/* KHU VỰC CHÀO MỪNG KHÁCH HÀNG */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div className="text-left">
           <h1 className="text-2xl font-extrabold text-slate-800 tracking-tight">Chào bạn, {isLoading || !customer ? 'N/A' : (customer.fullName || 'N/A')}!</h1>
           <p className="text-sm text-slate-500 mt-1">Hôm nay xế cưng của bạn đã sẵn sàng để dọn rửa chưa?</p>
         </div>
-        <button 
+        <button
           onClick={() => navigate('/customer/book')}
           className="flex items-center gap-2 px-5 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold shadow-md shadow-blue-200 hover:shadow-lg transition-all cursor-pointer"
         >
@@ -242,7 +242,7 @@ export default function CustomerDashboardPage() {
 
       {/* BỐ CỤC CHÍNH DÀN ĐỀU (GRID 3 CỘT) */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
+
         {/* CỘT TRÁI (RỘNG 1/3) - THÔNG TIN THẺ VIP & TIẾN TRÌNH */}
         <div className="space-y-6">
           {/* Thẻ VIP */}
@@ -251,7 +251,7 @@ export default function CustomerDashboardPage() {
           ) : (
             <VIPCard customer={customer} />
           )}
-          
+
           {/* Thanh Tiến trình thăng hạng */}
           {isLoading || !customer ? (
             <div className="h-24 bg-slate-100 rounded-2xl animate-pulse mt-4"></div>
@@ -268,19 +268,28 @@ export default function CustomerDashboardPage() {
 
         {/* CỘT PHẢI (RỘNG 2/3) - LỊCH HẸN VÀ THÔNG TIN DỊCH VỤ */}
         <div className="lg:col-span-2 space-y-6 text-left">
-          
+
           {/* KHỐI LỊCH HẸN SẮP TỚI */}
           <div className="bg-white rounded-2xl border border-slate-150 p-6 shadow-sm">
             <div className="flex justify-between items-center mb-4">
               <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wider flex items-center gap-2">
                 <Clock size={16} className="text-blue-500" /> Lịch hẹn dọn xe sắp tới
               </h3>
-              <button 
-                onClick={() => navigate('/customer/book')} 
-                className="text-xs text-blue-600 hover:text-blue-800 font-bold flex items-center cursor-pointer"
-              >
-                <span>Đặt lịch ngay</span> <ChevronRight size={14} />
-              </button>
+              {upcomingBooking || visitCount > 0 ? (
+                <button
+                  onClick={() => navigate('/customer/book', { state: { tab: 'history' } })}
+                  className="text-xs text-blue-600 hover:text-blue-800 font-bold flex items-center gap-1 cursor-pointer"
+                >
+                  <span>Lịch sử đặt lịch</span> <ChevronRight size={14} />
+                </button>
+              ) : (
+                <button
+                  onClick={() => navigate('/customer/book')}
+                  className="text-xs text-blue-600 hover:text-blue-800 font-bold flex items-center gap-1 cursor-pointer"
+                >
+                  <span>Đặt lịch ngay</span> <ChevronRight size={14} />
+                </button>
+              )}
             </div>
 
             {upcomingBooking ? (
@@ -304,9 +313,9 @@ export default function CustomerDashboardPage() {
                     <span className="flex items-center gap-1 font-medium"><MapPin size={12} /> NovaWash</span>
                   </p>
                 </div>
-                
+
                 <div className="flex gap-2 w-full md:w-auto shrink-0 flex-col items-end">
-                  <button 
+                  <button
                     onClick={() => handleCancelBooking(upcomingBooking.bookingId)}
                     disabled={isCanceling}
                     className="w-full md:w-auto px-4 py-2 bg-white hover:bg-rose-50 border border-slate-200 hover:border-rose-200 text-slate-600 hover:text-rose-600 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1 disabled:opacity-50 cursor-pointer"
@@ -350,7 +359,7 @@ export default function CustomerDashboardPage() {
                 <p className="text-xs text-slate-500 mt-0.5">Bạn đang sở hữu <strong className="text-slate-700 font-extrabold">{isLoading ? 'N/A' : (vouchersCount ?? 'N/A')} Voucher</strong> khả dụng</p>
               </div>
             </div>
-            <button 
+            <button
               onClick={() => navigate('/customer/rewards')}
               className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer"
             >
@@ -367,7 +376,7 @@ export default function CustomerDashboardPage() {
           <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wider flex items-center gap-2">
             <Sparkles size={16} className="text-amber-500" /> Dịch vụ khuyên dùng cho bạn
           </h3>
-          <button 
+          <button
             onClick={() => navigate('/customer/book')}
             className="text-xs text-blue-600 hover:text-blue-800 font-bold cursor-pointer"
           >
@@ -390,7 +399,7 @@ export default function CustomerDashboardPage() {
                 <h4 className="font-bold text-slate-800 text-sm leading-tight group-hover:text-blue-600 transition-colors">{service.title}</h4>
                 <p className="text-xs text-slate-500 mt-2 leading-relaxed">{service.description}</p>
               </div>
-              <button 
+              <button
                 onClick={() => navigate('/customer/book', { state: { autoSelectServiceId: service.id || service.serviceId } })}
                 className="mt-5 w-full py-2 bg-slate-50 hover:bg-blue-600 hover:text-white border border-slate-150 text-slate-600 rounded-xl text-xs font-bold transition-all cursor-pointer"
               >
@@ -403,7 +412,7 @@ export default function CustomerDashboardPage() {
 
       {/* Custom UI Modal Alert / Notification Dialog */}
       {alertModal.isOpen && (
-        <div 
+        <div
           className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4"
           onClick={(e) => { if (e.target === e.currentTarget) setAlertModal(prev => ({ ...prev, isOpen: false })); }}
         >
@@ -438,7 +447,7 @@ export default function CustomerDashboardPage() {
 
       {/* Custom Confirm Modal Dialog */}
       {confirmModal.isOpen && (
-        <div 
+        <div
           className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4"
           onClick={(e) => { if (e.target === e.currentTarget) setConfirmModal(prev => ({ ...prev, isOpen: false })); }}
         >

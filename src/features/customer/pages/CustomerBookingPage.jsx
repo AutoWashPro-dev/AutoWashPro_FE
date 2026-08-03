@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Calendar as CalendarIcon,
@@ -27,7 +27,13 @@ import { formatLicensePlate, validateLicensePlate } from '../../../utils/validat
 export default function CustomerBookingPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [bookingTab, setBookingTab] = useState('new'); // 'new' hoặc 'history'
+  const [bookingTab, setBookingTab] = useState(location.state?.tab || 'new'); // 'new' hoặc 'history'
+
+  useEffect(() => {
+    if (location.state?.tab) {
+      setBookingTab(location.state.tab);
+    }
+  }, [location.state]);
 
   // Mẫu dữ liệu xe máy của khách hàng
   const [vehicles, setVehicles] = useState([]);
