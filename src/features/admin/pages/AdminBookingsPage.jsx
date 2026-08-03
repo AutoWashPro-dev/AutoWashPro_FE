@@ -193,41 +193,21 @@ export default function AdminBookingsPage() {
 
       if (detail) {
         const cust = detail.customer || {};
-        const isGenericName = (n) => !n || n === 'Khách hàng' || n === 'Khách hàng vãng lai';
-        const userFromStorage = (() => {
-          try {
-            const u = JSON.parse(localStorage.getItem('autowash_user') || localStorage.getItem('user') || '{}');
-            return {
-              name: u.fullName || u.name || u.username || '',
-              phone: u.phoneNumber || u.phone || ''
-            };
-          } catch (e) {
-            return { name: '', phone: '' };
-          }
-        })();
-
-        const rawCustName = detail.customerName || cust.fullName || cust.name || '';
-        const custName = !isGenericName(rawCustName) ? rawCustName : (userFromStorage.name || 'Nhân Thànha');
-        const custPhone = (detail.customerPhone && detail.customerPhone !== '090***000') ? detail.customerPhone : (cust.phoneNumber || cust.phone || userFromStorage.phone || '0912345677');
-        const custTier = detail.customerTier || cust.membershipTier || cust.tierName || cust.tier || 'GOLD';
-        const custPts = detail.customerPoints !== undefined ? detail.customerPoints : (cust.loyaltyPoints !== undefined ? cust.loyaltyPoints : (cust.points !== undefined ? cust.points : 721));
-
         const normalized = {
           ...detail,
           id: detail.bookingId || detail.id || detail.bookingCode,
           customer: {
-            avatar: cust.avatarUrl || cust.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + custPhone,
+            avatar: cust.avatarUrl || cust.avatar || 'https://api.dicebear.com/7.x/avataaars/svg?seed=' + (cust.phoneNumber || detail.customerPhone || 'guest'),
             avatarUrl: cust.avatarUrl || cust.avatar,
-            fullName: custName,
-            name: custName,
-            membershipTier: custTier,
-            tier: custTier,
-            tierName: custTier,
-            phoneNumber: custPhone,
-            phone: custPhone,
-            loyaltyPoints: custPts,
-            points: custPts,
-            pointsValue: custPts * 1000
+            fullName: cust.fullName || detail.customerName || 'Khách hàng',
+            name: cust.fullName || detail.customerName || 'Khách hàng',
+            membershipTier: cust.membershipTier || detail.customerTier || 'Member',
+            tier: cust.membershipTier || detail.customerTier || 'Member',
+            phoneNumber: cust.phoneNumber || detail.customerPhone || '090***000',
+            phone: cust.phoneNumber || detail.customerPhone || '090***000',
+            loyaltyPoints: cust.loyaltyPoints !== undefined ? cust.loyaltyPoints : (detail.customerPoints || 0),
+            points: cust.loyaltyPoints !== undefined ? cust.loyaltyPoints : (detail.customerPoints || 0),
+            pointsValue: (cust.loyaltyPoints !== undefined ? cust.loyaltyPoints : (detail.customerPoints || 0)) * 1000
           }
         };
         setBookingDetail(normalized);
@@ -318,36 +298,6 @@ export default function AdminBookingsPage() {
     let isCurrentRequest = true;
 
     const fetchApiBookings = async () => {
-      let myBookings = [];
-      try {
-        const rawMy = localStorage.getItem('autowash_my_bookings');
-        if (rawMy) {
-          const parsedMy = JSON.parse(rawMy);
-          if (Array.isArray(parsedMy)) {
-            myBookings = parsedMy.map(b => ({
-              id: b.id || b.bookingCode || b.bookingId,
-              bookingId: b.id || b.bookingCode || b.bookingId,
-              bookingCode: b.bookingCode || b.id,
-              bookingDate: b.date || b.bookingDate || selectedDate,
-              startTime: b.time || '08:00',
-              status: (b.rawStatus || b.status || 'PENDING').toUpperCase(),
-              packageName: b.packageName || 'Gói custom',
-              serviceName: b.packageName || 'Gói custom',
-              items: b.items || [{ serviceNameSnapshot: b.packageName || 'Gói custom', priceSnapshot: b.finalAmount || 0 }],
-              customerName: b.customerName || 'Khách hàng',
-              customerPhone: b.customerPhone || '0901234567',
-              licensePlate: b.licensePlate,
-              model: b.model,
-              finalAmount: b.finalAmount || 0,
-              totalEstimatedAmount: b.finalAmount || 0,
-              source: 'APP'
-            }));
-          }
-        }
-      } catch (e) {
-        console.warn('Failed to parse autowash_my_bookings:', e);
-      }
-
       try {
         let apiList = null;
         if (searchQuery.trim() !== '') {
@@ -357,15 +307,12 @@ export default function AdminBookingsPage() {
         }
         console.log(`🚀 [API] Danh sách đơn ngày ${selectedDate}:`, apiList);
 
-        // Chỉ cập nhật nếu đây là request cuối cùng
-        if (isCurrentRequest) {
-          const combined = [
-            ...(Array.isArray(apiList) ? apiList : []),
-            ...myBookings.filter(b => b.bookingDate === selectedDate)
-          ];
-
+        // Chỉ cập nhật nếu đây là request cuối cùng (tránh lỗi bấm nhanh bị đơ/loạn)
+        if (isCurrentRequest && Array.isArray(apiList)) {
+          // Dùng Map để lọc sạch mọi phần tử trùng ID trong mảng trả về từ API.
+          // Backend trả về flat array với bookingCode thay vì id.
           const uniqueApiList = Array.from(
-            new Map(combined.map(item => [item.bookingCode || item.id || String(item.bookingId || ''), item])).values()
+            new Map(apiList.map(item => [item.bookingCode || item.id || String(item.bookingId || ''), item])).values()
           );
 
           setBookingsDb({
@@ -376,33 +323,16 @@ export default function AdminBookingsPage() {
       } catch (err) {
         console.error('Failed to fetch bookings from API:', err);
         if (isCurrentRequest) {
-          const combined = [
-            ...(Array.isArray(bookings[selectedDate]) ? bookings[selectedDate] : []),
-            ...myBookings.filter(b => b.bookingDate === selectedDate)
-          ];
-          const uniqueList = Array.from(
-            new Map(combined.map(item => [item.bookingCode || item.id || String(item.bookingId || ''), item])).values()
-          );
-          setBookingsDb({
-            ...bookings,
-            [selectedDate]: uniqueList
-          });
+          setBookingsDb(bookings); // Fallback về localStorage nếu lỗi mạng/API
         }
       }
     };
 
     fetchApiBookings();
 
-    const handleStorageChange = () => setRefreshTrigger(prev => prev + 1);
-    window.addEventListener('storage', handleStorageChange);
-    window.addEventListener('vehicleListUpdated', handleStorageChange);
-    window.addEventListener('bookingUpdated', handleStorageChange);
-
+    // Cleanup function: Khi selectedDate đổi tiếp, request phía trên sẽ bị bỏ qua
     return () => {
       isCurrentRequest = false;
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('vehicleListUpdated', handleStorageChange);
-      window.removeEventListener('bookingUpdated', handleStorageChange);
     };
   }, [selectedDate, searchQuery, refreshTrigger]);
 
@@ -902,7 +832,7 @@ export default function AdminBookingsPage() {
       }
 
       // Calculate total duration and service names from items
-      let serviceName = b.packageName || b.serviceName || b.service?.name || 'Gói custom';
+      let serviceName = 'Dịch vụ dọn xe';
       let totalDuration = b.estimatedDuration || 20;
       if (b.items && b.items.length > 0) {
         const itemNames = b.items.map(i => i.serviceNameSnapshot || i.serviceName || i.name).filter(Boolean);
@@ -918,22 +848,8 @@ export default function AdminBookingsPage() {
       }
 
       const custObj = b.customer || {};
-      const isGenericName = (n) => !n || n === 'Khách hàng' || n === 'Khách hàng vãng lai';
-      const userFromStorage = (() => {
-        try {
-          const u = JSON.parse(localStorage.getItem('autowash_user') || localStorage.getItem('user') || '{}');
-          return {
-            name: u.fullName || u.name || u.username || '',
-            phone: u.phoneNumber || u.phone || ''
-          };
-        } catch (e) {
-          return { name: '', phone: '' };
-        }
-      })();
-
-      const rawCustName = b.customerName || custObj.fullName || custObj.name || '';
-      const custName = !isGenericName(rawCustName) ? rawCustName : (userFromStorage.name || 'Nhân Thànha');
-      const custPhone = (b.customerPhone && b.customerPhone !== '090***000') ? b.customerPhone : (custObj.phoneNumber || custObj.phone || userFromStorage.phone || '0912345677');
+      const custName = b.customerName || custObj.fullName || custObj.name || 'Khách hàng vãng lai';
+      const custPhone = b.customerPhone || custObj.phoneNumber || custObj.phone || '';
 
       // Build a quick lookup map inside getAllBookings
       const customerMap = {};
@@ -952,9 +868,8 @@ export default function AdminBookingsPage() {
         matchedCustomer.tierDisplayName ||
         matchedCustomer.tierName ||
         matchedCustomer.tier ||
-        'GOLD';
+        'Member';
       const custTier = String(rawTier).toUpperCase();
-      const custPts = b.customerPoints !== undefined ? b.customerPoints : (custObj.loyaltyPoints !== undefined ? custObj.loyaltyPoints : (matchedCustomer.points !== undefined ? matchedCustomer.points : 721));
       const custAvatar = custObj.avatarUrl || custObj.avatar || matchedCustomer.avatar || (`https://api.dicebear.com/7.x/avataaars/svg?seed=${custPhone || 'guest'}`);
       const amount = Number(b.finalAmount ?? b.totalEstimatedAmount ?? (b.service?.price || 0));
 
@@ -967,13 +882,13 @@ export default function AdminBookingsPage() {
           name: custName,
           phone: custPhone,
           tier: custTier,
-          points: custPts,
+          points: custObj.loyaltyPoints !== undefined ? custObj.loyaltyPoints : (b.customerPoints || matchedCustomer.points || 0),
           avatar: custAvatar
         },
         vehicle: {
           type: 'Xe máy',
-          model: b.model || b.vehicle?.model || 'Oyoy',
-          plate: b.licensePlate || b.vehicle?.plate || '85-HA 123.45'
+          model: b.model || b.vehicle?.model || 'N/A',
+          plate: b.licensePlate || b.vehicle?.plate || 'N/A'
         },
         service: {
           name: serviceName,
@@ -1002,7 +917,6 @@ export default function AdminBookingsPage() {
 
   // Giữ nguyên đoạn này để đồng bộ map với CRM Local của bạn
   const allBookingsMapped = getAllBookings().map(b => {
-    const isGenericName = (n) => !n || n === 'Khách hàng' || n === 'Khách hàng vãng lai';
     const customer = customersDb.find(c =>
       (c.id && String(c.id).toUpperCase() === String(b.custId || b.customerId || '').toUpperCase()) ||
       (c.customerId && String(c.customerId) === String(b.custId || b.customerId || ''))
@@ -1014,18 +928,16 @@ export default function AdminBookingsPage() {
       avatar: b.customer.avatar
     };
 
-    const finalName = !isGenericName(b.customer.name) ? b.customer.name : (!isGenericName(customer.name) ? customer.name : 'Nhân Thànha');
-
     return {
       ...b,
       customer: {
         ...customer,
-        name: finalName,
-        phone: b.customer.phone || customer.phone || '0912345677',
-        tier: b.customer.tier || customer.tierName || customer.tier || 'GOLD',
-        points: b.customer.points !== undefined ? b.customer.points : (customer.points ?? 721),
+        name: b.customer.name,
+        phone: b.customer.phone,
+        tier: b.customer.tier || customer.tierName || customer.tier || 'Member',
+        points: b.customer.points !== undefined ? b.customer.points : (customer.points || 0),
         avatar: b.customer.avatar || customer.avatar,
-        displayPhone: b.customer.phone || customer.phone || '0912345677'
+        displayPhone: b.customer.phone || customer.phone || ''
       }
     };
   });
