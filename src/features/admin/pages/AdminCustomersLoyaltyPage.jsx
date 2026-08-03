@@ -12,6 +12,7 @@ import {
   Bike,
   TrendingUp,
   AlertTriangle,
+  XCircle,
   FileText,
   Plus,
   Star,
@@ -2222,13 +2223,25 @@ export default function AdminCustomersLoyaltyPage() {
           </div>
         )}
 
-        {/* SUCCESS NOTIFICATION MODAL */}
+        {/* NOTIFICATION MODAL (SUCCESS / WARNING / ERROR) */}
         {notificationModal && (
           <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[160] p-4 backdrop-blur-[1px] animate-fade-in text-center">
             <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl space-y-4 border border-slate-100 animate-scale-up">
               <div className="flex justify-center">
-                <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center text-xl font-bold border border-emerald-100">
-                  ✓
+                <div className={`w-14 h-14 rounded-full flex items-center justify-center text-2xl font-bold border ${
+                  notificationModal.type === 'warning'
+                    ? 'bg-amber-50 text-amber-600 border-amber-200'
+                    : notificationModal.type === 'error'
+                    ? 'bg-rose-50 text-rose-600 border-rose-200'
+                    : 'bg-emerald-50 text-emerald-600 border-emerald-200'
+                }`}>
+                  {notificationModal.type === 'warning' ? (
+                    <AlertTriangle className="w-7 h-7 text-amber-600" />
+                  ) : notificationModal.type === 'error' ? (
+                    <XCircle className="w-7 h-7 text-rose-600" />
+                  ) : (
+                    <CheckCircle className="w-7 h-7 text-emerald-600" />
+                  )}
                 </div>
               </div>
               <h3 className="font-extrabold text-slate-800 text-base">{notificationModal.title}</h3>
@@ -2237,7 +2250,13 @@ export default function AdminCustomersLoyaltyPage() {
                 <button
                   type="button"
                   onClick={() => setNotificationModal(null)}
-                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-black rounded-xl text-xs transition-colors cursor-pointer"
+                  className={`w-full py-2.5 text-white font-black rounded-xl text-xs transition-colors cursor-pointer shadow-sm ${
+                    notificationModal.type === 'warning'
+                      ? 'bg-amber-600 hover:bg-amber-700'
+                      : notificationModal.type === 'error'
+                      ? 'bg-rose-600 hover:bg-rose-700'
+                      : 'bg-emerald-600 hover:bg-emerald-700'
+                  }`}
                 >
                   Đồng ý
                 </button>
