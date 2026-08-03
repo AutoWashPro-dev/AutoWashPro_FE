@@ -4,6 +4,7 @@ import { Plus, Car, ShieldCheck, AlertCircle, X, Loader2, Calendar, Sparkles, Do
 import VehicleCard from '../components/VehicleCard';
 import { customerApi } from '../services/customerApi';
 import { formatLicensePlate, validateLicensePlate } from '../../../utils/validationUtils';
+import { getTierTheme } from '../../../utils/tierTheme';
 
 export default function CustomerGaragePage() {
   const navigate = useNavigate();
@@ -13,6 +14,12 @@ export default function CustomerGaragePage() {
   const [deleteTargetVehicle, setDeleteTargetVehicle] = useState(null);
   const [detailVehicleModal, setDetailVehicleModal] = useState(null);
   const [garageAlert, setGarageAlert] = useState({ isOpen: false, type: 'success', title: '', message: '' });
+  const [customer, setCustomer] = useState(null);
+  const tierTheme = getTierTheme(customer?.tierName);
+
+  React.useEffect(() => {
+    customerApi.getProfile().then(data => setCustomer(data)).catch(() => {});
+  }, []);
 
   // Custom Alerts helper to match design system
   const showAlert = (message, type = 'warning', title = 'Thông báo') => {
@@ -312,13 +319,19 @@ export default function CustomerGaragePage() {
     <div className="space-y-8 pb-12">
 
       {/* KHU VỰC THÔNG TIN TIÊU ĐỀ */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-left">
         <div>
-          <h1 className="text-xl font-bold text-slate-800 uppercase tracking-wider flex items-center gap-2">
-            <Car size={20} className="text-blue-600" /> Quản lý Ga-ra xe máy của tôi
+          <h1 className="text-xl font-extrabold text-slate-800 tracking-wide flex items-center gap-2">
+            <Car size={22} className={tierTheme.textAccent} /> Quản lý Ga-ra xe máy của tôi
           </h1>
           <p className="text-xs text-slate-500 mt-1">Đăng ký sẵn các phương tiện cá nhân giúp quy trình đặt lịch rửa xe diễn ra nhanh gọn hơn.</p>
         </div>
+        <button
+          onClick={handleOpenAddModal}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer shrink-0 self-start sm:self-auto ${tierTheme.btnPrimary}`}
+        >
+          <Plus size={16} /> Đăng ký xe máy mới
+        </button>
       </div>
 
       {/* LƯỚI THỂ HIỂN THỊ DANH SÁCH XE */}
@@ -378,23 +391,23 @@ export default function CustomerGaragePage() {
       {/* POPUP MODAL THÊM / SỬA THÔNG TIN XE MÁY */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-2xl relative p-6">
+          <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-2xl relative">
 
             {/* Header Modal */}
-            <div className="flex justify-between items-center border-b pb-4 mb-4">
-              <h3 className="font-bold text-slate-800 text-base">
+            <div className={`px-6 py-4 flex justify-between items-center border-b ${tierTheme.modalHeader}`}>
+              <h3 className="font-bold text-white text-base">
                 {editingVehicle ? 'Cập nhật thông tin xe máy' : 'Đăng ký xe máy mới'}
               </h3>
               <button
                 onClick={() => setIsModalOpen(false)}
-                className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-50 rounded-full"
+                className="p-1.5 text-white/80 hover:text-white hover:bg-white/20 rounded-full transition"
               >
                 <X size={18} />
               </button>
             </div>
 
             {/* Form */}
-            <form onSubmit={handleSaveVehicle} className="space-y-4">
+            <form onSubmit={handleSaveVehicle} className="p-6 space-y-4">
 
               {/* Tên xe */}
               <div>
@@ -460,7 +473,7 @@ export default function CustomerGaragePage() {
                 <button
                   type="submit"
                   disabled={!model.trim() || !licensePlate.trim() || !!licensePlateError}
-                  className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-sm disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed"
+                  className={`px-5 py-2 rounded-xl text-xs font-bold shadow-sm transition disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${tierTheme.btnPrimary}`}
                 >
                   {editingVehicle ? 'Lưu thay đổi' : 'Đăng ký ngay'}
                 </button>

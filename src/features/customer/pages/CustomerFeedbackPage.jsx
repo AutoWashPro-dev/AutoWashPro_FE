@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { MessageSquare, Star, Send, ShieldAlert, Award, Loader2, CheckCircle, AlertCircle, Calendar, Car, CheckCircle2, Sparkles, ThumbsUp, AlertTriangle, FileText, Layers, DollarSign } from 'lucide-react';
 import { customerApi } from '../services/customerApi';
+import { getTierTheme } from '../../../utils/tierTheme';
 
 export default function CustomerFeedbackPage() {
   const location = useLocation();
@@ -13,6 +14,12 @@ export default function CustomerFeedbackPage() {
   const [feedbacks, setFeedbacks] = useState([]);
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [customer, setCustomer] = useState(null);
+  const tierTheme = getTierTheme(customer?.tierName);
+
+  useEffect(() => {
+    customerApi.getProfile().then(data => setCustomer(data)).catch(() => {});
+  }, []);
 
   // Loading states
   const [isHistoryLoading, setIsHistoryLoading] = useState(true);
@@ -498,12 +505,11 @@ export default function CustomerFeedbackPage() {
                           key={star}
                           type="button"
                           onClick={() => setRating(star)}
-                          className="text-amber-400 hover:scale-110 transition-transform cursor-pointer"
+                          className="hover:scale-110 transition-transform cursor-pointer"
                         >
                           <Star
                             size={28}
-                            fill={star <= rating ? "currentColor" : "none"}
-                            className="text-amber-400"
+                            className={star <= rating ? tierTheme.starColor : "text-slate-200 fill-slate-200"}
                           />
                         </button>
                       ))}
@@ -518,8 +524,7 @@ export default function CustomerFeedbackPage() {
                       onChange={(e) => setComment(e.target.value)}
                       placeholder="Chia sẻ trải nghiệm dọn rửa thực tế của bạn tại trạm (rửa sạch gầm, kỹ xích, thái độ nhân viên...)"
                       rows="5"
-                      className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 resize-none bg-white"
-                      required
+                      className="w-full bg-slate-50/80 border border-slate-200 rounded-2xl p-3.5 text-xs text-slate-800 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium leading-relaxed"
                     ></textarea>
                   </div>
 
@@ -528,7 +533,7 @@ export default function CustomerFeedbackPage() {
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-200 hover:shadow-lg transition-all flex items-center gap-2 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed cursor-pointer"
+                    className={`px-6 py-3 rounded-xl text-xs font-bold transition-all flex items-center gap-2 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed cursor-pointer ${tierTheme.btnPrimary}`}
                   >
                     {isSubmitting ? (
                       <>

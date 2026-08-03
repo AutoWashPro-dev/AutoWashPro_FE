@@ -23,11 +23,18 @@ import VehicleCard from '../components/VehicleCard';
 import { customerApi } from '../services/customerApi';
 import axios from 'axios';
 import { formatLicensePlate, validateLicensePlate } from '../../../utils/validationUtils';
+import { getTierTheme } from '../../../utils/tierTheme';
 
 export default function CustomerBookingPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const [bookingTab, setBookingTab] = useState(location.state?.tab || 'new'); // 'new' hoặc 'history'
+  const [customer, setCustomer] = useState(null);
+  const tierTheme = getTierTheme(customer?.tierName);
+
+  useEffect(() => {
+    customerApi.getProfile().then(data => setCustomer(data)).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (location.state?.tab) {
@@ -1085,7 +1092,7 @@ export default function CustomerBookingPage() {
                 {vehicles.length > 0 && (
                   <button
                     onClick={openAddVehicleModal}
-                    className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800 font-bold"
+                    className={`flex items-center gap-1 text-xs font-bold transition-all hover:underline ${tierTheme.textAccent}`}
                   >
                     <Plus size={14} /> Đăng ký xe mới
                   </button>
@@ -1648,7 +1655,7 @@ export default function CustomerBookingPage() {
                 <button
                   disabled={isSubmitting}
                   onClick={handleOpenConfirmModal}
-                  className="w-full py-3.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold shadow-md shadow-blue-200 transition-all flex items-center justify-center gap-2 disabled:bg-blue-400"
+                  className={`w-full py-3.5 rounded-xl text-sm font-bold shadow-md transition-all flex items-center justify-center gap-2 disabled:opacity-50 ${tierTheme.btnPrimary}`}
                 >
                   {isSubmitting ? 'Đang tạo đơn hẹn...' : 'Xác nhận Đặt lịch ngay'}
                 </button>
@@ -1762,20 +1769,20 @@ export default function CustomerBookingPage() {
 
       {isVehicleModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-          <div className="relative w-full max-w-md overflow-hidden rounded-2xl bg-white p-6 shadow-2xl">
-            <div className="mb-4 flex items-center justify-between border-b pb-4">
-              <h3 className="text-base font-bold text-slate-800">
+          <div className="relative w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-2xl">
+            <div className={`px-6 py-4 flex items-center justify-between border-b ${tierTheme.modalHeader}`}>
+              <h3 className="text-base font-bold text-white">
                 {editingVehicle ? 'Cập nhật thông tin xe máy' : 'Đăng ký xe máy mới'}
               </h3>
               <button
                 onClick={closeVehicleModal}
-                className="rounded-full p-1.5 text-slate-400 transition hover:bg-slate-50 hover:text-slate-700"
+                className="rounded-full p-1.5 text-white/80 transition hover:bg-white/20 hover:text-white"
               >
                 <X size={18} />
               </button>
             </div>
 
-            <form onSubmit={handleSaveVehicle} className="space-y-4">
+            <form onSubmit={handleSaveVehicle} className="p-6 space-y-4">
               <div>
                 <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wide text-slate-400">
                   Tên/Dòng xe máy
@@ -1839,7 +1846,7 @@ export default function CustomerBookingPage() {
                 <button
                   type="submit"
                   disabled={!vehicleModel.trim() || !vehicleLicensePlate.trim() || !!vehicleLicensePlateError}
-                  className="rounded-xl bg-blue-600 px-5 py-2 text-xs font-bold text-white shadow-sm transition hover:bg-blue-700 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed"
+                  className={`rounded-xl px-5 py-2 text-xs font-bold shadow-sm transition disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed ${tierTheme.btnPrimary}`}
                 >
                   {editingVehicle ? 'Lưu thay đổi' : 'Đăng ký ngay'}
                 </button>

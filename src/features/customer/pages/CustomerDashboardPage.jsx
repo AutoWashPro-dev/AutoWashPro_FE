@@ -18,6 +18,7 @@ import {
 import VIPCard from '../components/VIPCard';
 import TierProgressBar from '../components/TierProgressBar';
 import { customerApi } from '../services/customerApi';
+import { getTierTheme } from '../../../utils/tierTheme';
 
 export default function CustomerDashboardPage() {
   const navigate = useNavigate();
@@ -37,6 +38,9 @@ export default function CustomerDashboardPage() {
   const [recommendedServices, setRecommendedServices] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCanceling, setIsCanceling] = useState(false);
+
+  // Dynamic Tier Theme for buttons & accents
+  const tierTheme = getTierTheme(customer?.tierName);
 
   // Custom Alerts and Confirms states
   const [alertModal, setAlertModal] = useState({
@@ -230,7 +234,7 @@ export default function CustomerDashboardPage() {
         </div>
         <button
           onClick={() => navigate('/customer/book')}
-          className="flex items-center gap-2 px-5 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-bold shadow-md shadow-blue-200 hover:shadow-lg transition-all cursor-pointer"
+          className={`flex items-center gap-2 px-5 py-3 rounded-xl text-sm cursor-pointer ${tierTheme.btnPrimary}`}
         >
           <Calendar size={16} /> Đặt lịch rửa xe ngay
         </button>
@@ -269,12 +273,12 @@ export default function CustomerDashboardPage() {
           <div className="bg-white rounded-2xl border border-slate-150 p-6 shadow-sm">
             <div className="flex justify-between items-center mb-4">
               <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wider flex items-center gap-2">
-                <Clock size={16} className="text-blue-500" /> Lịch hẹn dọn xe sắp tới {upcomingBookings.length > 0 ? `(${upcomingBookings.length})` : ''}
+                <Clock size={16} className={tierTheme.textAccent} /> Lịch hẹn dọn xe sắp tới {upcomingBookings.length > 0 ? `(${upcomingBookings.length})` : ''}
               </h3>
               {upcomingBookings.length > 0 && (
                 <button
                   onClick={() => navigate('/customer/book', { state: { tab: 'history' } })}
-                  className="text-xs text-blue-600 hover:text-blue-800 font-bold flex items-center gap-1 cursor-pointer"
+                  className={`text-xs font-bold flex items-center gap-1 cursor-pointer hover:underline ${tierTheme.textAccent}`}
                 >
                   <span>Lịch sử đặt lịch</span> <ChevronRight size={14} />
                 </button>
@@ -290,7 +294,7 @@ export default function CustomerDashboardPage() {
                   >
                     <div className="space-y-1.5 text-left">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className="text-[10px] font-black font-mono bg-blue-600 text-white px-2 py-0.5 rounded-md">
+                        <span className={`text-[10px] font-black font-mono px-2 py-0.5 rounded-md ${tierTheme.btnPrimary}`}>
                           {b.bookingCode}
                         </span>
                         <span className="text-[10px] font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded-md border border-amber-200/80 flex items-center gap-1">
@@ -305,9 +309,9 @@ export default function CustomerDashboardPage() {
                       </p>
 
                       <p className="text-xs text-slate-500 flex flex-wrap items-center gap-3 pt-0.5">
-                        <span className="flex items-center gap-1 font-medium"><Calendar size={12} className="text-blue-500" /> {b.slotDate}</span>
-                        <span className="flex items-center gap-1 font-medium"><Clock size={12} className="text-blue-500" /> {b.slotTime} (GMT+7)</span>
-                        <span className="flex items-center gap-1 font-medium"><MapPin size={12} className="text-blue-500" /> NovaWash</span>
+                        <span className="flex items-center gap-1 font-medium"><Calendar size={12} className={tierTheme.textAccent} /> {b.slotDate}</span>
+                        <span className="flex items-center gap-1 font-medium"><Clock size={12} className={tierTheme.textAccent} /> {b.slotTime} (GMT+7)</span>
+                        <span className="flex items-center gap-1 font-medium"><MapPin size={12} className={tierTheme.textAccent} /> NovaWash</span>
                       </p>
                     </div>
 
@@ -329,7 +333,7 @@ export default function CustomerDashboardPage() {
               </div>
             ) : (
               <div className="text-center py-10 text-slate-500 text-xs bg-slate-50/50 rounded-xl border border-dashed border-slate-200 flex flex-col items-center justify-center gap-3 animate-fade-in">
-                <div className="w-10 h-10 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 shadow-sm">
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center shadow-sm ${tierTheme.btnSecondary}`}>
                   <Calendar size={20} />
                 </div>
                 <div className="space-y-1">
@@ -338,7 +342,7 @@ export default function CustomerDashboardPage() {
                 </div>
                 <button
                   onClick={() => navigate('/customer/book')}
-                  className="mt-1 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-bold shadow-md shadow-blue-500/15 hover:shadow-lg transition-all flex items-center gap-1.5 cursor-pointer"
+                  className={`mt-1 px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${tierTheme.btnPrimary}`}
                 >
                   <Calendar size={14} />
                   <span>Đặt lịch ngay</span>
@@ -360,7 +364,7 @@ export default function CustomerDashboardPage() {
             </div>
             <button
               onClick={() => navigate('/customer/rewards')}
-              className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+              className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${tierTheme.btnSecondary}`}
             >
               Mở Ví Ưu Đãi
             </button>
@@ -377,7 +381,7 @@ export default function CustomerDashboardPage() {
           </h3>
           <button
             onClick={() => navigate('/customer/book')}
-            className="text-xs text-blue-600 hover:text-blue-800 font-bold cursor-pointer"
+            className={`text-xs font-bold cursor-pointer hover:underline ${tierTheme.textAccent}`}
           >
             Tất cả dịch vụ
           </button>
@@ -388,19 +392,19 @@ export default function CustomerDashboardPage() {
             <div key={service.id} className="bg-white border border-slate-150 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between group">
               <div>
                 <div className="flex justify-between items-center mb-3">
-                  <span className="text-[9px] font-black bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full uppercase tracking-wider">
+                  <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider ${tierTheme.btnSecondary}`}>
                     {service.tag}
                   </span>
-                  <span className="font-mono font-extrabold text-blue-600 text-base">
+                  <span className={`font-mono font-extrabold text-base ${tierTheme.textAccent}`}>
                     {Number(service.price || 0).toLocaleString('vi-VN')} đ
                   </span>
                 </div>
-                <h4 className="font-bold text-slate-800 text-sm leading-tight group-hover:text-blue-600 transition-colors">{service.title}</h4>
+                <h4 className="font-bold text-slate-800 text-sm leading-tight group-hover:opacity-80 transition-colors">{service.title}</h4>
                 <p className="text-xs text-slate-500 mt-2 leading-relaxed">{service.description}</p>
               </div>
               <button
                 onClick={() => navigate('/customer/book', { state: { autoSelectServiceId: service.id || service.serviceId } })}
-                className="mt-5 w-full py-2 bg-slate-50 hover:bg-blue-600 hover:text-white border border-slate-150 text-slate-600 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                className={`mt-5 w-full py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${tierTheme.btnOutline}`}
               >
                 Đặt dịch vụ này
               </button>
