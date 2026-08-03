@@ -269,21 +269,14 @@ export default function CustomerDashboardPage() {
           <div className="bg-white rounded-2xl border border-slate-150 p-6 shadow-sm">
             <div className="flex justify-between items-center mb-4">
               <h3 className="font-bold text-slate-800 text-sm uppercase tracking-wider flex items-center gap-2">
-                <Clock size={16} className="text-blue-500" /> Lịch hẹn dọn xe sắp tới ({upcomingBookings.length})
+                <Clock size={16} className="text-blue-500" /> Lịch hẹn dọn xe sắp tới {upcomingBookings.length > 0 ? `(${upcomingBookings.length})` : ''}
               </h3>
-              {upcomingBookings.length > 0 || visitCount > 0 ? (
+              {upcomingBookings.length > 0 && (
                 <button
-                  onClick={() => navigate('/customer/book', { state: { tab: 'history', filter: 'PENDING' } })}
+                  onClick={() => navigate('/customer/book', { state: { tab: 'history' } })}
                   className="text-xs text-blue-600 hover:text-blue-800 font-bold flex items-center gap-1 cursor-pointer"
                 >
                   <span>Lịch sử đặt lịch</span> <ChevronRight size={14} />
-                </button>
-              ) : (
-                <button
-                  onClick={() => navigate('/customer/book')}
-                  className="text-xs text-blue-600 hover:text-blue-800 font-bold flex items-center gap-1 cursor-pointer"
-                >
-                  <span>Đặt lịch ngay</span> <ChevronRight size={14} />
                 </button>
               )}
             </div>
