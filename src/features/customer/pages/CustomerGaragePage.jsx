@@ -76,18 +76,27 @@ export default function CustomerGaragePage() {
 
   const getVehicleWashStats = (veh) => {
     if (!veh || !Array.isArray(userBookings)) return { count: 0, totalSpend: 0 };
-    const vehId = veh.vehicleId || veh.id;
-    const vehPlate = (veh.licensePlate || veh.plate || '').toLowerCase().replace(/\s+/g, '');
+    const vehId = String(veh.vehicleId || veh.id || '');
+    const vehPlate = String(veh.licensePlate || veh.plate || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 
     const matched = userBookings.filter(b => {
-      const bVehId = b.vehicle?.vehicleId || b.vehicle?.id || b.vehicleId;
-      const bPlate = (b.vehicle?.plate || b.vehicle?.licensePlate || b.licensePlate || '').toLowerCase().replace(/\s+/g, '');
-      const isStatusMatch = b.status === 'Completed' || b.status === 'COMPLETED';
-      return isStatusMatch && (bVehId === vehId || (vehPlate && bPlate && bPlate === vehPlate));
+      const bVehId = String(b.vehicle?.vehicleId || b.vehicle?.id || b.vehicleId || b.id || '');
+      const bPlate = String(b.vehicle?.plate || b.vehicle?.licensePlate || b.licensePlate || b.plate || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+      const rawStatus = String(b.status || b.rawStatus || '').toUpperCase();
+      const isStatusMatch = rawStatus === 'COMPLETED' || rawStatus === 'FINISHED' || rawStatus === 'PAID';
+      
+      const isIdMatch = vehId && bVehId && vehId === bVehId;
+      const isPlateMatch = vehPlate && bPlate && vehPlate === bPlate;
+
+      return isStatusMatch && (isIdMatch || isPlateMatch);
     });
 
     const count = matched.length;
-    const totalSpend = matched.reduce((sum, b) => sum + (b.totalAmount || b.price || b.amount || 50000), 0);
+    const totalSpend = matched.reduce((sum, b) => {
+      const val = b.finalAmount != null ? b.finalAmount : (b.totalAmount != null ? b.totalAmount : (b.finalPrice != null ? b.finalPrice : (b.price != null ? b.price : (b.amount != null ? b.amount : 0))));
+      const num = Number(val);
+      return sum + (isNaN(num) ? 0 : num);
+    }, 0);
     return { count, totalSpend };
   };
 
