@@ -10,8 +10,8 @@ const TIER_CONFIG = {
     advanceDays: 'Đặt trước 7 ngày',
     voucherAccess: 'Kho Voucher cơ bản toàn hệ thống NovaWash',
     theme: {
-      cardGradient: 'from-blue-600 via-indigo-600 to-blue-800 text-white border-indigo-400',
-      headerBg: 'from-blue-700 via-indigo-900 to-blue-900 text-white',
+      cardGradient: 'bg-gradient-to-br from-indigo-500 via-indigo-600 to-blue-800 text-white border-indigo-400',
+      headerBg: 'bg-gradient-to-r from-blue-700 via-indigo-900 to-blue-900 text-white',
       badgeBg: 'bg-blue-100 text-blue-800 border-blue-200',
       highlightBorder: 'border-blue-400',
       accentColor: 'text-blue-600',
@@ -33,8 +33,8 @@ const TIER_CONFIG = {
     advanceDays: 'Đặt trước 10 ngày',
     voucherAccess: 'Voucher độc quyền Hạng Bạc + Tất cả Voucher từ Hạng Bạc trở xuống',
     theme: {
-      cardGradient: 'from-slate-400 via-zinc-500 to-slate-700 text-white border-slate-300',
-      headerBg: 'from-slate-800 via-zinc-900 to-slate-900 text-white',
+      cardGradient: 'bg-gradient-to-br from-slate-400 via-zinc-500 to-slate-700 text-white border-slate-300',
+      headerBg: 'bg-gradient-to-r from-slate-800 via-zinc-900 to-slate-900 text-white',
       badgeBg: 'bg-slate-200 text-slate-900 border-slate-300',
       highlightBorder: 'border-slate-400',
       accentColor: 'text-slate-700',
@@ -57,8 +57,8 @@ const TIER_CONFIG = {
     advanceDays: 'Đặt trước 12 ngày',
     voucherAccess: 'Voucher độc quyền Hạng Vàng + Tất cả Voucher từ Hạng Vàng trở xuống',
     theme: {
-      cardGradient: 'from-amber-500 via-amber-600 to-yellow-800 text-white border-amber-400',
-      headerBg: 'from-amber-600 via-amber-800 to-yellow-950 text-white',
+      cardGradient: 'bg-gradient-to-br from-amber-500 via-amber-600 to-yellow-800 text-white border-amber-400',
+      headerBg: 'bg-gradient-to-r from-amber-600 via-amber-800 to-yellow-950 text-white',
       badgeBg: 'bg-amber-100 text-amber-900 border-amber-300',
       highlightBorder: 'border-amber-400',
       accentColor: 'text-amber-600',
@@ -81,8 +81,8 @@ const TIER_CONFIG = {
     advanceDays: 'Đặt trước 14 ngày',
     voucherAccess: 'Đặc quyền Voucher Platinum tối thượng + Mọi Voucher toàn hệ thống',
     theme: {
-      cardGradient: 'from-slate-900 via-purple-950 to-zinc-950 text-purple-100 border-purple-500/50',
-      headerBg: 'from-purple-950 via-slate-900 to-zinc-950 text-white',
+      cardGradient: 'bg-gradient-to-br from-slate-900 via-purple-950 to-zinc-950 text-purple-100 border-purple-500/50',
+      headerBg: 'bg-gradient-to-r from-purple-950 via-slate-900 to-zinc-950 text-white',
       badgeBg: 'bg-purple-100 text-purple-900 border-purple-300',
       highlightBorder: 'border-purple-500',
       accentColor: 'text-purple-600',
