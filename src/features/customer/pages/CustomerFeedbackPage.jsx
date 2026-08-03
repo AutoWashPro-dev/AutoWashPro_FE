@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { MessageSquare, Star, Send, ShieldAlert, Award, Loader2, CheckCircle, AlertCircle, Calendar, Car, CheckCircle2, Sparkles, ThumbsUp, AlertTriangle } from 'lucide-react';
+import { MessageSquare, Star, Send, ShieldAlert, Award, Loader2, CheckCircle, AlertCircle, Calendar, Car, CheckCircle2, Sparkles, ThumbsUp, AlertTriangle, FileText } from 'lucide-react';
 import { customerApi } from '../services/customerApi';
 
 export default function CustomerFeedbackPage() {
@@ -369,6 +369,52 @@ export default function CustomerFeedbackPage() {
               ) : (
                 /* Scenario C: User selects a valid unreviewed booking from dropdown */
                 <div className="space-y-5 animate-fade-in">
+                  
+                  {/* MỤC HIỂN THỊ THÔNG TIN CHI TIẾT ĐƠN HÀNG ĐÃ CHỌN (NẰM Ở GIỮA) */}
+                  {selectedBooking && (
+                    <div className="bg-gradient-to-br from-blue-50/90 via-slate-50 to-sky-50/60 border border-blue-200/90 rounded-2xl p-4.5 space-y-3 animate-fade-in text-left shadow-xs">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-blue-100 pb-3">
+                        <div className="flex items-center gap-2.5">
+                          <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-sm shrink-0">
+                            <FileText className="w-4.5 h-4.5" />
+                          </div>
+                          <div>
+                            <span className="text-[10px] font-extrabold text-blue-700 uppercase tracking-wider block">Đơn dọn rửa đang chọn đánh giá</span>
+                            <h4 className="text-xs font-black text-slate-800 font-mono mt-0.5">
+                              Mã đơn: <span className="text-blue-600 bg-blue-100/80 px-1.5 py-0.5 rounded font-bold">#{selectedBooking.bookingCode}</span>
+                            </h4>
+                          </div>
+                        </div>
+                        <span className="text-[10px] font-extrabold text-emerald-700 bg-emerald-100/90 px-2.5 py-1 rounded-full border border-emerald-200/80 flex items-center gap-1 shrink-0 self-start sm:self-auto">
+                          <CheckCircle className="w-3 h-3 text-emerald-600" /> Đã hoàn thành & Thanh toán
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs pt-0.5">
+                        <div className="bg-white p-3 rounded-xl border border-slate-200/70 shadow-2xs space-y-1">
+                          <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block flex items-center gap-1">
+                            <Sparkles className="w-3.5 h-3.5 text-blue-500" /> Gói dịch vụ
+                          </span>
+                          <p className="font-extrabold text-slate-800 line-clamp-1">{selectedBooking.serviceName || 'Rửa xe máy cao cấp'}</p>
+                        </div>
+
+                        <div className="bg-white p-3 rounded-xl border border-slate-200/70 shadow-2xs space-y-1">
+                          <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block flex items-center gap-1">
+                            <Car className="w-3.5 h-3.5 text-blue-500" /> Phương tiện
+                          </span>
+                          <p className="font-extrabold text-slate-800 font-mono">{selectedBooking.licensePlate || 'Xe máy'}</p>
+                        </div>
+
+                        <div className="bg-white p-3 rounded-xl border border-slate-200/70 shadow-2xs space-y-1">
+                          <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block flex items-center gap-1">
+                            <Calendar className="w-3.5 h-3.5 text-blue-500" /> Ngày dọn rửa
+                          </span>
+                          <p className="font-extrabold text-slate-800">{selectedBooking.date}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Chọn sao */}
                   <div>
                     <label className="block text-[10px] font-bold text-slate-400 uppercase mb-2">Đánh giá độ hài lòng</label>
