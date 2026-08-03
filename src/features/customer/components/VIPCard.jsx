@@ -6,7 +6,7 @@ const TIER_CONFIG = {
     tierKey: 'MEMBER',
     name: 'HẠNG THÀNH VIÊN (MEMBER)',
     minSpendText: '0đ',
-    multiplier: '1x hệ số',
+    multiplier: 1.0,
     advanceDays: 'Đặt trước 7 ngày',
     voucherAccess: 'Kho Voucher cơ bản toàn hệ thống NovaWash',
     theme: {
@@ -29,7 +29,7 @@ const TIER_CONFIG = {
     tierKey: 'SILVER',
     name: 'HẠNG BẠC (SILVER)',
     minSpendText: '1.000.000đ',
-    multiplier: '1.2x hệ số',
+    multiplier: 1.2,
     advanceDays: 'Đặt trước 10 ngày',
     voucherAccess: 'Voucher độc quyền Hạng Bạc + Tất cả Voucher từ Hạng Bạc trở xuống',
     theme: {
@@ -53,7 +53,7 @@ const TIER_CONFIG = {
     tierKey: 'GOLD',
     name: 'HẠNG VÀNG (GOLD)',
     minSpendText: '5.000.000đ',
-    multiplier: '1.5x hệ số',
+    multiplier: 1.5,
     advanceDays: 'Đặt trước 12 ngày',
     voucherAccess: 'Voucher độc quyền Hạng Vàng + Tất cả Voucher từ Hạng Vàng trở xuống',
     theme: {
@@ -77,7 +77,7 @@ const TIER_CONFIG = {
     tierKey: 'PLATINUM',
     name: 'HẠNG BẠCH KIM (PLATINUM)',
     minSpendText: '10.000.000đ',
-    multiplier: '2x hệ số',
+    multiplier: 2.0,
     advanceDays: 'Đặt trước 14 ngày',
     voucherAccess: 'Đặc quyền Voucher Platinum tối thượng + Mọi Voucher toàn hệ thống',
     theme: {
@@ -120,7 +120,7 @@ export default function VIPCard({ customer }) {
   return (
     <>
       {/* THẺ LOYALTY CARD KHÁCH HÀNG (CÓ THỂ CLICK) */}
-      <div 
+      <div
         onClick={() => setIsModalOpen(true)}
         className={`rounded-2xl p-6 border shadow-lg relative overflow-hidden transition-all duration-300 transform hover:scale-[1.015] hover:shadow-2xl cursor-pointer group ${theme.cardGradient}`}
       >
@@ -159,16 +159,16 @@ export default function VIPCard({ customer }) {
 
       {/* MODAL POPUP: CHỈ HIỂN THỊ ĐẶC QUYỀN VÀ TONE MÀU CỦA HẠNG ĐÓ */}
       {isModalOpen && (
-        <div 
+        <div
           className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/70 backdrop-blur-md p-4 animate-fade-in text-left"
           onClick={(e) => { if (e.target === e.currentTarget) setIsModalOpen(false); }}
         >
           <div className="w-full max-w-xl rounded-3xl bg-white shadow-2xl border border-slate-100 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            
+
             {/* Header Modal theo Tone Màu của Hạng */}
             <div className={`bg-gradient-to-r ${theme.headerBg} p-6 text-white relative overflow-hidden shrink-0`}>
               <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
-              
+
               <div className="flex items-center justify-between relative z-10">
                 <div className="flex items-center gap-3">
                   <div className={`w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-white border border-white/30 shadow-lg shrink-0`}>
@@ -198,7 +198,7 @@ export default function VIPCard({ customer }) {
 
             {/* Modal Body */}
             <div className="p-6 overflow-y-auto space-y-5">
-              
+
               {/* Tóm tắt hồ sơ khách hàng */}
               <div className={`${theme.bgLight} rounded-2xl p-4.5 grid grid-cols-2 sm:grid-cols-3 gap-4 text-left border`}>
                 <div>
@@ -224,9 +224,9 @@ export default function VIPCard({ customer }) {
                     <Zap className="w-3.5 h-3.5 text-amber-500" /> Hệ số nhân điểm
                   </span>
                   <p className={`text-xl font-black font-mono ${theme.accentColor}`}>
-                    {activeTier.multiplier}
+                    {activeTier.multiplier}x hệ số
                   </p>
-                  <span className="text-[11px] text-slate-500 font-medium block mt-0.5">Tích 1 điểm / 10.000 VNĐ</span>
+                  <span className="text-[11px] text-slate-500 font-medium block mt-0.5">Tích {activeTier.multiplier * 1} điểm / 10.000 VNĐ</span>
                 </div>
 
                 <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 text-left">
@@ -268,7 +268,6 @@ export default function VIPCard({ customer }) {
             {/* Footer Modal */}
             <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between shrink-0">
               <span className="text-[11px] text-slate-400 font-medium flex items-center gap-1">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" /> Đồng bộ trực tiếp với Cấu hình Hệ thống
               </span>
 
               <button

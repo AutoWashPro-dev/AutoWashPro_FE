@@ -218,8 +218,15 @@ export default function CustomerBookingPage() {
         }));
         setVehicles(mappedVehicles);
 
-        const currentSel = selectedVehicleRef.current;
-        if (currentSel) {
+        if (location.state?.selectedVehicle) {
+          const targetVehId = location.state.selectedVehicle.vehicleId || location.state.selectedVehicle.id;
+          const matchedVeh = mappedVehicles.find(v => (v.vehicleId || v.id) === targetVehId);
+          if (matchedVeh) {
+            setSelectedVehicle(matchedVeh);
+          } else if (mappedVehicles.length > 0) {
+            setSelectedVehicle(mappedVehicles[0]);
+          }
+        } else if (currentSel) {
           const stillExists = mappedVehicles.some(v => v.vehicleId === currentSel.vehicleId);
           if (!stillExists) {
             setSelectedVehicle(null);

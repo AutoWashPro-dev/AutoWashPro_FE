@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Car, ShieldCheck, AlertCircle, X, Loader2, Calendar } from 'lucide-react';
+import { Plus, Car, ShieldCheck, AlertCircle, X, Loader2, Calendar, Sparkles, DollarSign, Wrench, CheckCircle2, ChevronRight } from 'lucide-react';
 import VehicleCard from '../components/VehicleCard';
 import { customerApi } from '../services/customerApi';
 import { formatLicensePlate, validateLicensePlate } from '../../../utils/validationUtils';
@@ -8,8 +8,10 @@ import { formatLicensePlate, validateLicensePlate } from '../../../utils/validat
 export default function CustomerGaragePage() {
   const navigate = useNavigate();
   const [vehicles, setVehicles] = useState([]);
+  const [userBookings, setUserBookings] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [deleteTargetVehicle, setDeleteTargetVehicle] = useState(null);
+  const [detailVehicleModal, setDetailVehicleModal] = useState(null);
   const [garageAlert, setGarageAlert] = useState({ isOpen: false, type: 'success', title: '', message: '' });
 
   // Custom Alerts helper to match design system
@@ -34,6 +36,7 @@ export default function CustomerGaragePage() {
         setDeleteTargetVehicle(null);
         setGarageAlert(prev => ({ ...prev, isOpen: false }));
         setIsVehicleConfirmModalOpen(false);
+        setDetailVehicleModal(null);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -42,7 +45,10 @@ export default function CustomerGaragePage() {
 
   const fetchVehicles = async () => {
     try {
-      const data = await customerApi.getMyVehicles();
+      const [data, bookingsData] = await Promise.all([
+        customerApi.getMyVehicles(),
+        customerApi.getMyBookings()
+      ]);
       if (Array.isArray(data)) {
         // Enforce strict data fallback logic
         const mappedVehicles = data.map(v => ({
@@ -58,11 +64,31 @@ export default function CustomerGaragePage() {
         }));
         setVehicles(mappedVehicles);
       }
+      if (Array.isArray(bookingsData)) {
+        setUserBookings(bookingsData);
+      }
     } catch (err) {
-      console.error("Failed to fetch vehicles:", err);
+      console.error("Failed to fetch vehicles and bookings:", err);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const getVehicleWashStats = (veh) => {
+    if (!veh || !Array.isArray(userBookings)) return { count: 0, totalSpend: 0 };
+    const vehId = veh.vehicleId || veh.id;
+    const vehPlate = (veh.licensePlate || veh.plate || '').toLowerCase().replace(/\s+/g, '');
+
+    const matched = userBookings.filter(b => {
+      const bVehId = b.vehicle?.vehicleId || b.vehicle?.id || b.vehicleId;
+      const bPlate = (b.vehicle?.plate || b.vehicle?.licensePlate || b.licensePlate || '').toLowerCase().replace(/\s+/g, '');
+      const isStatusMatch = b.status === 'Completed' || b.status === 'COMPLETED';
+      return isStatusMatch && (bVehId === vehId || (vehPlate && bPlate && bPlate === vehPlate));
+    });
+
+    const count = matched.length;
+    const totalSpend = matched.reduce((sum, b) => sum + (b.totalAmount || b.price || b.amount || 50000), 0);
+    return { count, totalSpend };
   };
 
   React.useEffect(() => {
@@ -296,11 +322,16 @@ export default function CustomerGaragePage() {
 
           {/* Render danh sách xe */}
           {vehicles.map(veh => (
-            <div key={veh.vehicleId} className="relative group">
+            <div 
+              key={veh.vehicleId} 
+              className="relative group cursor-pointer"
+              onClick={() => setDetailVehicleModal(veh)}
+            >
               <VehicleCard 
                 vehicle={veh}
                 isDefault={veh.isDefault}
-                isSelectable={false}
+                isSelectable={true}
+                onSelect={() => setDetailVehicleModal(veh)}
                 onEdit={() => handleOpenEditModal(veh)}
                 onDelete={() => handleDeleteVehicle(veh)}
                 onSetDefault={() => handleSetDefault(veh)}
@@ -541,6 +572,151 @@ export default function CustomerGaragePage() {
                 Đóng
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* POPUP MODAL THÔNG TIN & THỐNG KÊ CHI TIẾT CỦA XE */}
+      {detailVehicleModal && (
+        <div 
+          className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/70 backdrop-blur-md p-4 animate-fade-in text-left"
+          onClick={(e) => { if (e.target === e.currentTarget) setDetailVehicleModal(null); }}
+        >
+          <div className="w-full max-w-md rounded-3xl bg-white shadow-2xl border border-slate-100 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            
+            {/* Header Modal */}
+            <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-6 text-white relative overflow-hidden shrink-0">
+              <div className="absolute top-0 right-0 w-36 h-36 bg-blue-500/10 rounded-full blur-2xl pointer-events-none"></div>
+              
+              <div className="flex items-center justify-between relative z-10">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-500 to-indigo-600 flex items-center justify-center text-2xl shadow-lg shadow-blue-500/20 shrink-0 border border-white/20">
+                    🏍️
+                  </div>
+                  <div>
+                    <h3 className="text-base font-black tracking-tight text-white flex items-center gap-2">
+                      {detailVehicleModal.model}
+                      {detailVehicleModal.isDefault && (
+                        <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-blue-400 text-slate-950">
+                          Xe Mặc Định
+                        </span>
+                      )}
+                    </h3>
+                    <p className="text-xs text-slate-300 mt-0.5 font-medium flex items-center gap-1.5">
+                      Biển số: <span className="font-mono font-bold bg-white/20 px-1.5 py-0.5 rounded text-white">{detailVehicleModal.licensePlate}</span>
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setDetailVehicleModal(null)}
+                  className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Body Modal */}
+            <div className="p-6 space-y-5 overflow-y-auto">
+              
+              {/* Thống kê lịch sử rửa xe của xe này */}
+              <div className="space-y-2">
+                <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Thống kê dịch vụ tại NovaWash</span>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-blue-50/70 border border-blue-200/80 rounded-2xl p-4 text-left">
+                    <span className="text-[10px] font-bold text-blue-700 uppercase tracking-wider block mb-1 flex items-center gap-1">
+                      <Sparkles className="w-3.5 h-3.5 text-blue-600" /> Số lần đã rửa xe
+                    </span>
+                    <p className="text-2xl font-black text-slate-900 font-mono">
+                      {getVehicleWashStats(detailVehicleModal).count} <span className="text-xs font-bold text-slate-500 font-sans">lần</span>
+                    </p>
+                  </div>
+
+                  <div className="bg-emerald-50/70 border border-emerald-200/80 rounded-2xl p-4 text-left">
+                    <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider block mb-1 flex items-center gap-1">
+                      <DollarSign className="w-3.5 h-3.5 text-emerald-600" /> Tổng chi phí dọn
+                    </span>
+                    <p className="text-lg font-black text-slate-900 font-mono">
+                      {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(getVehicleWashStats(detailVehicleModal).totalSpend)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Thông tin phương tiện */}
+              <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 space-y-2.5 text-xs text-left">
+                <div className="flex justify-between items-center border-b border-slate-200/60 pb-2">
+                  <span className="text-slate-500 font-medium">Loại phương tiện:</span>
+                  <span className="font-extrabold text-slate-800">{detailVehicleModal.vehicleType || 'Xe máy'}</span>
+                </div>
+                <div className="flex justify-between items-center border-b border-slate-200/60 pb-2">
+                  <span className="text-slate-500 font-medium">Tên dòng xe:</span>
+                  <span className="font-extrabold text-slate-800">{detailVehicleModal.model}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-slate-500 font-medium">Biển số đăng ký:</span>
+                  <span className="font-extrabold font-mono text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">{detailVehicleModal.licensePlate}</span>
+                </div>
+              </div>
+
+              {/* Khối gợi ý đặt rửa xe cho chiến mã */}
+              <div className="bg-gradient-to-br from-indigo-50 via-sky-50 to-blue-50 border border-blue-200/80 rounded-2xl p-4.5 space-y-3 text-left">
+                <div className="space-y-1">
+                  <h4 className="font-black text-slate-800 text-xs uppercase tracking-wider flex items-center gap-1.5 text-blue-700">
+                    <Wrench className="w-4 h-4 text-blue-600" /> Chăm sóc xế cưng
+                  </h4>
+                  <p className="text-xs text-slate-600 font-semibold leading-relaxed">
+                    Bạn có muốn đặt lịch dọn rửa chăm sóc cho con chiến mã <strong className="text-slate-900 font-black">{detailVehicleModal.model} ({detailVehicleModal.licensePlate})</strong> này ngay không?
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const selectedVeh = detailVehicleModal;
+                    setDetailVehicleModal(null);
+                    navigate('/customer/book', { state: { selectedVehicle: selectedVeh } });
+                  }}
+                  className="w-full py-3 px-4 bg-gradient-to-r from-blue-600 via-sky-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-xl text-xs font-black shadow-lg shadow-blue-600/20 hover:shadow-xl transition-all flex items-center justify-center gap-2 cursor-pointer group transform active:scale-[0.98]"
+                >
+                  <span>Rửa ngay cho chiến mã này</span>
+                  <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                </button>
+              </div>
+
+            </div>
+
+            {/* Footer Modal với các thao tác phụ */}
+            <div className="p-4 bg-slate-50 border-t border-slate-100 flex items-center justify-between shrink-0">
+              {!detailVehicleModal.isDefault ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const veh = detailVehicleModal;
+                    setDetailVehicleModal(null);
+                    handleSetDefault(veh);
+                  }}
+                  className="text-xs font-bold text-blue-600 hover:text-blue-800 flex items-center gap-1 cursor-pointer"
+                >
+                  <ShieldCheck size={14} /> Đặt mặc định
+                </button>
+              ) : (
+                <span className="text-[11px] font-bold text-emerald-600 flex items-center gap-1">
+                  <CheckCircle2 size={14} /> Xe mặc định
+                </span>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setDetailVehicleModal(null)}
+                className="px-4 py-2 border border-slate-200 hover:bg-slate-100 text-slate-700 rounded-xl text-xs font-bold transition cursor-pointer"
+              >
+                Đóng
+              </button>
+            </div>
+
           </div>
         </div>
       )}
