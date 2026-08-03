@@ -208,7 +208,12 @@ export default function VIPCard({ customer }) {
         {/* Top hint badge */}
         <div className="flex justify-between items-start mb-6 relative z-10">
           <div className="text-left">
-            <span className="text-[10px] uppercase tracking-widest opacity-90 font-bold text-amber-200 drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">Thẻ Thành Viên VIP</span>
+            <span className={`text-[10px] uppercase tracking-widest font-extrabold drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] ${
+              currentTierKey === 'PLATINUM' ? 'text-purple-200' :
+              currentTierKey === 'GOLD' ? 'text-[#FFF0B3]' :
+              currentTierKey === 'SILVER' ? 'text-slate-200' :
+              'text-blue-100'
+            }`}>Thẻ Thành Viên VIP</span>
             <h3 className="text-xl font-extrabold font-mono tracking-wider mt-0.5 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.95)]">{customer?.fullName?.toUpperCase() || 'KHÁCH HÀNG'}</h3>
           </div>
           <div className="flex flex-col items-end gap-1.5">
@@ -237,12 +242,22 @@ export default function VIPCard({ customer }) {
 
         <div className="flex justify-between items-end pt-2 text-left relative z-10">
           <div>
-            <span className="text-xs opacity-90 font-medium text-amber-200 drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">Điểm Tích Lũy</span>
+            <span className={`text-xs font-bold drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] ${
+              currentTierKey === 'PLATINUM' ? 'text-purple-200' :
+              currentTierKey === 'GOLD' ? 'text-[#FFF0B3]' :
+              currentTierKey === 'SILVER' ? 'text-slate-200' :
+              'text-blue-100'
+            }`}>Điểm Tích Lũy</span>
             <p className="text-3xl font-black tracking-tight mt-0.5 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.95)]">{customer?.loyaltyPoints?.toLocaleString('vi-VN') || 0} <span className="text-sm font-bold opacity-85">Pts</span></p>
           </div>
           <div className="text-right">
-            <span className="text-[10px] uppercase tracking-wider opacity-90 font-semibold block text-amber-200 drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">Chi tiêu tích lũy</span>
-            <span className="text-sm font-extrabold font-mono text-amber-300 drop-shadow-[0_2px_4px_rgba(0,0,0,0.95)]">
+            <span className={`text-[10px] uppercase tracking-wider font-extrabold block drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] ${
+              currentTierKey === 'PLATINUM' ? 'text-purple-200' :
+              currentTierKey === 'GOLD' ? 'text-[#FFF0B3]' :
+              currentTierKey === 'SILVER' ? 'text-slate-200' :
+              'text-blue-100'
+            }`}>Chi tiêu tích lũy</span>
+            <span className="text-sm font-extrabold font-mono text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.95)]">
               {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(customer?.lifetimeSpend || customer?.tierSpending || customer?.totalSpending || 0)}
             </span>
           </div>

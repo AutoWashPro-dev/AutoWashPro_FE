@@ -389,22 +389,22 @@ export default function CustomerDashboardPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {recommendedServices.map(service => (
-            <div key={service.id} className="bg-white border border-slate-150 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between group">
+            <div key={service.id} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between group">
               <div>
                 <div className="flex justify-between items-center mb-3">
-                  <span className={`text-[9px] font-black px-2 py-0.5 rounded-full uppercase tracking-wider ${tierTheme.btnSecondary}`}>
-                    {service.tag}
+                  <span className={`text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-2xs ${tierTheme.tagBadge}`}>
+                    {service.tag || 'PHỔ BIẾN'}
                   </span>
-                  <span className={`font-mono font-extrabold text-base ${tierTheme.textAccent}`}>
+                  <span className="font-mono font-extrabold text-slate-900 text-base">
                     {Number(service.price || 0).toLocaleString('vi-VN')} đ
                   </span>
                 </div>
-                <h4 className="font-bold text-slate-800 text-sm leading-tight group-hover:opacity-80 transition-colors">{service.title}</h4>
-                <p className="text-xs text-slate-500 mt-2 leading-relaxed">{service.description}</p>
+                <h4 className="font-extrabold text-slate-900 text-sm leading-snug group-hover:text-blue-700 transition-colors">{service.title}</h4>
+                <p className="text-xs text-slate-500 mt-2 leading-relaxed font-medium">{service.description}</p>
               </div>
               <button
                 onClick={() => navigate('/customer/book', { state: { autoSelectServiceId: service.id || service.serviceId } })}
-                className={`mt-5 w-full py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${tierTheme.btnOutline}`}
+                className={`mt-5 w-full py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${tierTheme.btnOutline}`}
               >
                 Đặt dịch vụ này
               </button>
