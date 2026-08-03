@@ -82,21 +82,8 @@ export default function AdminHeader() {
 
   return (
     <header className="h-16 shrink-0 bg-white border-b border-slate-200/80 px-6 flex items-center justify-between gap-4 z-40 relative shadow-sm">
-      {/* Search Input */}
-      {!isBookingsPage ? (
-        <div className="flex-1 max-w-md">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#848a9c]" />
-            <input
-              type="text"
-              placeholder="Tìm biển số, khách hàng..."
-              className="w-full pl-10 pr-4 py-2 bg-[#f7fafd] border border-slate-200/80 rounded-lg text-sm text-[#181c1e] placeholder:text-[#848a9c] focus:outline-none focus:ring-2 focus:ring-[#0047AB]/20 focus:border-[#0047AB] shadow-sm transition-all"
-            />
-          </div>
-        </div>
-      ) : (
-        <div className="flex-1" />
-      )}
+      {/* Spacer */}
+      <div className="flex-1" />
 
       {/* Utilities */}
       <div className="flex items-center gap-4">
