@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { MessageSquare, Star, Send, ShieldAlert, Award, Loader2, CheckCircle, AlertCircle, Calendar, Car, CheckCircle2, Sparkles, ThumbsUp, AlertTriangle, FileText } from 'lucide-react';
+import { MessageSquare, Star, Send, ShieldAlert, Award, Loader2, CheckCircle, AlertCircle, Calendar, Car, CheckCircle2, Sparkles, ThumbsUp, AlertTriangle, FileText, Layers, DollarSign } from 'lucide-react';
 import { customerApi } from '../services/customerApi';
 
 export default function CustomerFeedbackPage() {
@@ -63,13 +63,34 @@ export default function CustomerFeedbackPage() {
         return !codeReviewed && !idReviewed && !bookingIdReviewed;
       });
 
-      const completed = unreviewed.map(b => ({
-        bookingId: b.bookingId || b.id,
-        bookingCode: b.bookingCode,
-        date: b.bookingDate || b.date || 'N/A',
-        licensePlate: b.licensePlate || (b.vehicle ? b.vehicle.licensePlate : 'N/A'),
-        serviceName: b.packageName || b.serviceName || 'Rửa xe máy cao cấp'
-      }));
+      const completed = unreviewed.map(b => {
+        const mainName = (b.items && b.items.length > 0 && (b.items[0].serviceNameSnapshot || b.items[0].name || b.items[0].serviceName))
+          ? (b.items[0].serviceNameSnapshot || b.items[0].name || b.items[0].serviceName)
+          : (b.packageName || b.serviceName || 'Rửa xe máy cao cấp');
+
+        const addonList = b.items && b.items.length > 1
+          ? b.items.slice(1).map(item => item.serviceNameSnapshot || item.name || item.serviceName || 'Dịch vụ đi kèm')
+          : (Array.isArray(b.addons) ? b.addons.map(a => a.name || a.serviceName || a) : []);
+
+        const addonCount = addonList.length;
+        const fullServiceName = addonCount > 0 ? `${mainName} (+${addonCount} dịch vụ đi kèm)` : mainName;
+
+        const totalAmount = Number(b.finalAmount != null ? b.finalAmount : (b.totalAmount != null ? b.totalAmount : (b.finalPrice != null ? b.finalPrice : (b.price != null ? b.price : (b.amount != null ? b.amount : 0)))));
+
+        return {
+          bookingId: b.bookingId || b.id,
+          bookingCode: b.bookingCode,
+          date: b.bookingDate || b.date || 'N/A',
+          time: b.startTime ? b.startTime.substring(0, 5) : (b.time || ''),
+          licensePlate: b.licensePlate || (b.vehicle ? (b.vehicle.licensePlate || b.vehicle.plate) : 'N/A'),
+          vehicleModel: b.model || (b.vehicle ? b.vehicle.model : ''),
+          mainServiceName: mainName,
+          serviceName: fullServiceName,
+          addonList: addonList,
+          addonCount: addonCount,
+          totalAmount: totalAmount
+        };
+      });
 
       // Auto-extract from URL or state
       const params = new URLSearchParams(location.search);
@@ -390,27 +411,58 @@ export default function CustomerFeedbackPage() {
                         </span>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs pt-0.5">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs pt-0.5">
+                        {/* 1. Gói dịch vụ chính */}
                         <div className="bg-white p-3 rounded-xl border border-slate-200/70 shadow-2xs space-y-1">
                           <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block flex items-center gap-1">
-                            <Sparkles className="w-3.5 h-3.5 text-blue-500" /> Gói dịch vụ
+                            <Sparkles className="w-3.5 h-3.5 text-blue-500" /> Gói dịch vụ chính
                           </span>
-                          <p className="font-extrabold text-slate-800 line-clamp-1">{selectedBooking.serviceName || 'Rửa xe máy cao cấp'}</p>
+                          <p className="font-extrabold text-slate-800 line-clamp-1">{selectedBooking.mainServiceName || selectedBooking.serviceName || 'Rửa xe máy'}</p>
                         </div>
 
+                        {/* 2. Tiện ích Add-on */}
+                        <div className="bg-white p-3 rounded-xl border border-slate-200/70 shadow-2xs space-y-1">
+                          <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block flex items-center gap-1">
+                            <Layers className="w-3.5 h-3.5 text-indigo-500" /> Tiện ích Add-on
+                          </span>
+                          {selectedBooking.addonList && selectedBooking.addonList.length > 0 ? (
+                            <p className="font-bold text-indigo-600 text-[11px] line-clamp-1" title={selectedBooking.addonList.join(', ')}>
+                              +{selectedBooking.addonList.length} dịch vụ: {selectedBooking.addonList.join(', ')}
+                            </p>
+                          ) : selectedBooking.addonCount > 0 ? (
+                            <p className="font-bold text-indigo-600 text-[11px]">
+                              +{selectedBooking.addonCount} dịch vụ đi kèm
+                            </p>
+                          ) : (
+                            <p className="font-medium text-slate-400 text-[11px]">Không chọn add-on</p>
+                          )}
+                        </div>
+
+                        {/* 3. Phương tiện */}
                         <div className="bg-white p-3 rounded-xl border border-slate-200/70 shadow-2xs space-y-1">
                           <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block flex items-center gap-1">
                             <Car className="w-3.5 h-3.5 text-blue-500" /> Phương tiện
                           </span>
-                          <p className="font-extrabold text-slate-800 font-mono">{selectedBooking.licensePlate || 'Xe máy'}</p>
+                          <p className="font-extrabold text-slate-800 font-mono">
+                            {selectedBooking.licensePlate} {selectedBooking.vehicleModel ? `(${selectedBooking.vehicleModel})` : ''}
+                          </p>
                         </div>
 
-                        <div className="bg-white p-3 rounded-xl border border-slate-200/70 shadow-2xs space-y-1">
-                          <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block flex items-center gap-1">
-                            <Calendar className="w-3.5 h-3.5 text-blue-500" /> Ngày dọn rửa
+                        {/* 4. Tổng tiền đơn hàng */}
+                        <div className="bg-emerald-50/70 p-3 rounded-xl border border-emerald-200/80 shadow-2xs space-y-1">
+                          <span className="text-[10px] font-extrabold text-emerald-700 uppercase tracking-wider block flex items-center gap-1">
+                            <DollarSign className="w-3.5 h-3.5 text-emerald-600" /> Tổng tiền đơn hàng
                           </span>
-                          <p className="font-extrabold text-slate-800">{selectedBooking.date}</p>
+                          <p className="font-black text-slate-900 text-xs font-mono">
+                            {selectedBooking.totalAmount ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(selectedBooking.totalAmount) : '0 đ'}
+                          </p>
                         </div>
+                      </div>
+
+                      {/* Dòng thời gian dọn rửa */}
+                      <div className="text-[11px] text-slate-500 font-medium flex items-center gap-1.5 pt-1 px-1 border-t border-blue-100/60">
+                        <Calendar className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                        <span>Thời gian thực hiện: <strong className="text-slate-800 font-bold">{selectedBooking.date} {selectedBooking.time ? `vào ${selectedBooking.time}` : ''}</strong></span>
                       </div>
                     </div>
                   )}
