@@ -114,13 +114,40 @@ export default function CustomerLayout() {
     }, 1500);
   };
 
-  // Cấu hình màu sắc thẻ nhỏ theo hạng VIP trên sidebar
-  const getBadgeClass = (tier) => {
+  // Cấu hình màu sắc & phong cách thẻ Profile thu nhỏ trên Sidebar theo từng hạng VIP
+  const getTierTheme = (tier) => {
     const t = String(tier || '').toUpperCase();
-    if (t.includes('PLATINUM')) return 'bg-zinc-900 text-zinc-100 border-zinc-700';
-    if (t.includes('GOLD')) return 'bg-gradient-to-r from-[#FFF0B3] via-[#E2B755] to-[#B38728] text-slate-950 font-black border border-[#FFF8D6] shadow-sm';
-    if (t.includes('SILVER')) return 'bg-slate-300 text-slate-800 border-slate-200';
-    return 'bg-indigo-600 text-white border-indigo-400';
+    if (t.includes('PLATINUM')) {
+      return {
+        boxBg: 'bg-gradient-to-r from-slate-950 via-purple-950 to-zinc-950 text-purple-100 border-purple-500/40 shadow-md shadow-purple-950/30',
+        avatarBg: 'bg-purple-900/80 text-purple-200 border border-purple-400/40 font-bold',
+        nameColor: 'text-white',
+        badgeClass: 'bg-gradient-to-r from-purple-300 via-purple-400 to-indigo-300 text-purple-950 font-black border border-purple-200 shadow-sm'
+      };
+    }
+    if (t.includes('GOLD')) {
+      return {
+        boxBg: 'bg-gradient-to-r from-[#3D2702] via-[#66460B] to-[#4A3205] text-amber-100 border-amber-400/40 shadow-md shadow-amber-950/20',
+        avatarBg: 'bg-gradient-to-r from-[#FFF0B3] via-[#E2B755] to-[#B38728] text-slate-950 font-black border border-[#FFF8D6]',
+        nameColor: 'text-amber-100',
+        badgeClass: 'bg-gradient-to-r from-[#FFF0B3] via-[#E2B755] to-[#B38728] text-slate-950 font-black border border-[#FFF8D6] shadow-sm'
+      };
+    }
+    if (t.includes('SILVER')) {
+      return {
+        boxBg: 'bg-gradient-to-r from-slate-100 via-zinc-150 to-slate-200 border-slate-300 text-slate-900 shadow-sm',
+        avatarBg: 'bg-slate-300 text-slate-900 border border-slate-400/40 font-bold',
+        nameColor: 'text-slate-900',
+        badgeClass: 'bg-gradient-to-r from-slate-200 via-slate-300 to-zinc-400 text-slate-950 font-black border border-white shadow-sm'
+      };
+    }
+    // MEMBER
+    return {
+      boxBg: 'bg-gradient-to-r from-blue-50 via-indigo-50/80 to-blue-50 border-blue-200 text-blue-950 shadow-sm',
+      avatarBg: 'bg-blue-600 text-white font-bold',
+      nameColor: 'text-slate-900',
+      badgeClass: 'bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-extrabold border border-blue-300/40 shadow-sm'
+    };
   };
 
   const menuItems = [
@@ -132,13 +159,15 @@ export default function CustomerLayout() {
     { to: '/customer/account', label: 'Tài khoản & Cá nhân', icon: User },
   ];
 
+  const currentTierTheme = getTierTheme(customer?.tierName);
+
+  const unreadCount = notifications.filter(n => n.isRead === false || n.read === false).length;
+
   // Lấy tiêu đề trang hiện tại để hiển thị trên Header
   const getPageTitle = () => {
     const activeItem = menuItems.find(item => location.pathname.startsWith(item.to));
     return activeItem ? activeItem.label : '';
   };
-
-  const unreadCount = notifications.filter(n => n.isRead === false || n.read === false).length;
 
   return (
     <div className="flex h-screen bg-slate-50 overflow-hidden font-sans">
@@ -157,15 +186,15 @@ export default function CustomerLayout() {
         </div>
 
         {/* Khối Profile người dùng thu nhỏ */}
-        <div className="p-4 mx-4 my-4 bg-slate-50 border border-slate-150 rounded-2xl flex items-center gap-3 relative overflow-hidden">
-          <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center font-bold text-base shadow-sm">
+        <div className={`p-4 mx-4 my-4 border rounded-2xl flex items-center gap-3 relative overflow-hidden transition-all ${currentTierTheme.boxBg}`}>
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-base shadow-sm shrink-0 ${currentTierTheme.avatarBg}`}>
             {isLoading || !customer ? 'N/A' : (customer.fullName ? customer.fullName.substring(0, 2).toUpperCase() : 'N/A')}
           </div>
-          <div className="flex-1 min-w-0">
-            <h4 className="font-bold text-slate-800 text-sm truncate">
+          <div className="flex-1 min-w-0 text-left">
+            <h4 className={`font-bold text-sm truncate ${currentTierTheme.nameColor}`}>
               {isLoading || !customer ? 'N/A' : (customer.fullName || 'N/A')}
             </h4>
-            <span className={`inline-block text-[9px] font-extrabold px-2 py-0.5 rounded-full border mt-1 tracking-wider ${getBadgeClass(customer?.tierName)}`}>
+            <span className={`inline-block text-[9px] px-2.5 py-0.5 rounded-full border mt-1 tracking-wider ${currentTierTheme.badgeClass}`}>
               {isLoading || !customer ? 'N/A' : (customer.tierName || 'N/A')}
             </span>
           </div>

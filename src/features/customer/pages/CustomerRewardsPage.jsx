@@ -247,45 +247,107 @@ export default function CustomerRewardsPage() {
     .sort((a, b) => (a.isGrayscale === b.isGrayscale ? 0 : a.isGrayscale ? 1 : -1));
 
   return (
+  // Cấu hình theme banner chào mừng phân biệt theo từng Hạng VIP
+  const getRewardsHeaderTheme = (tierName) => {
+    const t = String(tierName || '').toUpperCase();
+    if (t.includes('PLATINUM')) {
+      return {
+        bannerBg: 'bg-gradient-to-r from-[#0B051D] via-[#2A085C] via-60% to-[#0D0422] border-purple-500/40 shadow-xl shadow-purple-950/40',
+        crownBox: 'bg-gradient-to-tr from-purple-300 via-purple-400 to-indigo-300 shadow-purple-500/30',
+        crownIcon: 'text-purple-950',
+        badge: 'bg-purple-500/25 text-purple-200 border border-purple-400/40 font-black',
+        coinsColor: 'text-purple-300',
+        valueColor: 'text-purple-200',
+        isGalaxy: true
+      };
+    }
+    if (t.includes('GOLD')) {
+      return {
+        bannerBg: 'bg-gradient-to-r from-[#2A1A02] via-[#78530E] via-60% to-[#D4AF37] border-amber-300/40 shadow-xl shadow-amber-950/30',
+        crownBox: 'bg-gradient-to-tr from-[#FFF0B3] via-[#E2B755] to-[#B38728] shadow-amber-900/30',
+        crownIcon: 'text-slate-950',
+        badge: 'bg-gradient-to-r from-[#FFF0B3] via-[#E2B755] to-[#B38728] text-slate-950 font-black border border-[#FFF8D6]',
+        coinsColor: 'text-amber-300',
+        valueColor: 'text-amber-200',
+        isGalaxy: false
+      };
+    }
+    if (t.includes('SILVER')) {
+      return {
+        bannerBg: 'bg-gradient-to-r from-[#1E293B] via-[#475569] to-[#0F172A] border-slate-300/30 shadow-lg',
+        crownBox: 'bg-gradient-to-tr from-slate-100 to-slate-300 shadow-slate-900/20',
+        crownIcon: 'text-slate-900',
+        badge: 'bg-slate-200 text-slate-900 border-slate-300 font-extrabold',
+        coinsColor: 'text-slate-200',
+        valueColor: 'text-slate-100',
+        isGalaxy: false
+      };
+    }
+    // MEMBER
+    return {
+      bannerBg: 'bg-gradient-to-r from-[#0F172A] via-[#1E3A8A] to-[#1E293B] border-blue-400/30 shadow-lg',
+      crownBox: 'bg-gradient-to-tr from-blue-400 to-indigo-300 shadow-blue-500/20',
+      crownIcon: 'text-blue-950',
+      badge: 'bg-blue-500/25 text-blue-200 border border-blue-400/30 font-bold',
+      coinsColor: 'text-blue-400',
+      valueColor: 'text-blue-300',
+      isGalaxy: false
+    };
+  };
+
+  const headerTheme = getRewardsHeaderTheme(profile.tierName);
+
+  return (
     <div className="space-y-8 pb-16 text-slate-800 font-sans relative">
 
-      {/* KHỐI HEADER TRÊN CÙNG: PHIÊN BẢN SLIM & SANG TRỌNG */}
-      <div className="relative overflow-hidden rounded-[24px] bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 px-6 py-5 shadow-lg border border-white/10 text-white flex flex-col md:flex-row md:items-center justify-between gap-4">
+      {/* KHỐI HEADER TRÊN CÙNG: PHIÊN BẢN SLIM & SANG TRỌNG THEO HẠNG VIP */}
+      <div className={`relative overflow-hidden rounded-[24px] px-6 py-5 border text-white flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all ${headerTheme.bannerBg}`}>
         {/* Glow Effects */}
-        <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none"></div>
-        <div className="absolute -left-12 -bottom-12 w-32 h-32 bg-violet-600/5 rounded-full blur-2xl pointer-events-none"></div>
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-2xl pointer-events-none"></div>
+        <div className="absolute -left-12 -bottom-12 w-32 h-32 bg-white/5 rounded-full blur-2xl pointer-events-none"></div>
+
+        {/* Galaxy Star Dots Overlay for Platinum Banner */}
+        {headerTheme.isGalaxy && (
+          <div className="absolute inset-0 pointer-events-none overflow-hidden z-0 opacity-80">
+            <div className="absolute top-2 left-10 w-1 h-1 bg-white rounded-full shadow-[0_0_6px_#fff] animate-pulse"></div>
+            <div className="absolute top-6 left-1/3 w-1.5 h-1.5 bg-white/90 rounded-full shadow-[0_0_8px_#fff]"></div>
+            <div className="absolute top-4 right-1/4 w-1 h-1 bg-purple-200/80 rounded-full"></div>
+            <div className="absolute bottom-4 left-1/2 w-1.5 h-1.5 bg-white/80 rounded-full shadow-[0_0_6px_#fff] animate-pulse"></div>
+            <div className="absolute bottom-3 right-12 w-1 h-1 bg-white/90 rounded-full shadow-[0_0_6px_#fff]"></div>
+          </div>
+        )}
 
         {/* Cánh trái: Greeting & Hạng thành viên */}
         <div className="flex items-center gap-4 relative z-10">
-          <div className="bg-gradient-to-tr from-amber-400 to-yellow-300 p-2.5 rounded-xl shadow-md shrink-0">
-            <Crown className="w-5 h-5 text-slate-900" />
+          <div className={`p-2.5 rounded-xl shadow-md shrink-0 ${headerTheme.crownBox}`}>
+            <Crown className={`w-5 h-5 ${headerTheme.crownIcon}`} />
           </div>
           <div className="text-left">
             <h2 className="text-base font-black tracking-tight flex items-center flex-wrap gap-2 text-white">
               Chào {profile.fullName || 'Khách hàng'},
-              <span className="text-[10px] uppercase tracking-widest text-amber-300 font-extrabold bg-amber-500/20 border border-amber-400/30 px-2.5 py-0.5 rounded-full">
+              <span className={`text-[10px] uppercase tracking-widest px-2.5 py-0.5 rounded-full ${headerTheme.badge}`}>
                 {profile.tierName || 'MEMBER'}
               </span>
             </h2>
-            <p className="text-xs text-slate-400 font-medium">Hội viên chương trình chăm sóc xe NovaWash</p>
+            <p className="text-xs text-white/80 font-medium">Hội viên chương trình chăm sóc xe NovaWash</p>
           </div>
         </div>
 
         {/* Cánh phải: Điểm tích lũy Slim */}
-        <div className="flex items-center gap-6 relative z-10 shrink-0 bg-white/5 border border-white/10 px-5 py-2.5 rounded-xl backdrop-blur-md self-start md:self-auto">
+        <div className="flex items-center gap-6 relative z-10 shrink-0 bg-white/10 border border-white/15 px-5 py-2.5 rounded-xl backdrop-blur-md self-start md:self-auto shadow-sm">
           <div className="flex items-center gap-2.5 text-left">
-            <Coins className="w-4 h-4 text-amber-400" />
+            <Coins className={`w-4 h-4 ${headerTheme.coinsColor}`} />
             <div>
-              <span className="text-[9px] text-slate-400 uppercase font-black tracking-wider block">Điểm tích lũy</span>
+              <span className="text-[9px] text-white/70 uppercase font-black tracking-wider block">Điểm tích lũy</span>
               <span className="text-base font-black text-white font-mono">
-                {profile.loyaltyPoints.toLocaleString('vi-VN')} <span className="text-xs font-bold text-slate-400">Pts</span>
+                {profile.loyaltyPoints.toLocaleString('vi-VN')} <span className="text-xs font-bold text-white/80">Pts</span>
               </span>
             </div>
           </div>
-          <div className="w-px h-8 bg-white/10"></div>
+          <div className="w-px h-8 bg-white/20"></div>
           <div className="text-left">
-            <span className="text-[9px] text-slate-400 uppercase font-black tracking-wider block">Giá trị quy đổi</span>
-            <span className="text-sm font-bold text-amber-300 font-mono">
+            <span className="text-[9px] text-white/70 uppercase font-black tracking-wider block">Giá trị quy đổi</span>
+            <span className={`text-sm font-bold font-mono ${headerTheme.valueColor}`}>
               {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(profile.loyaltyPoints * 1000)}
             </span>
           </div>
