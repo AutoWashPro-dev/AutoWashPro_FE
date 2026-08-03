@@ -165,18 +165,18 @@ export default function CustomerDashboardPage() {
       if (Array.isArray(servicesData) && servicesData.length > 0) {
         const mainPackages = servicesData.filter(s => s.serviceType === 'PACKAGE');
         const sortedServices = [...mainPackages].sort((a, b) => Number(a.price || 0) - Number(b.price || 0));
-        setRecommendedServices(sortedServices.slice(0, 3).map(s => ({
+        setRecommendedServices(sortedServices.slice(0, 3).map((s, idx) => ({
           id: s.serviceId || s.id,
           title: s.serviceName || s.name,
           price: s.price || 0,
           description: s.description || 'Dịch vụ chăm sóc xe chuyên nghiệp.',
-          tag: s.tagLabel || s.tag || 'PHỔ BIẾN'
+          tag: s.tagLabel || s.tag || (idx === 0 ? 'PHỔ BIẾN' : idx === 1 ? 'BÁN CHẠY' : 'GÓI HOT VIP')
         })));
       } else {
         setRecommendedServices([
           { id: 1, title: "Rửa xe bọt tuyết Siêu Sạch (Basic)", price: 50000, description: "Rửa sườn, xịt gầm, làm sạch bánh xe và thổi khô gas-đầy đủ.", tag: "PHỔ BIẾN" },
-          { id: 2, title: "Phủ bóng Wax bóng bảo vệ sơn (Premium)", price: 90000, description: "Rửa xe cao cấp kết hợp phủ sáp siêu bóng bảo vệ dàn nhựa xe ga.", tag: "ƯU ĐÃI VIP" },
-          { id: 3, title: "Dọn rửa Chi tiết Côn tay / PKL (Deluxe)", price: 150000, description: "Tẩy ố lazang, vệ sinh sên đĩa xích, dưỡng bóng dàn áo xe phân khối lớn.", tag: "CHUYÊN SÂU" }
+          { id: 2, title: "Phủ bóng Wax bóng bảo vệ sơn (Premium)", price: 90000, description: "Rửa xe cao cấp kết hợp phủ sáp siêu bóng bảo vệ dàn nhựa xe ga.", tag: "BÁN CHẠY" },
+          { id: 3, title: "Dọn rửa Chi tiết Côn tay / PKL (Deluxe)", price: 150000, description: "Tẩy ố lazang, vệ sinh sên đĩa xích, dưỡng bóng dàn áo xe phân khối lớn.", tag: "GÓI HOT VIP" }
         ]);
       }
 
@@ -369,10 +369,6 @@ export default function CustomerDashboardPage() {
               Mở Ví Ưu Đãi
             </button>
           </div>
-
-        </div>
-      </div>
-
       {/* GỢI Ý DỊCH VỤ XE MÁY DƯỚI CÙNG */}
       <div className="space-y-4 text-left">
         <div className="flex justify-between items-center">
@@ -388,14 +384,18 @@ export default function CustomerDashboardPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {recommendedServices.map(service => (
-            <div key={service.id} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between group">
+          {recommendedServices.map((service, idx) => (
+            <div key={service.id || idx} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between group relative overflow-hidden">
               <div>
                 <div className="flex justify-between items-center mb-3">
-                  <span className={`text-[9px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-2xs ${tierTheme.tagBadge}`}>
-                    {service.tag || 'PHỔ BIẾN'}
+                  <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-2xs ${
+                    idx === 0 ? 'bg-blue-100 text-blue-900 border border-blue-200' :
+                    idx === 1 ? 'bg-amber-100 text-amber-950 border border-amber-300' :
+                    'bg-purple-100 text-purple-950 border border-purple-300'
+                  }`}>
+                    {service.tag || (idx === 0 ? 'PHỔ BIẾN' : idx === 1 ? 'BÁN CHẠY' : 'GÓI HOT VIP')}
                   </span>
-                  <span className="font-mono font-extrabold text-slate-900 text-base">
+                  <span className="font-mono font-black text-slate-900 text-base">
                     {Number(service.price || 0).toLocaleString('vi-VN')} đ
                   </span>
                 </div>
@@ -404,7 +404,7 @@ export default function CustomerDashboardPage() {
               </div>
               <button
                 onClick={() => navigate('/customer/book', { state: { autoSelectServiceId: service.id || service.serviceId } })}
-                className={`mt-5 w-full py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer ${tierTheme.btnOutline}`}
+                className={`mt-5 w-full py-2.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${tierTheme.btnOutline}`}
               >
                 Đặt dịch vụ này
               </button>
