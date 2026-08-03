@@ -203,6 +203,14 @@ export default function CustomerGaragePage() {
       } else {
         // Thêm xe mới qua API
         const newVeh = await customerApi.addVehicle(vehiclePayloadToConfirm);
+        const newVehId = newVeh.vehicleId || newVeh.id;
+        if (newVehId && (isFirstVehicle || vehiclePayloadToConfirm.isDefault)) {
+          try {
+            await customerApi.setDefaultVehicle(newVehId);
+          } catch (e) {
+            console.warn('Auto set default vehicle call error:', e);
+          }
+        }
 
         let updatedVehicles = [...vehicles];
         if (isFirstVehicle || vehiclePayloadToConfirm.isDefault) {
@@ -219,7 +227,7 @@ export default function CustomerGaragePage() {
           color: newVeh.color || 'N/A',
           year: newVeh.year || 'N/A',
           vehicleType: newVeh.vehicleType || vehicleType || 'N/A',
-          isDefault: isFirstVehicle ? true : vehiclePayloadToConfirm.isDefault
+          isDefault: newVeh.isDefault ?? (isFirstVehicle ? true : vehiclePayloadToConfirm.isDefault)
         };
 
         setVehicles([...updatedVehicles, safeVeh]);
@@ -227,6 +235,9 @@ export default function CustomerGaragePage() {
       }
       setIsModalOpen(false);
       setIsVehicleConfirmModalOpen(false);
+
+      // Đồng bộ danh sách xe với các trang khác (BookingPage)
+      window.dispatchEvent(new Event('vehicleListUpdated'));
     } catch (err) {
       showAlert("Lỗi khi lưu thông tin xe: " + (err.response?.data?.message || err.message), "error", "Lỗi");
       console.error(err);

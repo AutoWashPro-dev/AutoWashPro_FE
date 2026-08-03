@@ -224,7 +224,7 @@ export default function VIPCard({ customer }) {
                     <Zap className="w-3.5 h-3.5 text-amber-500" /> Hệ số nhân điểm
                   </span>
                   <p className={`text-xl font-black font-mono ${theme.accentColor}`}>
-                    {activeTier.multiplier}x hệ số
+                    {activeTier.multiplier}x
                   </p>
                   <span className="text-[11px] text-slate-500 font-medium block mt-0.5">Tích {activeTier.multiplier * 1} điểm / 10.000 VNĐ</span>
                 </div>

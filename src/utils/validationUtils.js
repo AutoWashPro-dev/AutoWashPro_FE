@@ -1,4 +1,4 @@
-﻿// Validation and Formatting Utilities for NovaWash / NovaWash
+// Validation and Formatting Utilities for NovaWash / NovaWash
 
 /**
  * Strips non-numeric characters and limits to 10 digits
@@ -40,49 +40,54 @@ export const formatLicensePlate = (val) => {
   if (!val) return '';
   
   // Clean input: uppercase, keep only letters, numbers, hyphens, spaces, and dots
-  let cleaned = val.toUpperCase().replace(/[^A-Z0-9\s.-]/g, '');
+  let cleaned = val.toUpperCase().replace(/[^A-Z0-9\s.\-]/g, '');
   
   // Extract raw alphanumeric string
   let raw = cleaned.replace(/[^A-Z0-9]/g, '');
   if (raw.length === 0) return '';
   
+  // First 2 chars are always the province digits
   let formatted = raw.slice(0, 2);
   if (raw.length <= 2) return formatted;
   
-  // Determine if series part is 2 chars (e.g. AA, A1) or 1 char (e.g. H)
+  // Determine prefixLength:
+  // prefixLength = 3 means 1-char series (e.g. 29H -> 29H-123.45)
+  // prefixLength = 4 means 2-char series (e.g. 85-H1 -> 85-H1 234.56 or 50-AA -> 50-AA 123.45)
   let prefixLength = 3;
+  
   if (raw.length > 3) {
-    const char3 = raw.charAt(3);
+    const char3 = raw.charAt(3); // 4th character of raw (index 3)
     
-    // Check original input for user intent: manual space or hyphen
-    const firstLetterIdx = cleaned.search(/[A-Z]/);
-    if (firstLetterIdx !== -1) {
-      if (cleaned.charAt(firstLetterIdx + 1) === ' ' || cleaned.charAt(firstLetterIdx + 1) === '-') {
-        prefixLength = 3;
-      } else if (cleaned.charAt(firstLetterIdx + 2) === ' ' || cleaned.charAt(firstLetterIdx + 2) === '-') {
-        prefixLength = 4;
-      } else {
-        // No manual separator, infer from string structure
-        if (/[A-Z]/.test(char3)) {
-          prefixLength = 4; // e.g. AA, AG
-        } else {
-          // char3 is a digit.
-          // If raw length is 9, it must be 59-A1 123.45 (prefix length 4)
-          if (raw.length === 9) {
-            prefixLength = 4;
-          } else if (raw.length === 8) {
-            // If length is 8, can be 50-A1 1234 (prefix 4) or 29H-666.66 (prefix 3)
-            // Check if last 5 characters are all digits
-            const last5AreDigits = /^\d{5}$/.test(raw.slice(3));
-            if (last5AreDigits) {
-              prefixLength = 3;
-            } else {
-              prefixLength = 4;
-            }
-          } else {
-            prefixLength = 3;
+    // 1. If raw has 9 or more characters (e.g. 85H123456 -> 2 province + 2 series + 5 numbers),
+    // it MUST be a 2-char series plate (85-H1 234.56) because max number digits is 5.
+    if (raw.length >= 9) {
+      prefixLength = 4;
+    }
+    // 2. If 4th character of raw is a Letter (e.g. 50AA..., 85HP...), series is 2 letters.
+    else if (/[A-Z]/.test(char3)) {
+      prefixLength = 4;
+    }
+    // 3. If user explicitly typed a hyphen after province (e.g. "85-H1..."),
+    // check if 'cleaned' starts with 2 digits followed by '-' or ' '
+    else if (/^[0-9]{2}[\s.\-]/.test(cleaned) && raw.length >= 4) {
+      prefixLength = 4;
+    }
+    // 4. If user explicitly typed space/hyphen after 2 series chars (e.g. "85H1 123"),
+    // check if there is a separator after the 4th raw character in 'cleaned'
+    else if (raw.length >= 5) {
+      let rawCount = 0;
+      let idx4 = -1;
+      for (let i = 0; i < cleaned.length; i++) {
+        if (/[A-Z0-9]/.test(cleaned[i])) {
+          rawCount++;
+          if (rawCount === 4) {
+            idx4 = i;
+            break;
           }
         }
+      }
+      if (idx4 !== -1 && idx4 + 1 < cleaned.length && /[\s.\-]/.test(cleaned[idx4 + 1])) {
+        prefixLength = 4;
       }
     }
   }

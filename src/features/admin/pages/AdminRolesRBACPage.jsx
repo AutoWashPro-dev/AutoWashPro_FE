@@ -1,25 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { 
-  Shield, 
-  ShieldCheck, 
-  Lock, 
-  Unlock, 
-  CheckCircle, 
-  XCircle, 
-  Plus, 
-  Edit, 
-  Trash2, 
-  Users, 
-  Check, 
-  AlertTriangle, 
-  Key, 
-  Layers, 
-  Settings, 
-  RefreshCw, 
-  Save, 
-  X, 
-  HelpCircle, 
+import {
+  Shield,
+  ShieldCheck,
+  Lock,
+  Unlock,
+  CheckCircle,
+  XCircle,
+  Plus,
+  Edit,
+  Trash2,
+  Users,
+  Check,
+  AlertTriangle,
+  Key,
+  Layers,
+  Settings,
+  RefreshCw,
+  Save,
+  X,
+  HelpCircle,
   Info
 } from 'lucide-react';
 import { roleApi } from '../services/roleApi';
@@ -113,7 +113,7 @@ export default function AdminRolesRBACPage() {
 
   const [roles, setRoles] = useState([]);
   const [permissions, setPermissions] = useState([]);
-  
+
   // Matrix state tracking: map of roleId -> Set of permissionIds
   const [matrixState, setMatrixState] = useState({});
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -233,14 +233,14 @@ export default function AdminRolesRBACPage() {
     try {
       // Find editable roles
       const editableRoles = roles.filter(r => r.roleName !== 'ROLE_ADMIN');
-      
+
       await Promise.all(
         editableRoles.map(r => {
           const newPermIds = Array.from(matrixState[r.roleId] || []);
           return roleApi.updateRolePermissions(r.roleId, newPermIds);
         })
       );
-      
+
       showNotification('Đã cập nhật ma trận phân quyền RBAC thành công cho toàn hệ thống! 🚀', 'success');
       setHasUnsavedChanges(false);
       window.dispatchEvent(new Event('storage'));
@@ -311,14 +311,13 @@ export default function AdminRolesRBACPage() {
 
   return (
     <div className="flex flex-col h-full bg-[#f7fafd] text-slate-800 p-6 overflow-hidden">
-      
+
       {/* Toast Notification Bar */}
       {feedback && (
-        <div className={`fixed top-5 right-6 z-50 flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-xl border animate-slide-left transition-all ${
-          feedback.type === 'error' 
-            ? 'bg-rose-600 text-white border-rose-500 shadow-rose-600/30' 
+        <div className={`fixed top-5 right-6 z-50 flex items-center gap-3 px-5 py-3.5 rounded-2xl shadow-xl border animate-slide-left transition-all ${feedback.type === 'error'
+            ? 'bg-rose-600 text-white border-rose-500 shadow-rose-600/30'
             : 'bg-slate-900 text-white border-slate-700 shadow-slate-900/30'
-        }`}>
+          }`}>
           {feedback.type === 'error' ? <AlertTriangle className="w-5 h-5 text-rose-300" /> : <CheckCircle className="w-5 h-5 text-[#57f287]" />}
           <span className="text-xs font-extrabold tracking-wide">{feedback.message}</span>
         </div>
@@ -356,11 +355,10 @@ export default function AdminRolesRBACPage() {
           <button
             onClick={handleSaveMatrix}
             disabled={!hasUnsavedChanges || isSaving}
-            className={`px-4.5 py-2.5 rounded-xl text-xs font-black flex items-center gap-2 transition-all shadow-md cursor-pointer ${
-              hasUnsavedChanges
+            className={`px-4.5 py-2.5 rounded-xl text-xs font-black flex items-center gap-2 transition-all shadow-md cursor-pointer ${hasUnsavedChanges
                 ? 'bg-[#57f287] hover:bg-[#44db72] text-slate-900 shadow-[#57f287]/20 scale-[1.02]'
                 : 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none'
-            }`}
+              }`}
           >
             <Save className="w-4 h-4" />
             {isSaving ? 'Đang cập nhật...' : 'Lưu Thay Đổi Phân Quyền'}
@@ -373,11 +371,10 @@ export default function AdminRolesRBACPage() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setActiveTab('matrix')}
-            className={`px-5 py-2.5 rounded-xl text-xs font-black flex items-center gap-2 transition-all cursor-pointer ${
-              activeTab === 'matrix'
+            className={`px-5 py-2.5 rounded-xl text-xs font-black flex items-center gap-2 transition-all cursor-pointer ${activeTab === 'matrix'
                 ? 'bg-slate-900 text-white shadow-md shadow-slate-900/20'
                 : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-            }`}
+              }`}
           >
             <Layers className="w-4 h-4 text-indigo-400" />
             Ma Trận Quyền (RBAC Matrix)
@@ -388,24 +385,16 @@ export default function AdminRolesRBACPage() {
 
           <button
             onClick={() => setActiveTab('roles')}
-            className={`px-5 py-2.5 rounded-xl text-xs font-black flex items-center gap-2 transition-all cursor-pointer ${
-              activeTab === 'roles'
+            className={`px-5 py-2.5 rounded-xl text-xs font-black flex items-center gap-2 transition-all cursor-pointer ${activeTab === 'roles'
                 ? 'bg-slate-900 text-white shadow-md shadow-slate-900/20'
                 : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
-            }`}
+              }`}
           >
             <Key className="w-4 h-4 text-amber-400" />
             Danh Sách Vai Trò ({roles.length})
           </button>
         </div>
 
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="px-4 py-2.5 bg-[#0047AB] hover:bg-[#003a8c] text-white rounded-xl text-xs font-black transition-all flex items-center gap-1.5 shadow-sm cursor-pointer"
-        >
-          <Plus className="w-4 h-4" />
-          Tạo Vai Trò Mới
-        </button>
       </div>
 
       {/* 3. Main Content Area */}
@@ -475,13 +464,12 @@ export default function AdminRolesRBACPage() {
                                   type="button"
                                   disabled={isLocked}
                                   onClick={() => handleToggleMasterGroup(role.roleId, group)}
-                                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[10px] font-black uppercase transition-all ${
-                                    isLocked
+                                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[10px] font-black uppercase transition-all ${isLocked
                                       ? 'bg-slate-200 text-slate-500 cursor-not-allowed opacity-80'
                                       : isMasterOn
-                                      ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm cursor-pointer'
-                                      : 'bg-slate-200 hover:bg-slate-300 text-slate-600 cursor-pointer'
-                                  }`}
+                                        ? 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-sm cursor-pointer'
+                                        : 'bg-slate-200 hover:bg-slate-300 text-slate-600 cursor-pointer'
+                                    }`}
                                   title={isLocked ? 'ROLE_ADMIN luôn bật toàn bộ trang' : isMasterOn ? 'Tắt toàn bộ trang' : 'Bật toàn bộ trang'}
                                 >
                                   {isMasterOn ? <CheckCircle className="w-3.5 h-3.5" /> : <XCircle className="w-3.5 h-3.5 text-slate-400" />}
@@ -519,15 +507,14 @@ export default function AdminRolesRBACPage() {
                                 const isAdmin = role.roleName === 'ROLE_ADMIN';
                                 const masterPerm = permissions.find(p => p.permissionCode === group.masterCode);
                                 const isMasterOn = masterPerm && (matrixState[role.roleId] || new Set()).has(masterPerm.permissionId);
-                                
+
                                 const isChecked = (matrixState[role.roleId] || new Set()).has(perm.permissionId);
                                 const isDisabled = isAdmin || !perm.enabled || (!isMasterRow && !isMasterOn);
 
                                 return (
                                   <td key={role.roleId} className="py-3 px-4 text-center border-l border-slate-100 bg-white/50">
-                                    <label className={`inline-flex items-center justify-center p-1.5 rounded-lg transition-all ${
-                                      isDisabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:bg-slate-100'
-                                    }`}>
+                                    <label className={`inline-flex items-center justify-center p-1.5 rounded-lg transition-all ${isDisabled ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:bg-slate-100'
+                                      }`}>
                                       <input
                                         type="checkbox"
                                         disabled={isDisabled}
@@ -535,13 +522,12 @@ export default function AdminRolesRBACPage() {
                                         onChange={() => handleTogglePermission(role.roleId, perm, isAdmin || !perm.enabled, isMasterOn)}
                                         className="hidden"
                                       />
-                                      <div className={`w-6 h-6 rounded-lg flex items-center justify-center transition-all ${
-                                        isChecked
+                                      <div className={`w-6 h-6 rounded-lg flex items-center justify-center transition-all ${isChecked
                                           ? isAdmin
                                             ? 'bg-slate-800 text-white shadow-sm'
                                             : 'bg-[#0047AB] text-white shadow-md shadow-[#0047AB]/20 scale-105'
                                           : 'bg-slate-100 border border-slate-300 text-transparent hover:border-slate-400'
-                                      }`}>
+                                        }`}>
                                         {isAdmin && isChecked ? (
                                           <Lock className="w-3.5 h-3.5 text-slate-300" />
                                         ) : isChecked ? (
@@ -571,20 +557,18 @@ export default function AdminRolesRBACPage() {
 
               return (
                 <div key={role.roleId} className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between space-y-4 relative overflow-hidden group">
-                  <div className={`absolute top-0 left-0 right-0 h-1.5 ${
-                    isAdmin ? 'bg-rose-600' : isSystemRole ? 'bg-[#0047AB]' : 'bg-[#57f287]'
-                  }`} />
+                  <div className={`absolute top-0 left-0 right-0 h-1.5 ${isAdmin ? 'bg-rose-600' : isSystemRole ? 'bg-[#0047AB]' : 'bg-[#57f287]'
+                    }`} />
 
                   <div className="space-y-3">
                     <div className="flex items-start justify-between gap-2 pt-1">
                       <div>
-                        <span className={`inline-block px-2.5 py-0.5 text-[9px] font-black rounded-full uppercase tracking-wider mb-1.5 border ${
-                          isAdmin 
-                            ? 'bg-rose-50 text-rose-700 border-rose-200' 
-                            : isSystemRole 
-                            ? 'bg-indigo-50 text-[#0047AB] border-indigo-100' 
-                            : 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                        }`}>
+                        <span className={`inline-block px-2.5 py-0.5 text-[9px] font-black rounded-full uppercase tracking-wider mb-1.5 border ${isAdmin
+                            ? 'bg-rose-50 text-rose-700 border-rose-200'
+                            : isSystemRole
+                              ? 'bg-indigo-50 text-[#0047AB] border-indigo-100'
+                              : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                          }`}>
                           {isAdmin ? 'System Supreme' : isSystemRole ? 'Default System Role' : 'Custom Role'}
                         </span>
                         <h3 className="text-base font-black text-slate-900 tracking-tight flex items-center gap-1.5">
@@ -648,7 +632,7 @@ export default function AdminRolesRBACPage() {
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
           <div className="bg-white rounded-3xl p-6 max-w-xl w-full shadow-2xl space-y-5 border border-slate-100 max-h-[90vh] flex flex-col">
-            
+
             <div className="flex items-center justify-between pb-3 border-b border-slate-100 shrink-0">
               <div className="flex items-center gap-2.5">
                 <div className="w-9 h-9 bg-[#0047AB] rounded-xl flex items-center justify-center text-white shadow-md shadow-[#0047AB]/20">
@@ -672,7 +656,7 @@ export default function AdminRolesRBACPage() {
                   required
                   placeholder="ROLE_SUPERVISOR, ROLE_INSPECTOR..."
                   value={newRoleForm.roleName}
-                  onChange={e => setNewRoleForm({...newRoleForm, roleName: e.target.value.toUpperCase()})}
+                  onChange={e => setNewRoleForm({ ...newRoleForm, roleName: e.target.value.toUpperCase() })}
                   className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 font-black tracking-wide uppercase focus:outline-none focus:border-[#0047AB] focus:bg-white transition-all"
                 />
                 <span className="text-[10px] font-semibold text-slate-400 block">Bắt buộc bắt đầu bằng tiền tố <strong className="text-slate-700">ROLE_</strong> (viết hoa không dấu).</span>
@@ -684,7 +668,7 @@ export default function AdminRolesRBACPage() {
                   rows="2"
                   placeholder="Ví dụ: Giám sát viên ca tối, chịu trách nhiệm rà soát chất lượng dọn xe..."
                   value={newRoleForm.description}
-                  onChange={e => setNewRoleForm({...newRoleForm, description: e.target.value})}
+                  onChange={e => setNewRoleForm({ ...newRoleForm, description: e.target.value })}
                   className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-800 font-semibold text-xs focus:outline-none focus:border-[#0047AB] focus:bg-white transition-all"
                 />
               </div>
@@ -716,7 +700,7 @@ export default function AdminRolesRBACPage() {
                                   checked={isSelected}
                                   onChange={() => {
                                     setNewRoleForm(prev => {
-                                      const nextPerms = isSelected 
+                                      const nextPerms = isSelected
                                         ? prev.selectedPermIds.filter(id => id !== p.permissionId)
                                         : [...prev.selectedPermIds, p.permissionId];
                                       return { ...prev, selectedPermIds: nextPerms };

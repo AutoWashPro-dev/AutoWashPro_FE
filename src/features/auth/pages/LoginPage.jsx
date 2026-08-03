@@ -99,11 +99,6 @@ export default function LoginPage() {
         {/* Left Section: Bright & Sparkling Overview (60%) */}
         <div className="w-full lg:w-7/12 flex flex-col justify-center space-y-5">
 
-          {/* Top Badge */}
-          <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/80 backdrop-blur border border-blue-100 shadow-sm w-fit mb-1">
-            <img src={logoImg} alt="NovaWash Logo" className="w-6 h-6 object-contain" />
-            <span className="text-xs font-bold text-blue-700">NovaWash VIP Care</span>
-          </div>
 
           {/* Heading */}
           <div className="space-y-2.5">

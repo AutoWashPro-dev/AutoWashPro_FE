@@ -226,10 +226,14 @@ export default function CustomerBookingPage() {
           } else if (mappedVehicles.length > 0) {
             setSelectedVehicle(mappedVehicles[0]);
           }
-        } else if (currentSel) {
-          const stillExists = mappedVehicles.some(v => v.vehicleId === currentSel.vehicleId);
-          if (!stillExists) {
-            setSelectedVehicle(null);
+        } else if (selectedVehicleRef.current) {
+          const currentSel = selectedVehicleRef.current;
+          const matched = mappedVehicles.find(v => (v.vehicleId || v.id) === (currentSel.vehicleId || currentSel.id));
+          if (!matched) {
+            const defaultVeh = mappedVehicles.find(v => v.isDefault) || mappedVehicles[0] || null;
+            setSelectedVehicle(defaultVeh);
+          } else {
+            setSelectedVehicle(matched);
           }
         } else if (mappedVehicles.length > 0) {
           const defaultVeh = mappedVehicles.find(v => v.isDefault) || mappedVehicles[0];
@@ -810,24 +814,35 @@ export default function CustomerBookingPage() {
       } else {
         // Direct API Creation flow
         savedVehicle = await customerApi.addVehicle(vehiclePayloadToConfirm);
+        const newVehId = savedVehicle.vehicleId || savedVehicle.id;
+        if (newVehId && (isFirstVehicle || vehiclePayloadToConfirm.isDefault)) {
+          try {
+            await customerApi.setDefaultVehicle(newVehId);
+          } catch (e) {
+            console.warn('Auto set default vehicle call error:', e);
+          }
+        }
       }
+
+      const isDefaultSaved = Boolean(isFirstVehicle || vehiclePayloadToConfirm.isDefault || savedVehicle.isDefault);
 
       const normalizedVehicle = {
         ...savedVehicle,
+        vehicleId: savedVehicle.vehicleId || savedVehicle.id,
         model: vehiclePayloadToConfirm.model,
         licensePlate: vehiclePayloadToConfirm.licensePlate,
-        isDefault: isFirstVehicle ? true : vehiclePayloadToConfirm.isDefault,
+        isDefault: isDefaultSaved,
         vehicleType: savedVehicle.vehicleType || 'MOTORCYCLE'
       };
 
       setVehicles(prev => {
         const next = prev.map(vehicle => ({
           ...vehicle,
-          isDefault: (isFirstVehicle || vehiclePayloadToConfirm.isDefault) ? false : vehicle.isDefault
+          isDefault: isDefaultSaved ? false : vehicle.isDefault
         }));
 
         if (editingVehicle) {
-          return next.map(vehicle => (vehicle.id === editingVehicle.id ? normalizedVehicle : (vehiclePayloadToConfirm.isDefault ? { ...vehicle, isDefault: false } : vehicle)));
+          return next.map(vehicle => (vehicle.id === editingVehicle.id ? normalizedVehicle : (isDefaultSaved ? { ...vehicle, isDefault: false } : vehicle)));
         }
 
         return [...next, normalizedVehicle];
@@ -838,6 +853,9 @@ export default function CustomerBookingPage() {
       setIsVehicleConfirmModalOpen(false);
       showAlert(editingVehicle ? 'Cập nhật xe thành công!' : 'Đăng ký xe mới thành công!', 'success', 'Thành công');
       console.log('[CustomerBookingPage] vehicle saved:', normalizedVehicle);
+
+      // Đồng bộ danh sách xe với các trang khác (GaragePage) và reload từ API
+      window.dispatchEvent(new Event('vehicleListUpdated'));
     } catch (err) {
       console.error('Failed to save vehicle:', err);
       showAlert('Lỗi khi lưu xe: ' + (err.response?.data?.message || err.message), 'error', 'Lỗi');
