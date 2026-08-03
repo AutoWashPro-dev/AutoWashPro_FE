@@ -1059,7 +1059,16 @@ export default function CustomerBookingPage() {
       const newBookingId = createdBooking.bookingCode || createdBooking.bookingId || createdBooking.id || `NV-${Math.floor(100000 + Math.random() * 900000)}`;
       setCreatedBookingId(String(newBookingId));
 
-      const custName = customerProfile?.fullName || customerProfile?.name || 'Nhân Thành';
+      const userFromStorage = (() => {
+        try {
+          const u = JSON.parse(localStorage.getItem('autowash_user') || localStorage.getItem('user') || '{}');
+          return u.fullName || u.name || u.username || '';
+        } catch (e) {
+          return '';
+        }
+      })();
+
+      const custName = customerProfile?.fullName || customerProfile?.name || userFromStorage || 'Lê Minh Cường';
       const custPhone = customerProfile?.phoneNumber || customerProfile?.phone || '0902000003';
       const custTier = customerProfile?.tierName || customerProfile?.tier || 'GOLD';
       const custPoints = customerProfile?.loyaltyPoints !== undefined ? customerProfile.loyaltyPoints : (customerProfile?.points ?? 721);

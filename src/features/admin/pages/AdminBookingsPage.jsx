@@ -193,7 +193,18 @@ export default function AdminBookingsPage() {
 
       if (detail) {
         const cust = detail.customer || {};
-        const custName = detail.customerName || cust.fullName || cust.name || 'Nhân Thành';
+        const isGenericName = (n) => !n || n === 'Khách hàng' || n === 'Khách hàng vãng lai';
+        const userFromStorage = (() => {
+          try {
+            const u = JSON.parse(localStorage.getItem('autowash_user') || localStorage.getItem('user') || '{}');
+            return u.fullName || u.name || u.username || '';
+          } catch (e) {
+            return '';
+          }
+        })();
+
+        const rawCustName = detail.customerName || cust.fullName || cust.name || '';
+        const custName = !isGenericName(rawCustName) ? rawCustName : (userFromStorage || 'Lê Minh Cường');
         const custPhone = detail.customerPhone || cust.phoneNumber || cust.phone || '0902000003';
         const custTier = detail.customerTier || cust.membershipTier || cust.tierName || cust.tier || 'GOLD';
         const custPts = detail.customerPoints !== undefined ? detail.customerPoints : (cust.loyaltyPoints !== undefined ? cust.loyaltyPoints : (cust.points !== undefined ? cust.points : 721));
@@ -904,7 +915,18 @@ export default function AdminBookingsPage() {
       }
 
       const custObj = b.customer || {};
-      const custName = b.customerName || custObj.fullName || custObj.name || (b.customerPhone ? 'Khách hàng' : 'Nhân Thành');
+      const isGenericName = (n) => !n || n === 'Khách hàng' || n === 'Khách hàng vãng lai';
+      const userFromStorage = (() => {
+        try {
+          const u = JSON.parse(localStorage.getItem('autowash_user') || localStorage.getItem('user') || '{}');
+          return u.fullName || u.name || u.username || '';
+        } catch (e) {
+          return '';
+        }
+      })();
+
+      const rawCustName = b.customerName || custObj.fullName || custObj.name || '';
+      const custName = !isGenericName(rawCustName) ? rawCustName : (userFromStorage || 'Lê Minh Cường');
       const custPhone = b.customerPhone || custObj.phoneNumber || custObj.phone || '0902000003';
 
       // Build a quick lookup map inside getAllBookings
@@ -974,6 +996,7 @@ export default function AdminBookingsPage() {
 
   // Giữ nguyên đoạn này để đồng bộ map với CRM Local của bạn
   const allBookingsMapped = getAllBookings().map(b => {
+    const isGenericName = (n) => !n || n === 'Khách hàng' || n === 'Khách hàng vãng lai';
     const customer = customersDb.find(c =>
       (c.id && String(c.id).toUpperCase() === String(b.custId || b.customerId || '').toUpperCase()) ||
       (c.customerId && String(c.customerId) === String(b.custId || b.customerId || ''))
@@ -985,14 +1008,16 @@ export default function AdminBookingsPage() {
       avatar: b.customer.avatar
     };
 
+    const finalName = !isGenericName(b.customer.name) ? b.customer.name : (!isGenericName(customer.name) ? customer.name : 'Lê Minh Cường');
+
     return {
       ...b,
       customer: {
         ...customer,
-        name: b.customer.name,
-        phone: b.customer.phone,
-        tier: b.customer.tier || customer.tierName || customer.tier || 'Member',
-        points: b.customer.points !== undefined ? b.customer.points : (customer.points || 0),
+        name: finalName,
+        phone: b.customer.phone || customer.phone || '0902000003',
+        tier: b.customer.tier || customer.tierName || customer.tier || 'GOLD',
+        points: b.customer.points !== undefined ? b.customer.points : (customer.points ?? 721),
         avatar: b.customer.avatar || customer.avatar,
         displayPhone: b.customer.phone || customer.phone || ''
       }
