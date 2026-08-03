@@ -1,106 +1,85 @@
 import React, { useState, useEffect } from 'react';
 import { Crown, Sparkles, X, CheckCircle2, ShieldCheck, Zap, Calendar, Gift, Award } from 'lucide-react';
+import { loyaltyApi } from '../../admin/services/loyaltyApi';
 
-const TIER_CONFIG = {
+const TIER_THEMES = {
   MEMBER: {
-    tierKey: 'MEMBER',
     name: 'HẠNG THÀNH VIÊN (MEMBER)',
-    minSpendText: '0đ',
-    multiplier: 1.0,
-    advanceDays: 'Đặt trước 7 ngày',
     voucherAccess: 'Kho Voucher cơ bản toàn hệ thống NovaWash',
-    theme: {
-      cardGradient: 'bg-gradient-to-br from-indigo-500 via-indigo-600 to-blue-800 text-white border-indigo-400',
-      headerBg: 'bg-gradient-to-r from-blue-700 via-indigo-900 to-blue-900 text-white',
-      badgeBg: 'bg-blue-100 text-blue-800 border-blue-200',
-      highlightBorder: 'border-blue-400',
-      accentColor: 'text-blue-600',
-      bgLight: 'bg-blue-50/70 border-blue-200/80',
-      buttonBg: 'bg-blue-600 hover:bg-blue-700 text-white',
-      iconBox: 'bg-blue-100 text-blue-700'
-    },
-    perks: [
-      'Hệ số nhân điểm thưởng: 1x hệ số (Mỗi 10.000đ chi tiêu = 1 điểm)',
-      'Thời gian đặt lịch trước: Đặt trước tối đa 7 ngày',
-      'Tham gia chương trình tích điểm thưởng Loyalty & Đổi quà tri ân'
-    ]
+    cardGradient: 'bg-gradient-to-br from-indigo-500 via-indigo-600 to-blue-800 text-white border-indigo-400',
+    headerBg: 'bg-gradient-to-r from-blue-700 via-indigo-900 to-blue-900 text-white',
+    badgeBg: 'bg-blue-100 text-blue-800 border-blue-200',
+    highlightBorder: 'border-blue-400',
+    accentColor: 'text-blue-600',
+    bgLight: 'bg-blue-50/70 border-blue-200/80',
+    buttonBg: 'bg-blue-600 hover:bg-blue-700 text-white',
+    iconBox: 'bg-blue-100 text-blue-700'
   },
   SILVER: {
-    tierKey: 'SILVER',
     name: 'HẠNG BẠC (SILVER)',
-    minSpendText: '1.000.000đ',
-    multiplier: 1.2,
-    advanceDays: 'Đặt trước 10 ngày',
     voucherAccess: 'Voucher độc quyền Hạng Bạc + Tất cả Voucher từ Hạng Bạc trở xuống',
-    theme: {
-      cardGradient: 'bg-gradient-to-br from-slate-400 via-zinc-500 to-slate-700 text-white border-slate-300',
-      headerBg: 'bg-gradient-to-r from-slate-800 via-zinc-900 to-slate-900 text-white',
-      badgeBg: 'bg-slate-200 text-slate-900 border-slate-300',
-      highlightBorder: 'border-slate-400',
-      accentColor: 'text-slate-700',
-      bgLight: 'bg-slate-100/90 border-slate-200',
-      buttonBg: 'bg-slate-800 hover:bg-slate-900 text-white',
-      iconBox: 'bg-slate-200 text-slate-800'
-    },
-    perks: [
-      'Hệ số nhân điểm thưởng: 1.2x hệ số (Thưởng thêm +20% điểm thưởng)',
-      'Thời gian đặt lịch trước: Ưu tiên đặt trước tối đa 10 ngày',
-      'Sở hữu & sử dụng tất cả Voucher dành riêng cho Hạng Bạc trở xuống',
-      'Nhận Voucher quà tặng ưu đãi mừng sinh nhật khách hàng VIP'
-    ]
+    cardGradient: 'bg-gradient-to-br from-slate-400 via-zinc-500 to-slate-700 text-white border-slate-300',
+    headerBg: 'bg-gradient-to-r from-slate-800 via-zinc-900 to-slate-900 text-white',
+    badgeBg: 'bg-slate-200 text-slate-900 border-slate-300',
+    highlightBorder: 'border-slate-400',
+    accentColor: 'text-slate-700',
+    bgLight: 'bg-slate-100/90 border-slate-200',
+    buttonBg: 'bg-slate-800 hover:bg-slate-900 text-white',
+    iconBox: 'bg-slate-200 text-slate-800'
   },
   GOLD: {
-    tierKey: 'GOLD',
     name: 'HẠNG VÀNG (GOLD)',
-    minSpendText: '5.000.000đ',
-    multiplier: 1.5,
-    advanceDays: 'Đặt trước 12 ngày',
     voucherAccess: 'Voucher độc quyền Hạng Vàng + Tất cả Voucher từ Hạng Vàng trở xuống',
-    theme: {
-      cardGradient: 'bg-gradient-to-br from-amber-500 via-amber-600 to-yellow-800 text-white border-amber-400',
-      headerBg: 'bg-gradient-to-r from-amber-600 via-amber-800 to-yellow-950 text-white',
-      badgeBg: 'bg-amber-100 text-amber-900 border-amber-300',
-      highlightBorder: 'border-amber-400',
-      accentColor: 'text-amber-600',
-      bgLight: 'bg-amber-50/80 border-amber-200',
-      buttonBg: 'bg-amber-600 hover:bg-amber-700 text-white',
-      iconBox: 'bg-amber-100 text-amber-800'
-    },
-    perks: [
-      'Hệ số nhân điểm thưởng: 1.5x hệ số (Thưởng thêm +50% điểm thưởng)',
-      'Thời gian đặt lịch trước: Ưu tiên đặt trước 12 ngày (Giữ khung giờ Vàng cao điểm)',
-      'Sở hữu & áp dụng toàn bộ Voucher dành riêng cho Hạng Vàng trở xuống',
-      'Hàng chờ ưu tiên tiếp nhận xe dọn rửa nhanh tại trạm NovaWash'
-    ]
+    cardGradient: 'bg-gradient-to-br from-amber-500 via-amber-600 to-yellow-800 text-white border-amber-400',
+    headerBg: 'bg-gradient-to-r from-amber-600 via-amber-800 to-yellow-950 text-white',
+    badgeBg: 'bg-amber-100 text-amber-900 border-amber-300',
+    highlightBorder: 'border-amber-400',
+    accentColor: 'text-amber-600',
+    bgLight: 'bg-amber-50/80 border-amber-200',
+    buttonBg: 'bg-amber-600 hover:bg-amber-700 text-white',
+    iconBox: 'bg-amber-100 text-amber-800'
   },
   PLATINUM: {
-    tierKey: 'PLATINUM',
     name: 'HẠNG BẠCH KIM (PLATINUM)',
-    minSpendText: '10.000.000đ',
-    multiplier: 2.0,
-    advanceDays: 'Đặt trước 14 ngày',
     voucherAccess: 'Đặc quyền Voucher Platinum tối thượng + Mọi Voucher toàn hệ thống',
-    theme: {
-      cardGradient: 'bg-gradient-to-br from-slate-900 via-purple-950 to-zinc-950 text-purple-100 border-purple-500/50',
-      headerBg: 'bg-gradient-to-r from-purple-950 via-slate-900 to-zinc-950 text-white',
-      badgeBg: 'bg-purple-100 text-purple-900 border-purple-300',
-      highlightBorder: 'border-purple-500',
-      accentColor: 'text-purple-600',
-      bgLight: 'bg-purple-50/70 border-purple-200',
-      buttonBg: 'bg-purple-700 hover:bg-purple-800 text-white',
-      iconBox: 'bg-purple-100 text-purple-900'
-    },
-    perks: [
-      'Hệ số nhân điểm thưởng: 2x hệ số (Nhân đôi 100% điểm thưởng tích lũy)',
-      'Thời gian đặt lịch trước: Ưu tiên đặt trước 14 ngày (Cao nhất hệ thống)',
-      'Sở hữu toàn bộ Voucher đặc quyền Platinum và Voucher toàn hệ thống',
-      'Hỗ trợ chăm sóc VIP 1-1 & Miễn phí dịch vụ dưỡng bóng lốp/sên đi kèm'
-    ]
+    cardGradient: 'bg-gradient-to-br from-slate-900 via-purple-950 to-zinc-950 text-purple-100 border-purple-500/50',
+    headerBg: 'bg-gradient-to-r from-purple-950 via-slate-900 to-zinc-950 text-white',
+    badgeBg: 'bg-purple-100 text-purple-900 border-purple-300',
+    highlightBorder: 'border-purple-500',
+    accentColor: 'text-purple-600',
+    bgLight: 'bg-purple-50/70 border-purple-200',
+    buttonBg: 'bg-purple-700 hover:bg-purple-800 text-white',
+    iconBox: 'bg-purple-100 text-purple-900'
   }
 };
 
 export default function VIPCard({ customer }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [tierConfigs, setTierConfigs] = useState({});
+
+  useEffect(() => {
+    const loadTierConfigs = async () => {
+      try {
+        const tiers = await loyaltyApi.getAllTiers();
+        if (Array.isArray(tiers) && tiers.length > 0) {
+          const map = {};
+          tiers.forEach(t => {
+            const key = (t.key || t.name || t.tierName || '').toUpperCase();
+            map[key] = {
+              minSpend: t.minSpendVnd !== undefined ? t.minSpendVnd : (t.minSpend || 0),
+              multiplier: t.tierMultiplier !== undefined ? t.tierMultiplier : (t.pointMultiplier || 1.0),
+              bookingWindowDays: t.bookingWindowDays || t.bookingWindow || 7
+            };
+          });
+          setTierConfigs(map);
+        }
+      } catch (e) {}
+    };
+
+    loadTierConfigs();
+    window.addEventListener('autowash_tiers_updated', loadTierConfigs);
+    return () => window.removeEventListener('autowash_tiers_updated', loadTierConfigs);
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -114,8 +93,23 @@ export default function VIPCard({ customer }) {
 
   const currentTierName = customer?.tier?.tierName || customer?.tierName || 'MEMBER';
   const currentTierKey = currentTierName.toUpperCase();
-  const activeTier = TIER_CONFIG[currentTierKey] || TIER_CONFIG.MEMBER;
-  const theme = activeTier.theme;
+  const theme = TIER_THEMES[currentTierKey] || TIER_THEMES.MEMBER;
+
+  // Resolve dynamic values from Admin settings API / tierConfigs state / customer object
+  const currentTierConfig = tierConfigs[currentTierKey] || {};
+  const multiplier = customer?.tier?.tierMultiplier ?? customer?.tierMultiplier ?? currentTierConfig.multiplier ?? (currentTierKey === 'PLATINUM' ? 2.0 : currentTierKey === 'GOLD' ? 1.5 : currentTierKey === 'SILVER' ? 1.2 : 1.0);
+  const bookingWindowDays = customer?.bookingWindowDays ?? customer?.tier?.bookingWindowDays ?? currentTierConfig.bookingWindowDays ?? (currentTierKey === 'PLATINUM' ? 14 : currentTierKey === 'GOLD' ? 12 : currentTierKey === 'SILVER' ? 10 : 7);
+  const minSpend = customer?.tier?.minSpend ?? customer?.tier?.minSpendVnd ?? currentTierConfig.minSpend ?? (currentTierKey === 'PLATINUM' ? 10000000 : currentTierKey === 'GOLD' ? 5000000 : currentTierKey === 'SILVER' ? 1000000 : 0);
+
+  const minSpendText = Number(minSpend).toLocaleString('vi-VN') + 'đ';
+  const advanceDaysText = `Đặt trước ${bookingWindowDays} ngày`;
+
+  const perks = [
+    `Hệ số nhân điểm thưởng: ${multiplier}x hệ số (Tích ${multiplier} điểm / 10.000 VNĐ)`,
+    `Thời gian đặt lịch trước: Ưu tiên đặt trước tối đa ${bookingWindowDays} ngày`,
+    `Sở hữu & áp dụng Voucher ưu đãi độc quyền dành riêng cho Hạng ${currentTierKey}`,
+    `Đặc quyền dịch vụ & hỗ trợ chăm sóc VIP tại trạm dọn xe`
+  ];
 
   return (
     <>
@@ -151,7 +145,7 @@ export default function VIPCard({ customer }) {
           <div className="text-right">
             <span className="text-[10px] uppercase tracking-wider opacity-75 font-semibold block">Chi tiêu tích lũy</span>
             <span className="text-sm font-extrabold font-mono text-amber-200">
-              {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(customer?.lifetimeSpend || customer?.tierSpending || 0)}
+              {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(customer?.lifetimeSpend || customer?.tierSpending || customer?.totalSpending || 0)}
             </span>
           </div>
         </div>
@@ -177,7 +171,7 @@ export default function VIPCard({ customer }) {
                   <div>
                     <div className="flex items-center gap-2">
                       <h3 className="text-lg font-black tracking-tight text-white">
-                        {activeTier.name}
+                        {theme.name}
                       </h3>
                     </div>
                     <p className="text-xs text-white/80 mt-0.5 font-medium">
@@ -212,7 +206,7 @@ export default function VIPCard({ customer }) {
                 <div>
                   <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">Tổng chi tiêu</span>
                   <span className="text-sm font-black text-slate-800 font-mono">
-                    {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(customer?.lifetimeSpend || customer?.tierSpending || 0)}
+                    {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(customer?.lifetimeSpend || customer?.tierSpending || customer?.totalSpending || 0)}
                   </span>
                 </div>
               </div>
@@ -220,23 +214,23 @@ export default function VIPCard({ customer }) {
               {/* Thông số Ma Trận Hạng VIP (Khớp với Cấu Hình Hệ Thống) */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 text-left">
-                  <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block flex items-center gap-1 mb-1">
+                  <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider flex items-center gap-1 mb-1">
                     <Zap className="w-3.5 h-3.5 text-amber-500" /> Hệ số nhân điểm
                   </span>
                   <p className={`text-xl font-black font-mono ${theme.accentColor}`}>
-                    {activeTier.multiplier}x
+                    {multiplier}x
                   </p>
-                  <span className="text-[11px] text-slate-500 font-medium block mt-0.5">Tích {activeTier.multiplier * 1} điểm / 10.000 VNĐ</span>
+                  <span className="text-[11px] text-slate-500 font-medium block mt-0.5">Tích {multiplier} điểm / 10.000 VNĐ</span>
                 </div>
 
                 <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 text-left">
-                  <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block flex items-center gap-1 mb-1">
+                  <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider flex items-center gap-1 mb-1">
                     <Calendar className="w-3.5 h-3.5 text-blue-500" /> Đặt lịch trước
                   </span>
                   <p className="text-xl font-black text-slate-800 font-sans">
-                    {activeTier.advanceDays}
+                    {advanceDaysText}
                   </p>
-                  <span className="text-[11px] text-slate-500 font-medium block mt-0.5">Mốc min: {activeTier.minSpendText}</span>
+                  <span className="text-[11px] text-slate-500 font-medium block mt-0.5">Mốc min: {minSpendText}</span>
                 </div>
               </div>
 
@@ -249,11 +243,11 @@ export default function VIPCard({ customer }) {
                 <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 space-y-2.5 text-xs text-left">
                   <div className="flex items-start gap-2 text-slate-800 font-semibold">
                     <Gift className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-                    <span><strong>Quyền hạn Voucher:</strong> {activeTier.voucherAccess}</span>
+                    <span><strong>Quyền hạn Voucher:</strong> {theme.voucherAccess}</span>
                   </div>
 
                   <div className="border-t border-slate-200/60 pt-2 space-y-2">
-                    {activeTier.perks.map((perk, idx) => (
+                    {perks.map((perk, idx) => (
                       <div key={idx} className="flex items-start gap-2 text-slate-700 font-medium leading-relaxed">
                         <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
                         <span>{perk}</span>
