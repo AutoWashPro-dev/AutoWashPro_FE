@@ -218,7 +218,13 @@ export default function AdminCustomersLoyaltyPage() {
           await loadCustomersFromApi();
         } catch (err) {
           console.error('Failed to toggle customer status:', err);
-          showToast('Cập nhật trạng thái thất bại: ' + (err.response?.data?.message || err.message), 'error');
+          const errorMsg = err.response?.data?.message || err.message || 'Cập nhật trạng thái thất bại!';
+          showToast(errorMsg, 'error');
+          setNotificationModal({
+            title: '⚠️ Không thể khóa tài khoản khách hàng!',
+            content: errorMsg,
+            type: 'warning'
+          });
         }
       }
     });
