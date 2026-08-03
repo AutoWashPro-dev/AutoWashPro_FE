@@ -30,8 +30,8 @@ const TIER_THEMES = {
   GOLD: {
     name: 'HẠNG VÀNG (GOLD VIP)',
     voucherAccess: 'Voucher độc quyền Hạng Vàng + Tất cả Voucher từ Hạng Vàng trở xuống',
-    cardGradient: 'bg-gradient-to-br from-[#F5D061] via-[#E2B755] via-[#C8963E] to-[#4A3205] text-amber-50 border-[#FCE482]/60 shadow-2xl shadow-amber-950/30',
-    headerBg: 'from-[#4D3505] via-[#8C6219] to-[#E2B755]',
+    cardGradient: 'bg-gradient-to-br from-[#66460B] via-[#9E7314] via-[#D4AF37] to-[#2A1A02] text-white border-amber-400/60 shadow-2xl shadow-amber-950/40',
+    headerBg: 'from-[#3A2403] via-[#8C6219] to-[#D4AF37]',
     badgeBg: 'bg-gradient-to-r from-[#FFF0B3] via-[#E2B755] to-[#B38728] text-slate-950 font-black border border-[#FFF8D6] shadow-md',
     highlightBorder: 'border-amber-400',
     accentColor: 'text-amber-700',
@@ -154,15 +154,15 @@ export default function VIPCard({ customer }) {
         {/* Top hint badge */}
         <div className="flex justify-between items-start mb-6 relative z-10">
           <div className="text-left">
-            <span className="text-[10px] uppercase tracking-widest opacity-80 font-bold">Thẻ Thành Viên VIP</span>
-            <h3 className="text-xl font-extrabold font-mono tracking-wider mt-0.5 drop-shadow-sm">{customer?.fullName?.toUpperCase() || 'KHÁCH HÀNG'}</h3>
+            <span className="text-[10px] uppercase tracking-widest opacity-90 font-bold text-amber-200 drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">Thẻ Thành Viên VIP</span>
+            <h3 className="text-xl font-extrabold font-mono tracking-wider mt-0.5 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.95)]">{customer?.fullName?.toUpperCase() || 'KHÁCH HÀNG'}</h3>
           </div>
           <div className="flex flex-col items-end gap-1.5">
-            <span className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider shadow-sm flex items-center gap-1 ${currentTierKey === 'GOLD' ? 'bg-gradient-to-r from-[#FFF0B3] via-[#E2B755] to-[#B38728] text-slate-950 border border-[#FFF8D6]' : 'bg-white/20 backdrop-blur-md border border-white/20 text-white'}`}>
-              <Crown className={`w-3.5 h-3.5 ${currentTierKey === 'GOLD' ? 'text-slate-900' : 'text-amber-300'}`} />
+            <span className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider shadow-md flex items-center gap-1 ${currentTierKey === 'GOLD' ? 'bg-gradient-to-r from-[#FFF0B3] via-[#E2B755] to-[#B38728] text-slate-950 border border-[#FFF8D6]' : 'bg-white/20 backdrop-blur-md border border-white/20 text-white'}`}>
+              <Crown className={`w-3.5 h-3.5 ${currentTierKey === 'GOLD' ? 'text-slate-950' : 'text-amber-300'}`} />
               {currentTierKey}
             </span>
-            <span className="text-[10px] bg-black/25 hover:bg-black/40 px-2 py-0.5 rounded-full text-white/95 font-medium transition flex items-center gap-1 group-hover:scale-105 border border-white/10">
+            <span className="text-[10px] bg-black/40 hover:bg-black/60 px-2 py-0.5 rounded-full text-white font-semibold transition flex items-center gap-1 group-hover:scale-105 border border-white/20 shadow-sm backdrop-blur-sm">
               <Sparkles className="w-3 h-3 text-amber-300 animate-spin" style={{ animationDuration: '4s' }} /> Xem quyền lợi
             </span>
           </div>
@@ -170,12 +170,12 @@ export default function VIPCard({ customer }) {
 
         <div className="flex justify-between items-end pt-2 text-left relative z-10">
           <div>
-            <span className="text-xs opacity-80 font-medium">Điểm Tích Lũy</span>
-            <p className="text-3xl font-black tracking-tight mt-0.5 drop-shadow-sm">{customer?.loyaltyPoints?.toLocaleString('vi-VN') || 0} <span className="text-sm font-bold opacity-80">Pts</span></p>
+            <span className="text-xs opacity-90 font-medium text-amber-200 drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">Điểm Tích Lũy</span>
+            <p className="text-3xl font-black tracking-tight mt-0.5 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.95)]">{customer?.loyaltyPoints?.toLocaleString('vi-VN') || 0} <span className="text-sm font-bold opacity-85">Pts</span></p>
           </div>
           <div className="text-right">
-            <span className="text-[10px] uppercase tracking-wider opacity-80 font-semibold block">Chi tiêu tích lũy</span>
-            <span className="text-sm font-extrabold font-mono text-amber-100 drop-shadow-sm">
+            <span className="text-[10px] uppercase tracking-wider opacity-90 font-semibold block text-amber-200 drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)]">Chi tiêu tích lũy</span>
+            <span className="text-sm font-extrabold font-mono text-amber-300 drop-shadow-[0_2px_4px_rgba(0,0,0,0.95)]">
               {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(customer?.lifetimeSpend || customer?.tierSpending || customer?.totalSpending || 0)}
             </span>
           </div>
