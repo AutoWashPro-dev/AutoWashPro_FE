@@ -613,9 +613,17 @@ export default function CustomerBookingPage() {
         const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
         const dayCode = dayNames[dateObj.getDay()];
         if (!daysStr.includes(dayCode)) {
+          const dayMap = {
+            'MON': 'Thứ Hai', 'TUE': 'Thứ Ba', 'WED': 'Thứ Tư', 'THU': 'Thứ Năm', 'FRI': 'Thứ Sáu', 'SAT': 'Thứ Bảy', 'SUN': 'Chủ Nhật',
+            'T2': 'Thứ Hai', 'T3': 'Thứ Ba', 'T4': 'Thứ Tư', 'T5': 'Thứ Năm', 'T6': 'Thứ Sáu', 'T7': 'Thứ Bảy', 'CN': 'Chủ Nhật'
+          };
+          const formattedDays = String(voucher.applicableDays)
+            .split(/[,;\s]+/)
+            .map(d => dayMap[d.trim().toUpperCase()] || d.trim())
+            .join(', ');
           return {
             isApplicable: false,
-            reason: `Chỉ áp dụng các thứ: ${voucher.applicableDays}`
+            reason: `Chỉ áp dụng cho các ngày: ${formattedDays}`
           };
         }
       }

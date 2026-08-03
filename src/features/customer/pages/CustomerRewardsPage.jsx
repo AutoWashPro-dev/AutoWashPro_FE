@@ -214,14 +214,15 @@ export default function CustomerRewardsPage() {
     navigate('/customer/book');
   };
 
-  // Helper format ngày áp dụng từ MON,TUE... sang T2,T3...
+  // Helper format ngày áp dụng từ MON, TUE... / T2, T3... sang Thứ Hai, Thứ Ba...
   const formatDaysText = (daysStr) => {
     if (!daysStr) return 'Mọi ngày';
     const dayMap = {
-      'MON': 'T2', 'TUE': 'T3', 'WED': 'T4', 'THU': 'T5', 'FRI': 'T6', 'SAT': 'T7', 'SUN': 'CN'
+      'MON': 'Thứ Hai', 'TUE': 'Thứ Ba', 'WED': 'Thứ Tư', 'THU': 'Thứ Năm', 'FRI': 'Thứ Sáu', 'SAT': 'Thứ Bảy', 'SUN': 'Chủ Nhật',
+      'T2': 'Thứ Hai', 'T3': 'Thứ Ba', 'T4': 'Thứ Tư', 'T5': 'Thứ Năm', 'T6': 'Thứ Sáu', 'T7': 'Thứ Bảy', 'CN': 'Chủ Nhật'
     };
-    return daysStr.split(',')
-      .map(d => dayMap[d.trim()] || d.trim())
+    return daysStr.split(/[,;\s]+/)
+      .map(d => dayMap[d.trim().toUpperCase()] || d.trim())
       .join(', ');
   };
 
