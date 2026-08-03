@@ -404,7 +404,9 @@ export default function CustomerFeedbackPage() {
                   
                   {/* MỤC HIỂN THỊ THÔNG TIN CHI TIẾT ĐƠN HÀNG ĐÃ CHỌN (NẰM Ở GIỮA) */}
                   {selectedBooking && (
-                    <div className="bg-gradient-to-br from-blue-50/90 via-slate-50 to-sky-50/60 border border-blue-200/90 rounded-2xl p-4.5 space-y-3 animate-fade-in text-left shadow-xs">
+                    <div className="bg-gradient-to-br from-blue-50/90 via-slate-50 to-sky-50/60 border border-blue-200/90 rounded-2xl p-5 space-y-4 animate-fade-in text-left shadow-xs">
+                      
+                      {/* Header đơn hàng */}
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-blue-100 pb-3">
                         <div className="flex items-center gap-2.5">
                           <div className="w-9 h-9 rounded-xl bg-blue-600 text-white flex items-center justify-center font-bold text-xs shadow-sm shrink-0">
@@ -422,59 +424,68 @@ export default function CustomerFeedbackPage() {
                         </span>
                       </div>
 
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs pt-0.5">
-                        {/* 1. Gói dịch vụ chính */}
+                      {/* Row 1: Thông tin gói chính, Phương tiện, Thời gian */}
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                         <div className="bg-white p-3 rounded-xl border border-slate-200/70 shadow-2xs space-y-1">
                           <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block flex items-center gap-1">
                             <Sparkles className="w-3.5 h-3.5 text-blue-500" /> Gói dịch vụ chính
                           </span>
-                          <p className="font-extrabold text-slate-800 line-clamp-1">{selectedBooking.mainServiceName || selectedBooking.serviceName || 'Rửa xe máy'}</p>
+                          <p className="font-extrabold text-slate-800">{selectedBooking.mainServiceName || selectedBooking.serviceName || 'Rửa xe máy'}</p>
                         </div>
 
-                        {/* 2. Tiện ích Add-on */}
-                        <div className="bg-white p-3 rounded-xl border border-slate-200/70 shadow-2xs space-y-1">
-                          <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block flex items-center gap-1">
-                            <Layers className="w-3.5 h-3.5 text-indigo-500" /> Tiện ích Add-on
-                          </span>
-                          {selectedBooking.addonList && selectedBooking.addonList.length > 0 ? (
-                            <p className="font-bold text-indigo-600 text-[11px] line-clamp-1" title={selectedBooking.addonList.join(', ')}>
-                              +{selectedBooking.addonList.length} dịch vụ: {selectedBooking.addonList.join(', ')}
-                            </p>
-                          ) : selectedBooking.addonCount > 0 ? (
-                            <p className="font-bold text-indigo-600 text-[11px]">
-                              +{selectedBooking.addonCount} dịch vụ đi kèm
-                            </p>
-                          ) : (
-                            <p className="font-medium text-slate-400 text-[11px]">Không chọn add-on</p>
-                          )}
-                        </div>
-
-                        {/* 3. Phương tiện */}
                         <div className="bg-white p-3 rounded-xl border border-slate-200/70 shadow-2xs space-y-1">
                           <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block flex items-center gap-1">
                             <Car className="w-3.5 h-3.5 text-blue-500" /> Phương tiện
                           </span>
                           <p className="font-extrabold text-slate-800 font-mono">
-                            {selectedBooking.licensePlate} {selectedBooking.vehicleModel ? `(${selectedBooking.vehicleModel})` : ''}
+                            {selectedBooking.vehicleDisplay || selectedBooking.licensePlate}
                           </p>
                         </div>
 
-                        {/* 4. Tổng tiền đơn hàng */}
-                        <div className="bg-emerald-50/70 p-3 rounded-xl border border-emerald-200/80 shadow-2xs space-y-1">
-                          <span className="text-[10px] font-extrabold text-emerald-700 uppercase tracking-wider block flex items-center gap-1">
-                            <DollarSign className="w-3.5 h-3.5 text-emerald-600" /> Tổng tiền đơn hàng
+                        <div className="bg-white p-3 rounded-xl border border-slate-200/70 shadow-2xs space-y-1">
+                          <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider block flex items-center gap-1">
+                            <Calendar className="w-3.5 h-3.5 text-blue-500" /> Thời gian dọn rửa
                           </span>
-                          <p className="font-black text-slate-900 text-xs font-mono">
-                            {selectedBooking.totalAmount ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(selectedBooking.totalAmount) : '0 đ'}
-                          </p>
+                          <p className="font-extrabold text-slate-800">{selectedBooking.dateTimeDisplay || selectedBooking.date}</p>
                         </div>
                       </div>
 
-                      {/* Dòng thời gian dọn rửa */}
-                      <div className="text-[11px] text-slate-500 font-medium flex items-center gap-1.5 pt-1 px-1 border-t border-blue-100/60">
-                        <Calendar className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                        <span>Thời gian thực hiện: <strong className="text-slate-800 font-bold">{selectedBooking.date} {selectedBooking.time ? `vào ${selectedBooking.time}` : ''}</strong></span>
+                      {/* Row 2: Tiện ích Add-on (NẰM Ở GIỮA - RỘNG RÃI - HIỂN THỊ ĐẦY ĐỦ GÓI) */}
+                      <div className="bg-white p-3.5 rounded-xl border border-slate-200/70 shadow-2xs space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[10px] font-extrabold text-indigo-700 uppercase tracking-wider block flex items-center gap-1">
+                            <Layers className="w-3.5 h-3.5 text-indigo-600" /> Danh sách Tiện ích Add-on đi kèm ({selectedBooking.addonCount || (selectedBooking.addonList ? selectedBooking.addonList.length : 0)})
+                          </span>
+                        </div>
+
+                        {selectedBooking.addonList && selectedBooking.addonList.length > 0 ? (
+                          <div className="flex flex-wrap gap-1.5 pt-0.5">
+                            {selectedBooking.addonList.map((addonName, idx) => (
+                              <span key={idx} className="px-2.5 py-1 bg-indigo-50/90 hover:bg-indigo-100 text-indigo-800 font-bold rounded-lg border border-indigo-200/70 text-[11px] flex items-center gap-1 transition-colors">
+                                <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 shrink-0"></span>
+                                {addonName}
+                              </span>
+                            ))}
+                          </div>
+                        ) : selectedBooking.addonCount > 0 ? (
+                          <p className="font-bold text-indigo-600 text-[11px]">
+                            +{selectedBooking.addonCount} dịch vụ đi kèm
+                          </p>
+                        ) : (
+                          <p className="font-medium text-slate-400 text-[11px]">Đơn hàng không chọn dịch vụ add-on bổ sung.</p>
+                        )}
                       </div>
+
+                      {/* Row 3: KHỐI TỔNG TIỀN ĐƠN HÀNG (Ở CUỐI - LỚN NỔI BẬT) */}
+                      <div className="bg-gradient-to-r from-emerald-50 via-teal-50 to-emerald-50 p-3.5 rounded-xl border border-emerald-200/90 shadow-sm flex items-center justify-between">
+                        <span className="text-xs font-black text-emerald-800 uppercase tracking-wider flex items-center gap-1.5">
+                          <DollarSign className="w-4 h-4 text-emerald-600" /> Tổng chi phí thanh toán đơn hàng:
+                        </span>
+                        <p className="font-black text-emerald-700 text-base font-mono">
+                          {selectedBooking.totalAmount ? new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(selectedBooking.totalAmount) : '0 đ'}
+                        </p>
+                      </div>
+
                     </div>
                   )}
 
