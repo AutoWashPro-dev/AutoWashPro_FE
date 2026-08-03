@@ -222,21 +222,11 @@ export const loyaltyApi = {
    */
   updateCustomerStatus: async (customerId, status) => {
     try {
-      const payload = { 
-        status: status, 
-        active: status === 'ACTIVE' || status === 'Active' 
-      };
-      const res = await api.patch(`/admin/customers/${customerId}/status`, payload);
+      const res = await api.patch(`/admin/customers/${customerId}/status`, { status });
       return res.data;
     } catch (err) {
-      console.warn('API updateCustomerStatus failed, trying reactivate PUT endpoint:', err.message);
-      try {
-        const res = await api.put(`/admin/customers/${customerId}/reactivate`, { active: status === 'ACTIVE' || status === 'Active' });
-        return res.data;
-      } catch (err2) {
-        console.error('Reactivation failed:', err2.message);
-        throw err;
-      }
+      console.error('API updateCustomerStatus failed:', err.message);
+      throw err;
     }
   },
 
