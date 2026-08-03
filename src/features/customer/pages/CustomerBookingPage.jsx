@@ -1059,6 +1059,11 @@ export default function CustomerBookingPage() {
       const newBookingId = createdBooking.bookingCode || createdBooking.bookingId || createdBooking.id || `NV-${Math.floor(100000 + Math.random() * 900000)}`;
       setCreatedBookingId(String(newBookingId));
 
+      const custName = customerProfile?.fullName || customerProfile?.name || 'Nhân Thành';
+      const custPhone = customerProfile?.phoneNumber || customerProfile?.phone || '0902000003';
+      const custTier = customerProfile?.tierName || customerProfile?.tier || 'GOLD';
+      const custPoints = customerProfile?.loyaltyPoints !== undefined ? customerProfile.loyaltyPoints : (customerProfile?.points ?? 721);
+
       const newBookingObj = {
         id: createdBooking.bookingId || createdBooking.id || newBookingId,
         bookingCode: newBookingId,
@@ -1067,6 +1072,10 @@ export default function CustomerBookingPage() {
         packageName: packageNameStr,
         licensePlate: trimmedLicensePlate,
         model: trimmedModel,
+        customerName: custName,
+        customerPhone: custPhone,
+        customerTier: custTier,
+        customerPoints: custPoints,
         finalAmount: createdBooking.finalAmount || (calculateTotalAmount() - calculateDiscount()),
         status: 'Pending',
         rawStatus: 'PENDING',
