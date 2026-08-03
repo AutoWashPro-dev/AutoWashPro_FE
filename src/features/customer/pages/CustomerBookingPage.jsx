@@ -1075,10 +1075,11 @@ export default function CustomerBookingPage() {
 
       setUserHistory(prev => [newBookingObj, ...prev]);
 
-      // Save to localStorage for persistent fallback across pages (e.g. feedback page)
+      // Save to localStorage for persistent fallback across pages (e.g. feedback page & admin queue)
       try {
         const stored = JSON.parse(localStorage.getItem('autowash_my_bookings') || '[]');
         localStorage.setItem('autowash_my_bookings', JSON.stringify([newBookingObj, ...stored]));
+        window.dispatchEvent(new Event('bookingUpdated'));
       } catch (e) {
         console.warn('Failed to save booking to localStorage:', e);
       }

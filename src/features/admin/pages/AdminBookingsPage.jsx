@@ -298,6 +298,36 @@ export default function AdminBookingsPage() {
     let isCurrentRequest = true;
 
     const fetchApiBookings = async () => {
+      let myBookings = [];
+      try {
+        const rawMy = localStorage.getItem('autowash_my_bookings');
+        if (rawMy) {
+          const parsedMy = JSON.parse(rawMy);
+          if (Array.isArray(parsedMy)) {
+            myBookings = parsedMy.map(b => ({
+              id: b.id || b.bookingCode || b.bookingId,
+              bookingId: b.id || b.bookingCode || b.bookingId,
+              bookingCode: b.bookingCode || b.id,
+              bookingDate: b.date || b.bookingDate || selectedDate,
+              startTime: b.time || '08:00',
+              status: (b.rawStatus || b.status || 'PENDING').toUpperCase(),
+              packageName: b.packageName || 'Gói custom',
+              serviceName: b.packageName || 'Gói custom',
+              items: b.items || [{ serviceNameSnapshot: b.packageName || 'Gói custom', priceSnapshot: b.finalAmount || 0 }],
+              customerName: b.customerName || 'Khách hàng',
+              customerPhone: b.customerPhone || '0901234567',
+              licensePlate: b.licensePlate,
+              model: b.model,
+              finalAmount: b.finalAmount || 0,
+              totalEstimatedAmount: b.finalAmount || 0,
+              source: 'APP'
+            }));
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to parse autowash_my_bookings:', e);
+      }
+
       try {
         let apiList = null;
         if (searchQuery.trim() !== '') {
@@ -307,12 +337,15 @@ export default function AdminBookingsPage() {
         }
         console.log(`🚀 [API] Danh sách đơn ngày ${selectedDate}:`, apiList);
 
-        // Chỉ cập nhật nếu đây là request cuối cùng (tránh lỗi bấm nhanh bị đơ/loạn)
-        if (isCurrentRequest && Array.isArray(apiList)) {
-          // Dùng Map để lọc sạch mọi phần tử trùng ID trong mảng trả về từ API.
-          // Backend trả về flat array với bookingCode thay vì id.
+        // Chỉ cập nhật nếu đây là request cuối cùng
+        if (isCurrentRequest) {
+          const combined = [
+            ...(Array.isArray(apiList) ? apiList : []),
+            ...myBookings.filter(b => b.bookingDate === selectedDate)
+          ];
+
           const uniqueApiList = Array.from(
-            new Map(apiList.map(item => [item.bookingCode || item.id || String(item.bookingId || ''), item])).values()
+            new Map(combined.map(item => [item.bookingCode || item.id || String(item.bookingId || ''), item])).values()
           );
 
           setBookingsDb({
@@ -323,16 +356,33 @@ export default function AdminBookingsPage() {
       } catch (err) {
         console.error('Failed to fetch bookings from API:', err);
         if (isCurrentRequest) {
-          setBookingsDb(bookings); // Fallback về localStorage nếu lỗi mạng/API
+          const combined = [
+            ...(Array.isArray(bookings[selectedDate]) ? bookings[selectedDate] : []),
+            ...myBookings.filter(b => b.bookingDate === selectedDate)
+          ];
+          const uniqueList = Array.from(
+            new Map(combined.map(item => [item.bookingCode || item.id || String(item.bookingId || ''), item])).values()
+          );
+          setBookingsDb({
+            ...bookings,
+            [selectedDate]: uniqueList
+          });
         }
       }
     };
 
     fetchApiBookings();
 
-    // Cleanup function: Khi selectedDate đổi tiếp, request phía trên sẽ bị bỏ qua
+    const handleStorageChange = () => setRefreshTrigger(prev => prev + 1);
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('vehicleListUpdated', handleStorageChange);
+    window.addEventListener('bookingUpdated', handleStorageChange);
+
     return () => {
       isCurrentRequest = false;
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('vehicleListUpdated', handleStorageChange);
+      window.removeEventListener('bookingUpdated', handleStorageChange);
     };
   }, [selectedDate, searchQuery, refreshTrigger]);
 
@@ -832,7 +882,7 @@ export default function AdminBookingsPage() {
       }
 
       // Calculate total duration and service names from items
-      let serviceName = 'Dịch vụ dọn xe';
+      let serviceName = b.packageName || b.serviceName || b.service?.name || 'Gói custom';
       let totalDuration = b.estimatedDuration || 20;
       if (b.items && b.items.length > 0) {
         const itemNames = b.items.map(i => i.serviceNameSnapshot || i.serviceName || i.name).filter(Boolean);
