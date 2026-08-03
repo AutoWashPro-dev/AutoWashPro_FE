@@ -1259,40 +1259,60 @@ export default function CustomerBookingPage() {
 
                   return (
                     <div
-                      key={addon.id}
-                      onClick={() => handleToggleAddon(addon.id)}
-                      className={`border rounded-xl p-4 cursor-pointer transition-all flex justify-between items-center ${
+                      key={addon.id || addon.serviceId}
+                      onClick={() => handleToggleAddon(addon.id || addon.serviceId)}
+                      className={`border rounded-xl p-4 cursor-pointer transition-all duration-200 flex justify-between items-center relative group ${
                         isIncludedInPkg
-                          ? 'border-amber-200 bg-amber-50/40 text-slate-500 hover:border-amber-300'
+                          ? 'border-amber-300/80 bg-gradient-to-r from-amber-50/60 to-amber-100/30 hover:border-amber-400 hover:bg-amber-100/60 hover:shadow-sm'
                           : isChecked
-                            ? 'border-blue-500 bg-blue-50/15'
-                            : 'border-slate-200 hover:border-blue-300'
+                            ? 'border-2 border-blue-500 bg-blue-50/40 shadow-sm ring-1 ring-blue-500/20 hover:bg-blue-50/70 hover:border-blue-600'
+                            : 'border-slate-200 bg-white hover:border-blue-400 hover:bg-blue-50/10 hover:shadow-sm'
                         }`}
                     >
                       <div className="flex items-center gap-3">
-                        <input
-                          type="checkbox"
-                          checked={isChecked || isIncludedInPkg}
-                          onChange={() => { }}
-                          className={`rounded w-4 h-4 border-slate-300 pointer-events-none ${
-                            isIncludedInPkg ? 'text-amber-500' : 'text-blue-600 focus:ring-blue-500'
-                          }`}
-                        />
+                        {/* State Icon Indicator (No Checkbox) */}
+                        {isIncludedInPkg ? (
+                          <div className="w-5 h-5 rounded-full bg-amber-100 border border-amber-300 flex items-center justify-center text-amber-700 shrink-0 shadow-2xs">
+                            <CheckCircle size={14} className="text-amber-600 fill-amber-100" />
+                          </div>
+                        ) : isChecked ? (
+                          <div className="w-5 h-5 rounded-full bg-blue-600 flex items-center justify-center text-white shrink-0 shadow-xs">
+                            <Check size={12} strokeWidth={3} className="text-white" />
+                          </div>
+                        ) : (
+                          <div className="w-5 h-5 rounded-full border-2 border-slate-300 group-hover:border-blue-500 flex items-center justify-center text-transparent group-hover:text-blue-500 shrink-0 transition-colors">
+                            <Plus size={11} strokeWidth={3} />
+                          </div>
+                        )}
+
                         <div>
                           <div className="flex items-center gap-2 flex-wrap">
-                            <h4 className={`font-bold text-xs ${isIncludedInPkg ? 'text-slate-600' : 'text-slate-800'}`}>
+                            <h4 className={`font-bold text-xs ${
+                              isIncludedInPkg
+                                ? 'text-amber-950'
+                                : isChecked
+                                  ? 'text-blue-900'
+                                  : 'text-slate-800 group-hover:text-blue-700'
+                            }`}>
                               {addon.name}
                             </h4>
                             {isIncludedInPkg && (
-                              <span className="px-2 py-0.5 bg-amber-100 text-amber-800 text-[9px] font-extrabold rounded-md border border-amber-200">
+                              <span className="px-2 py-0.5 bg-amber-100/90 text-amber-900 text-[9px] font-black rounded-md border border-amber-300/80 uppercase tracking-tight">
                                 Đã có trong gói {selectedPackage.name}
                               </span>
                             )}
                           </div>
-                          <p className="text-[10px] text-slate-400 mt-0.5">{addon.description}</p>
+                          <p className="text-[10px] text-slate-400 mt-0.5 font-medium">{addon.description}</p>
                         </div>
                       </div>
-                      <span className={`font-mono text-xs font-bold shrink-0 ml-2 ${isIncludedInPkg ? 'text-amber-700 font-extrabold' : 'text-slate-700'}`}>
+
+                      <span className={`font-mono text-xs font-bold shrink-0 ml-3 ${
+                        isIncludedInPkg
+                          ? 'text-amber-800 font-extrabold bg-amber-100/80 px-2 py-0.5 rounded-lg border border-amber-200'
+                          : isChecked
+                            ? 'text-blue-700 font-extrabold'
+                            : 'text-slate-600 group-hover:text-blue-600'
+                      }`}>
                         {isIncludedInPkg ? 'Bao gồm' : `+${formatVnd(addon.price)}`}
                       </span>
                     </div>
