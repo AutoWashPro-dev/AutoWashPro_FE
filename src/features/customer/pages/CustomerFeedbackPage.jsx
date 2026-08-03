@@ -696,13 +696,12 @@ export default function CustomerFeedbackPage() {
               <div className="flex items-center justify-between text-xs">
                 <span className="text-slate-500 font-medium">Số sao đánh giá:</span>
                 <div className="flex items-center gap-1">
-                  <div className="flex gap-0.5 text-amber-400">
+                  <div className="flex gap-0.5">
                     {[1, 2, 3, 4, 5].map(star => (
                       <Star
                         key={star}
                         size={16}
-                        fill={star <= rating ? "currentColor" : "none"}
-                        className="text-amber-400"
+                        className={star <= rating ? tierTheme.starColor : "text-slate-200 fill-slate-200"}
                       />
                     ))}
                   </div>
