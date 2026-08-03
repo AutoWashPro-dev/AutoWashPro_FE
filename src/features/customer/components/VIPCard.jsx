@@ -181,7 +181,7 @@ export default function VIPCard({ customer }) {
                       </h3>
                     </div>
                     <p className="text-xs text-white/80 mt-0.5 font-medium">
-                      Đặc quyền dành riêng cho khách hàng <strong className="text-white font-bold">{customer?.fullName}</strong>
+                      Đặc quyền dành cho <strong className="text-white font-bold">{customer?.fullName}</strong>
                     </p>
                   </div>
                 </div>

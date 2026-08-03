@@ -519,8 +519,18 @@ export default function CustomerBookingPage() {
     return basePrice;
   };
 
+  // Lấy danh sách ID các dịch vụ đã bao gồm trong gói chính đang chọn
+  const getIncludedAddonIds = (pkg) => {
+    if (!pkg || !pkg.includedServices || pkg.includedServices.length === 0) return [];
+    return pkg.includedServices.map(srv => srv.serviceId || srv.id).filter(Boolean);
+  };
+
   // Xử lý bật/tắt tiện ích cộng thêm
   const handleToggleAddon = (addonId) => {
+    // Không cho phép toggle add-on đã bao gồm trong gói chính
+    const includedIds = getIncludedAddonIds(selectedPackage);
+    if (includedIds.includes(addonId)) return;
+
     if (selectedAddons.includes(addonId)) {
       setSelectedAddons(selectedAddons.filter(id => id !== addonId));
     } else {
@@ -660,6 +670,12 @@ export default function CustomerBookingPage() {
   // Handler khi click chọn gói rửa
   const handleSelectPackage = (pkg) => {
     setSelectedPackage(pkg);
+
+    // Tự động bỏ chọn các add-on đã bao gồm trong gói chính mới
+    const includedIds = getIncludedAddonIds(pkg);
+    if (includedIds.length > 0) {
+      setSelectedAddons(prev => prev.filter(id => !includedIds.includes(id)));
+    }
 
     // Tự động tìm voucher khả dụng giảm nhiều nhất cho gói mới chọn
     const { applicableVouchers, bestVoucher } = getEvaluatedVouchers(pkg);
@@ -1174,36 +1190,62 @@ export default function CustomerBookingPage() {
                   <div className="col-span-1 md:col-span-2 text-center py-4 text-slate-500 text-xs border rounded-xl bg-slate-50">
                     Không có dịch vụ thêm nào khả dụng.
                   </div>
-                ) : addonServices.map(addon => {
+                ) : (() => {
+                  const includedIds = getIncludedAddonIds(selectedPackage);
+                  const sortedAddons = [...addonServices].sort((a, b) => {
+                    const aIncluded = includedIds.includes(a.id) ? 1 : 0;
+                    const bIncluded = includedIds.includes(b.id) ? 1 : 0;
+                    if (aIncluded !== bIncluded) return aIncluded - bIncluded;
+                    return (a.price || 0) - (b.price || 0);
+                  });
+                  return sortedAddons.map(addon => {
+                  const isIncludedInPackage = includedIds.includes(addon.id);
                   const isChecked = selectedAddons.includes(addon.id);
 
                   return (
                     <div
                       key={addon.id}
-                      onClick={() => handleToggleAddon(addon.id)}
-                      className={`border rounded-xl p-4 cursor-pointer transition-all flex justify-between items-center ${isChecked
-                        ? 'border-blue-500 bg-blue-50/15'
-                        : 'border-slate-200 hover:border-blue-300'
-                        }`}
+                      onClick={() => !isIncludedInPackage && handleToggleAddon(addon.id)}
+                      className={`border rounded-xl p-4 transition-all flex justify-between items-center ${
+                        isIncludedInPackage
+                          ? 'border-emerald-300 bg-emerald-50/40 cursor-default opacity-75'
+                          : isChecked
+                            ? 'border-blue-500 bg-blue-50/15 cursor-pointer'
+                            : 'border-slate-200 hover:border-blue-300 cursor-pointer'
+                      }`}
                     >
                       <div className="flex items-center gap-3">
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => { }}
-                          className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 border-slate-300 pointer-events-none"
-                        />
+                        {isIncludedInPackage ? (
+                          <div className="w-4 h-4 rounded bg-emerald-500 flex items-center justify-center shrink-0">
+                            <Check className="w-3 h-3 text-white" />
+                          </div>
+                        ) : (
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => { }}
+                            className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 border-slate-300 pointer-events-none"
+                          />
+                        )}
                         <div>
-                          <h4 className="font-bold text-slate-800 text-xs">{addon.name}</h4>
+                          <h4 className={`font-bold text-xs ${isIncludedInPackage ? 'text-emerald-700' : 'text-slate-800'}`}>{addon.name}</h4>
                           <p className="text-[10px] text-slate-400 mt-0.5">{addon.description}</p>
                         </div>
                       </div>
-                      <span className="font-mono text-xs font-bold text-slate-700 shrink-0">
-                        +{formatVnd(addon.price)}
-                      </span>
+                      {isIncludedInPackage ? (
+                        <span className="text-[10px] font-bold text-emerald-600 bg-emerald-100 px-2.5 py-1 rounded-lg shrink-0 flex items-center gap-1">
+                          <CheckCircle className="w-3 h-3" />
+                          Đã bao gồm trong gói chính
+                        </span>
+                      ) : (
+                        <span className="font-mono text-xs font-bold text-slate-700 shrink-0">
+                          +{formatVnd(addon.price)}
+                        </span>
+                      )}
                     </div>
                   );
-                })}
+                });
+                })()}
               </div>
             </section>
 
