@@ -519,8 +519,67 @@ export default function CustomerBookingPage() {
     return basePrice;
   };
 
+  // Helper: kiểm tra tiện ích add-on có nằm trong gói chính được chọn hay không
+  const isAddonInPackage = (addon, pkg) => {
+    if (!addon || !pkg) return false;
+    const inc = pkg.includedServices || [];
+    if (!Array.isArray(inc) || inc.length === 0) return false;
+
+    const addonId = addon.id || addon.serviceId;
+    const addonName = String(addon.name || addon.serviceName || '').toLowerCase().trim();
+    const addonCode = String(addon.serviceCode || addon.code || '').toLowerCase().trim();
+
+    return inc.some(item => {
+      if (typeof item === 'string') {
+        const itemLower = item.toLowerCase().trim();
+        return (addonName && (itemLower.includes(addonName) || addonName.includes(itemLower))) ||
+               (addonCode && (itemLower.includes(addonCode) || addonCode.includes(itemLower)));
+      }
+      const itemId = item.id || item.serviceId;
+      const itemName = String(item.serviceNameSnapshot || item.serviceName || item.name || '').toLowerCase().trim();
+      const itemCode = String(item.serviceCode || item.code || '').toLowerCase().trim();
+
+      if (addonId && itemId && Number(addonId) === Number(itemId)) return true;
+      if (addonName && itemName && (addonName.includes(itemName) || itemName.includes(addonName))) return true;
+      if (addonCode && itemCode && addonCode === itemCode) return true;
+      return false;
+    });
+  };
+
+  // Sắp xếp tiện ích cộng thêm:
+  // 1. Các gói vẫn có thể chọn -> Sắp xếp tăng dần theo giá
+  // 2. Các gói trùng đã nằm trong gói chính -> Sắp xếp tăng dần theo giá
+  const sortedAddonServices = React.useMemo(() => {
+    if (!Array.isArray(addonServices)) return [];
+
+    if (!selectedPackage) {
+      return [...addonServices].sort((a, b) => Number(a.price || 0) - Number(b.price || 0));
+    }
+
+    const selectableList = addonServices
+      .filter(addon => !isAddonInPackage(addon, selectedPackage))
+      .sort((a, b) => Number(a.price || 0) - Number(b.price || 0));
+
+    const duplicateList = addonServices
+      .filter(addon => isAddonInPackage(addon, selectedPackage))
+      .sort((a, b) => Number(a.price || 0) - Number(b.price || 0));
+
+    return [...selectableList, ...duplicateList];
+  }, [addonServices, selectedPackage]);
+
   // Xử lý bật/tắt tiện ích cộng thêm
   const handleToggleAddon = (addonId) => {
+    const targetAddon = addonServices.find(a => a.id === addonId);
+
+    // Ngược lại nếu như customer chọn các gói add-on trùng với gói chính -> Tắt gói chính đi!
+    if (selectedPackage && targetAddon && isAddonInPackage(targetAddon, selectedPackage)) {
+      setSelectedPackage(null);
+      if (!selectedAddons.includes(addonId)) {
+        setSelectedAddons([...selectedAddons, addonId]);
+      }
+      return;
+    }
+
     if (selectedAddons.includes(addonId)) {
       setSelectedAddons(selectedAddons.filter(id => id !== addonId));
     } else {
@@ -659,7 +718,21 @@ export default function CustomerBookingPage() {
 
   // Handler khi click chọn gói rửa
   const handleSelectPackage = (pkg) => {
+    if (selectedPackage && (selectedPackage.id === pkg.id || selectedPackage.serviceId === pkg.serviceId)) {
+      // Toggle off main package
+      setSelectedPackage(null);
+      return;
+    }
+
     setSelectedPackage(pkg);
+
+    // Tự động bỏ chọn các gói add-on đã có sẵn trong gói chính vừa chọn
+    if (pkg && Array.isArray(selectedAddons) && selectedAddons.length > 0) {
+      setSelectedAddons(prev => prev.filter(addonId => {
+        const addonObj = addonServices.find(a => a.id === addonId);
+        return !isAddonInPackage(addonObj, pkg);
+      }));
+    }
 
     // Tự động tìm voucher khả dụng giảm nhiều nhất cho gói mới chọn
     const { applicableVouchers, bestVoucher } = getEvaluatedVouchers(pkg);
@@ -888,8 +961,8 @@ export default function CustomerBookingPage() {
       showAlert("Vui lòng chọn 1 chiếc xe máy để dọn rửa.", 'warning');
       return;
     }
-    if (!selectedPackage) {
-      showAlert("Vui lòng chọn 1 gói dịch vụ dọn rửa chính.", 'warning');
+    if (!selectedPackage && selectedAddons.length === 0) {
+      showAlert("Vui lòng chọn 1 gói dịch vụ dọn rửa chính hoặc chọn ít nhất 1 tiện ích add-on.", 'warning');
       return;
     }
     if (!selectedDate || !selectedTime) {
@@ -909,11 +982,6 @@ export default function CustomerBookingPage() {
       return;
     }
 
-    const selectedPackageId = Number(selectedPackage?.id || selectedPackage?.serviceId || 0);
-    if (!selectedPackageId) {
-      showAlert('Không tìm thấy gói dịch vụ. Vui lòng chọn lại.', 'error', 'Lỗi');
-      return;
-    }
     const selectedSlot = timeSlots.find(s => s.slotId === selectedTimeSlotId || s.time === selectedTime);
     if (selectedSlot && (selectedSlot.bookedCount >= selectedSlot.maxCapacity || selectedSlot.availableCapacity <= 0)) {
       showAlert("Khung giờ này hiện đã đầy công suất dọn rửa! Rất tiếc vì sự bất tiện này, mong quý khách vui lòng chọn một khung giờ khác.", 'warning');
@@ -930,7 +998,8 @@ export default function CustomerBookingPage() {
 
     const trimmedLicensePlate = String(selectedVehicle.licensePlate || '').trim().toUpperCase();
     const trimmedModel = String(selectedVehicle.model || '').trim();
-    const selectedPackageId = Number(selectedPackage?.id || selectedPackage?.serviceId || 0);
+    const selectedPackageId = selectedPackage ? Number(selectedPackage?.id || selectedPackage?.serviceId || 0) : null;
+    const packageNameStr = selectedPackage ? selectedPackage.name : 'Gói custom';
 
     const bookingData = {
       licensePlate: trimmedLicensePlate,
@@ -959,7 +1028,7 @@ export default function CustomerBookingPage() {
           bookingCode: createdBooking.bookingCode || createdBooking.id,
           date: selectedDate,
           time: selectedTime,
-          packageName: selectedPackage.name,
+          packageName: packageNameStr,
           licensePlate: trimmedLicensePlate,
           model: trimmedModel,
           finalAmount: createdBooking.finalAmount || (calculateTotalAmount() - calculateDiscount()),
@@ -1170,36 +1239,51 @@ export default function CustomerBookingPage() {
               </h3>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {addonServices.length === 0 ? (
+                {sortedAddonServices.length === 0 ? (
                   <div className="col-span-1 md:col-span-2 text-center py-4 text-slate-500 text-xs border rounded-xl bg-slate-50">
                     Không có dịch vụ thêm nào khả dụng.
                   </div>
-                ) : addonServices.map(addon => {
+                ) : sortedAddonServices.map(addon => {
                   const isChecked = selectedAddons.includes(addon.id);
+                  const isIncludedInPkg = selectedPackage && isAddonInPackage(addon, selectedPackage);
 
                   return (
                     <div
                       key={addon.id}
                       onClick={() => handleToggleAddon(addon.id)}
-                      className={`border rounded-xl p-4 cursor-pointer transition-all flex justify-between items-center ${isChecked
-                        ? 'border-blue-500 bg-blue-50/15'
-                        : 'border-slate-200 hover:border-blue-300'
+                      className={`border rounded-xl p-4 cursor-pointer transition-all flex justify-between items-center ${
+                        isIncludedInPkg
+                          ? 'border-amber-200 bg-amber-50/40 text-slate-500 hover:border-amber-300'
+                          : isChecked
+                            ? 'border-blue-500 bg-blue-50/15'
+                            : 'border-slate-200 hover:border-blue-300'
                         }`}
                     >
                       <div className="flex items-center gap-3">
                         <input
                           type="checkbox"
-                          checked={isChecked}
+                          checked={isChecked || isIncludedInPkg}
                           onChange={() => { }}
-                          className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 border-slate-300 pointer-events-none"
+                          className={`rounded w-4 h-4 border-slate-300 pointer-events-none ${
+                            isIncludedInPkg ? 'text-amber-500' : 'text-blue-600 focus:ring-blue-500'
+                          }`}
                         />
                         <div>
-                          <h4 className="font-bold text-slate-800 text-xs">{addon.name}</h4>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <h4 className={`font-bold text-xs ${isIncludedInPkg ? 'text-slate-600' : 'text-slate-800'}`}>
+                              {addon.name}
+                            </h4>
+                            {isIncludedInPkg && (
+                              <span className="px-2 py-0.5 bg-amber-100 text-amber-800 text-[9px] font-extrabold rounded-md border border-amber-200">
+                                Đã có trong gói {selectedPackage.name}
+                              </span>
+                            )}
+                          </div>
                           <p className="text-[10px] text-slate-400 mt-0.5">{addon.description}</p>
                         </div>
                       </div>
-                      <span className="font-mono text-xs font-bold text-slate-700 shrink-0">
-                        +{formatVnd(addon.price)}
+                      <span className={`font-mono text-xs font-bold shrink-0 ml-2 ${isIncludedInPkg ? 'text-amber-700 font-extrabold' : 'text-slate-700'}`}>
+                        {isIncludedInPkg ? 'Bao gồm' : `+${formatVnd(addon.price)}`}
                       </span>
                     </div>
                   );
@@ -1317,7 +1401,7 @@ export default function CustomerBookingPage() {
                 <div className="flex justify-between items-start">
                   <span className="text-slate-400 font-medium">Gói dọn rửa:</span>
                   <span className="text-slate-800 font-bold text-right">
-                    {selectedPackage ? selectedPackage.name : 'Chưa chọn'}
+                    {selectedPackage ? selectedPackage.name : (selectedAddons.length > 0 ? 'Gói custom' : 'Chưa chọn')}
                   </span>
                 </div>
 
