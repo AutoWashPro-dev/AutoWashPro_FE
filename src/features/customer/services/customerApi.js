@@ -43,42 +43,81 @@ export const customerApi = {
   getCustomerProfile: async () => {
     try {
       const res = await api.get('/customer/loyalty/profile');
-      return res.data;
+      const data = res.data || {};
+      let windowDays = data.bookingWindowDays;
+      if (!windowDays) {
+        const userTierName = (data.tierName || 'MEMBER').toUpperCase();
+        const tiersRaw = localStorage.getItem('autowash_tiers');
+        if (tiersRaw) {
+          try {
+            const tiers = JSON.parse(tiersRaw);
+            const foundTier = tiers.find(t => (t.key || t.name || '').toUpperCase() === userTierName);
+            if (foundTier) windowDays = Number(foundTier.bookingWindow || foundTier.bookingWindowDays || 7);
+          } catch (e) {}
+        }
+        if (!windowDays) {
+          if (userTierName === 'SILVER') windowDays = 10;
+          else if (userTierName === 'GOLD') windowDays = 12;
+          else if (userTierName === 'PLATINUM') windowDays = 14;
+          else windowDays = 7;
+        }
+      }
+      return {
+        ...data,
+        bookingWindowDays: windowDays
+      };
     } catch (err) {
       console.warn('API getCustomerProfile error, using fallback:', err.message);
       // Fallback matching mock data
       const userRaw = localStorage.getItem('autowash_user');
+      let userTierName = 'MEMBER';
+      let totalSpending = 115000;
+      let fullName = 'Nhân Thành';
+      let email = 'ctndx001@gmail.com';
+      let phone = '0123456789';
+      let points = 11;
+      let customerId = 16;
+
       if (userRaw) {
         try {
           const user = JSON.parse(userRaw);
-          const totalSpending = Number(user.totalSpending || user.lifetimeSpend || 115000);
-          return {
-            customerId: user.customerId || user.id || 16,
-            fullName: user.fullName || user.name || 'Nhân Thành',
-            email: user.email || 'ctndx001@gmail.com',
-            phoneNumber: user.phoneNumber || '0123456789',
-            loyaltyPoints: user.loyaltyPoints !== undefined ? user.loyaltyPoints : 11,
-            totalSpending: totalSpending,
-            tierName: user.tierName || 'MEMBER',
-            nextTierName: 'SILVER',
-            nextTierMinSpend: 1000000,
-            spendNeededForNextTier: Math.max(0, 1000000 - totalSpending),
-            progressPercentage: Math.min(100, Math.floor((totalSpending / 1000000) * 100))
-          };
+          totalSpending = Number(user.totalSpending || user.lifetimeSpend || 115000);
+          userTierName = (user.tierName || 'MEMBER').toUpperCase();
+          fullName = user.fullName || user.name || fullName;
+          email = user.email || email;
+          phone = user.phoneNumber || phone;
+          points = user.loyaltyPoints !== undefined ? user.loyaltyPoints : points;
+          customerId = user.customerId || user.id || customerId;
         } catch (e) {}
       }
+
+      let windowDays = 7;
+      const tiersRaw = localStorage.getItem('autowash_tiers');
+      if (tiersRaw) {
+        try {
+          const tiers = JSON.parse(tiersRaw);
+          const foundTier = tiers.find(t => (t.key || t.name || '').toUpperCase() === userTierName);
+          if (foundTier) windowDays = Number(foundTier.bookingWindow || foundTier.bookingWindowDays || 7);
+        } catch (e) {}
+      } else {
+        if (userTierName === 'SILVER') windowDays = 10;
+        else if (userTierName === 'GOLD') windowDays = 12;
+        else if (userTierName === 'PLATINUM') windowDays = 14;
+      }
+
       return {
-        customerId: 16,
-        fullName: 'Nhân Thành',
-        email: 'ctndx001@gmail.com',
-        phoneNumber: '0123456789',
-        loyaltyPoints: 11,
-        totalSpending: 115000,
-        tierName: 'MEMBER',
+        customerId: customerId,
+        fullName: fullName,
+        email: email,
+        phoneNumber: phone,
+        loyaltyPoints: points,
+        totalSpending: totalSpending,
+        tierName: userTierName,
         nextTierName: 'SILVER',
         nextTierMinSpend: 1000000,
-        spendNeededForNextTier: 885000,
-        progressPercentage: 11.5
+        spendNeededForNextTier: Math.max(0, 1000000 - totalSpending),
+        progressPercentage: Math.min(100, Math.floor((totalSpending / 1000000) * 100)),
+        bookingWindowDays: windowDays
       };
     }
   },

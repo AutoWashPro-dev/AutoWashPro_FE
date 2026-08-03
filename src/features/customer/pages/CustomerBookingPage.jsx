@@ -1286,7 +1286,7 @@ export default function CustomerBookingPage() {
                     className="w-full border border-slate-200 rounded-xl px-4 py-3 text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
                   />
                   <span className="text-[10px] text-slate-400 block mt-2 leading-relaxed">
-                    * Hạng **PLATINUM MEMBER** của bạn được ưu tiên đặt trước tối đa **{bookingWindowDays} ngày** (Mức trần cao nhất hệ thống).
+                    * Hạng <strong className="uppercase text-slate-700">{customerProfile?.tierName || 'MEMBER'}</strong> của bạn được ưu tiên đặt trước tối đa <strong>{bookingWindowDays} ngày</strong>.
                   </span>
                 </div>
 

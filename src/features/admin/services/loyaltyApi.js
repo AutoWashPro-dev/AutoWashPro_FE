@@ -85,9 +85,54 @@ export const loyaltyApi = {
       };
       const actualId = data.tierId || tierId || 1;
       const res = await api.put(`/admin/loyalty/tiers/${actualId}`, payload);
+      
+      // Đồng bộ vào localStorage để ứng dụng khách hàng sử dụng ngay
+      const saved = localStorage.getItem('autowash_tiers');
+      if (saved) {
+        try {
+          const list = JSON.parse(saved);
+          const updated = list.map(t => {
+            const matchName = (t.key || t.name || '').toUpperCase() === (data.name || data.key || '').toUpperCase();
+            const matchId = (t.tierId || t.id) === actualId;
+            if (matchName || matchId) {
+              return {
+                ...t,
+                minSpend: Number(data.minSpend),
+                pointMultiplier: Number(data.pointMultiplier),
+                bookingWindow: Number(data.bookingWindow),
+                bookingWindowDays: Number(data.bookingWindow)
+              };
+            }
+            return t;
+          });
+          localStorage.setItem('autowash_tiers', JSON.stringify(updated));
+        } catch (e) {}
+      }
+
       return { ...data, ...res.data };
     } catch (err) {
       console.warn('API updateTierConfig fallback:', err.message);
+      // Đồng bộ khi fallback
+      const saved = localStorage.getItem('autowash_tiers');
+      if (saved) {
+        try {
+          const list = JSON.parse(saved);
+          const updated = list.map(t => {
+            const matchName = (t.key || t.name || '').toUpperCase() === (data.name || data.key || '').toUpperCase();
+            if (matchName) {
+              return {
+                ...t,
+                minSpend: Number(data.minSpend),
+                pointMultiplier: Number(data.pointMultiplier),
+                bookingWindow: Number(data.bookingWindow),
+                bookingWindowDays: Number(data.bookingWindow)
+              };
+            }
+            return t;
+          });
+          localStorage.setItem('autowash_tiers', JSON.stringify(updated));
+        } catch (e) {}
+      }
       return data;
     }
   },
