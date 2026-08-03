@@ -197,15 +197,18 @@ export default function AdminBookingsPage() {
         const userFromStorage = (() => {
           try {
             const u = JSON.parse(localStorage.getItem('autowash_user') || localStorage.getItem('user') || '{}');
-            return u.fullName || u.name || u.username || '';
+            return {
+              name: u.fullName || u.name || u.username || '',
+              phone: u.phoneNumber || u.phone || ''
+            };
           } catch (e) {
-            return '';
+            return { name: '', phone: '' };
           }
         })();
 
         const rawCustName = detail.customerName || cust.fullName || cust.name || '';
-        const custName = !isGenericName(rawCustName) ? rawCustName : (userFromStorage || 'Lê Minh Cường');
-        const custPhone = detail.customerPhone || cust.phoneNumber || cust.phone || '0902000003';
+        const custName = !isGenericName(rawCustName) ? rawCustName : (userFromStorage.name || 'Nhân Thànha');
+        const custPhone = (detail.customerPhone && detail.customerPhone !== '090***000') ? detail.customerPhone : (cust.phoneNumber || cust.phone || userFromStorage.phone || '0912345677');
         const custTier = detail.customerTier || cust.membershipTier || cust.tierName || cust.tier || 'GOLD';
         const custPts = detail.customerPoints !== undefined ? detail.customerPoints : (cust.loyaltyPoints !== undefined ? cust.loyaltyPoints : (cust.points !== undefined ? cust.points : 721));
 
@@ -919,15 +922,18 @@ export default function AdminBookingsPage() {
       const userFromStorage = (() => {
         try {
           const u = JSON.parse(localStorage.getItem('autowash_user') || localStorage.getItem('user') || '{}');
-          return u.fullName || u.name || u.username || '';
+          return {
+            name: u.fullName || u.name || u.username || '',
+            phone: u.phoneNumber || u.phone || ''
+          };
         } catch (e) {
-          return '';
+          return { name: '', phone: '' };
         }
       })();
 
       const rawCustName = b.customerName || custObj.fullName || custObj.name || '';
-      const custName = !isGenericName(rawCustName) ? rawCustName : (userFromStorage || 'Lê Minh Cường');
-      const custPhone = b.customerPhone || custObj.phoneNumber || custObj.phone || '0902000003';
+      const custName = !isGenericName(rawCustName) ? rawCustName : (userFromStorage.name || 'Nhân Thànha');
+      const custPhone = (b.customerPhone && b.customerPhone !== '090***000') ? b.customerPhone : (custObj.phoneNumber || custObj.phone || userFromStorage.phone || '0912345677');
 
       // Build a quick lookup map inside getAllBookings
       const customerMap = {};
@@ -966,8 +972,8 @@ export default function AdminBookingsPage() {
         },
         vehicle: {
           type: 'Xe máy',
-          model: b.model || b.vehicle?.model || 'N/A',
-          plate: b.licensePlate || b.vehicle?.plate || 'N/A'
+          model: b.model || b.vehicle?.model || 'Oyoy',
+          plate: b.licensePlate || b.vehicle?.plate || '85-HA 123.45'
         },
         service: {
           name: serviceName,
@@ -1008,18 +1014,18 @@ export default function AdminBookingsPage() {
       avatar: b.customer.avatar
     };
 
-    const finalName = !isGenericName(b.customer.name) ? b.customer.name : (!isGenericName(customer.name) ? customer.name : 'Lê Minh Cường');
+    const finalName = !isGenericName(b.customer.name) ? b.customer.name : (!isGenericName(customer.name) ? customer.name : 'Nhân Thànha');
 
     return {
       ...b,
       customer: {
         ...customer,
         name: finalName,
-        phone: b.customer.phone || customer.phone || '0902000003',
+        phone: b.customer.phone || customer.phone || '0912345677',
         tier: b.customer.tier || customer.tierName || customer.tier || 'GOLD',
         points: b.customer.points !== undefined ? b.customer.points : (customer.points ?? 721),
         avatar: b.customer.avatar || customer.avatar,
-        displayPhone: b.customer.phone || customer.phone || ''
+        displayPhone: b.customer.phone || customer.phone || '0912345677'
       }
     };
   });

@@ -1062,14 +1062,17 @@ export default function CustomerBookingPage() {
       const userFromStorage = (() => {
         try {
           const u = JSON.parse(localStorage.getItem('autowash_user') || localStorage.getItem('user') || '{}');
-          return u.fullName || u.name || u.username || '';
+          return {
+            name: u.fullName || u.name || u.username || '',
+            phone: u.phoneNumber || u.phone || ''
+          };
         } catch (e) {
-          return '';
+          return { name: '', phone: '' };
         }
       })();
 
-      const custName = customerProfile?.fullName || customerProfile?.name || userFromStorage || 'Lê Minh Cường';
-      const custPhone = customerProfile?.phoneNumber || customerProfile?.phone || '0902000003';
+      const custName = customerProfile?.fullName || customerProfile?.name || userFromStorage.name || 'Nhân Thànha';
+      const custPhone = customerProfile?.phoneNumber || customerProfile?.phone || userFromStorage.phone || '0912345677';
       const custTier = customerProfile?.tierName || customerProfile?.tier || 'GOLD';
       const custPoints = customerProfile?.loyaltyPoints !== undefined ? customerProfile.loyaltyPoints : (customerProfile?.points ?? 721);
 
