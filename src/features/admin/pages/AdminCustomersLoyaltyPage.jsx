@@ -462,41 +462,17 @@ export default function AdminCustomersLoyaltyPage() {
       return;
     }
 
-    // 1. Ràng buộc đối với kiểu Trừ tiền mặt (cash)
-    if (campaignForm.discountType === 'cash') {
-      const val = Number(campaignForm.value);
-      if (!val || val <= 0) {
-        showToast('Vui lòng nhập giá trị giảm giá tiền mặt lớn hơn 0đ!', 'warning');
-        return;
-      }
-      const points = Number(campaignForm.costPoints);
-      if (points === 0) {
-        const minOrder = Number(campaignForm.minOrderValue);
-        if (!minOrder || minOrder < val) {
-          showToast(`Vì đây là Voucher tiền mặt tặng miễn phí (Điểm = 0), bạn bắt buộc phải nhập "Giá trị đơn hàng tối thiểu" lớn hơn hoặc bằng giá trị giảm (${val.toLocaleString('vi-VN')} đ) để tránh phát sinh hóa đơn 0đ/âm.`, 'warning');
-          return;
-        }
-      }
-    }
-
-    // 2. Ràng buộc đối với kiểu Trừ % đơn hàng (percent)
+    // Ràng buộc giá trị phần trăm (nếu nhập phần trăm)
     if (campaignForm.discountType === 'percent') {
       const val = Number(campaignForm.value);
       if (!val || val <= 0 || val > 100) {
         showToast('Giá trị giảm phần trăm phải nằm trong khoảng từ 1% đến 100%!', 'warning');
         return;
       }
-      const maxDiscount = Number(campaignForm.maxDiscountAmount);
-      if (!maxDiscount || maxDiscount <= 0) {
-        showToast('Chiết khấu phần trăm bắt buộc phải nhập "Mức giảm tối đa (Trần giảm)" để bảo vệ doanh thu!', 'warning');
-        return;
-      }
-    }
-
-    // 3. Ràng buộc đối với kiểu Rửa miễn phí (Giảm 100%) (free_wash)
-    if (campaignForm.discountType === 'free_wash') {
-      if (!campaignForm.applicableServiceCode) {
-        showToast('Chiết khấu rửa miễn phí (Giảm 100%) bắt buộc phải chọn "Gói dịch vụ chính áp dụng" cụ thể!', 'warning');
+    } else if (campaignForm.discountType === 'cash') {
+      const val = Number(campaignForm.value);
+      if (!val || val <= 0) {
+        showToast('Vui lòng nhập giá trị giảm giá tiền mặt lớn hơn 0đ!', 'warning');
         return;
       }
     }
@@ -1856,11 +1832,11 @@ export default function AdminCustomersLoyaltyPage() {
                     {campaignForm.discountType === 'percent' ? (
                       <div className="space-y-1">
                         <label className="font-bold text-slate-600 block">
-                          Mức giảm tối đa (Trần giảm) <span className="text-rose-500 font-bold">* Bắt buộc</span>
+                          Mức giảm tối đa (Trần giảm) <span className="text-slate-400 font-normal text-xs">(Tùy chọn)</span>
                         </label>
                         <input
                           type="number"
-                          placeholder="Nhập mức giảm tối đa (đ)"
+                          placeholder="Để trống nếu không giới hạn trần giảm"
                           value={campaignForm.maxDiscountAmount}
                           onChange={e => setCampaignForm({ ...campaignForm, maxDiscountAmount: e.target.value })}
                           className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-600/10 focus:border-indigo-600 text-slate-700 font-bold"
@@ -1883,76 +1859,18 @@ export default function AdminCustomersLoyaltyPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="space-y-1 text-left">
                       <label className="font-bold text-slate-600 block">
-                        Giá trị đơn hàng tối thiểu (Min Order Value)
-                        {campaignForm.discountType === 'cash' && Number(campaignForm.costPoints) === 0 && <span className="text-rose-500 font-bold ml-1">* Bắt buộc</span>}
+                        Giá trị đơn hàng tối thiểu (Min Order Value) <span className="text-slate-400 font-normal text-xs">(Tùy chọn)</span>
                       </label>
                       <input
                         type="number"
                         min="0"
-                        disabled={
-                          (campaignForm.discountType === 'cash' && Number(campaignForm.costPoints) > 0) ||
-                          campaignForm.discountType === 'free_wash'
-                        }
-                        placeholder={
-                          campaignForm.discountType === 'free_wash'
-                            ? "Không áp dụng đối với rửa xe miễn phí (100%)"
-                            : (campaignForm.discountType === 'cash' && Number(campaignForm.costPoints) > 0)
-                              ? "Đổi điểm: Mặc định không giới hạn đơn tối thiểu"
-                              : "Để trống nếu không giới hạn giá trị đơn hàng"
-                        }
-                        value={
-                          (campaignForm.discountType === 'cash' && Number(campaignForm.costPoints) > 0) ||
-                            campaignForm.discountType === 'free_wash'
-                            ? ""
-                            : campaignForm.minOrderValue
-                        }
+                        placeholder="Để trống nếu không giới hạn giá trị đơn hàng"
+                        value={campaignForm.minOrderValue}
                         onChange={e => setCampaignForm({ ...campaignForm, minOrderValue: e.target.value })}
-                        className={`w-full px-3.5 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-600/10 focus:border-indigo-600 font-semibold ${((campaignForm.discountType === 'cash' && Number(campaignForm.costPoints) > 0) ||
-                          campaignForm.discountType === 'free_wash')
-                          ? "bg-slate-100 border border-slate-200 text-slate-400 cursor-not-allowed shadow-none"
-                          : "bg-slate-50 border border-slate-200 text-slate-700"
-                          }`}
+                        className="w-full px-3.5 py-2 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-600/10 focus:border-indigo-600 font-semibold bg-slate-50 border border-slate-200 text-slate-700"
                       />
-                      <span className="text-[9px] text-slate-400 block mt-1">
-                        * Lưu ý: Ràng buộc này sẽ **tự động bỏ qua** đối với voucher đổi bằng điểm để đảm bảo quyền lợi đổi quà 0đ của khách.
-                      </span>
                     </div>
                   </div>
-
-                  {/* Dynamic Warning Alert Box */}
-                  {(campaignForm.discountType === 'percent' ||
-                    campaignForm.discountType === 'free_wash' ||
-                    (campaignForm.discountType === 'cash' && Number(campaignForm.costPoints) === 0)) && (
-                      <div className="bg-amber-50 border border-amber-200 p-3.5 rounded-xl space-y-1 text-left text-xs text-amber-800 font-medium">
-                        {campaignForm.discountType === 'cash' && Number(campaignForm.costPoints) === 0 && (
-                          <div className="flex items-start gap-1.5">
-                            <span className="shrink-0 mt-0.5">⚠️</span>
-                            <div>
-                              <strong className="text-amber-900 font-bold block mb-0.5">Cảnh báo Trừ tiền mặt (Tặng miễn phí):</strong>
-                              Vì voucher này phát miễn phí (Điểm = 0), bạn **bắt buộc** phải đặt "Giá trị đơn hàng tối thiểu" lớn hơn hoặc bằng giá trị giảm ({Number(campaignForm.value || 0).toLocaleString('vi-VN')} đ) để bảo vệ doanh thu cửa hàng.
-                            </div>
-                          </div>
-                        )}
-                        {campaignForm.discountType === 'percent' && (
-                          <div className="flex items-start gap-1.5">
-                            <span className="shrink-0 mt-0.5">⚠️</span>
-                            <div>
-                              <strong className="text-amber-900 font-bold block mb-0.5">Yêu cầu Trừ % đơn hàng:</strong>
-                              Chiết khấu phần trăm **bắt buộc** phải nhập "Mức giảm tối đa (Trần giảm)" để giới hạn số tiền được giảm tối đa cho một đơn hàng.
-                            </div>
-                          </div>
-                        )}
-                        {campaignForm.discountType === 'free_wash' && (
-                          <div className="flex items-start gap-1.5">
-                            <span className="shrink-0 mt-0.5">⚠️</span>
-                            <div>
-                              <strong className="text-amber-900 font-bold block mb-0.5">Yêu cầu Rửa miễn phí (Giảm 100%):</strong>
-                              Bạn **bắt buộc** phải chọn một "Gói dịch vụ chính áp dụng" cụ thể ở phía dưới. Không được để trống "Áp dụng cho mọi gói" để tránh khách dùng gói VIP đắt tiền nhất.
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
 
                   {/* Row 4: Points required, total budget, max claim */}
 
