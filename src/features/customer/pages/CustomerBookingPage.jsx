@@ -569,21 +569,26 @@ export default function CustomerBookingPage() {
 
   // Xử lý bật/tắt tiện ích cộng thêm
   const handleToggleAddon = (addonId) => {
-    const targetAddon = addonServices.find(a => a.id === addonId);
+    const targetAddon = addonServices.find(a => String(a.id || a.serviceId) === String(addonId));
+    const targetId = targetAddon ? (targetAddon.id || targetAddon.serviceId || addonId) : addonId;
 
     // Ngược lại nếu như customer chọn các gói add-on trùng với gói chính -> Tắt gói chính đi!
     if (selectedPackage && targetAddon && isAddonInPackage(targetAddon, selectedPackage)) {
       setSelectedPackage(null);
-      if (!selectedAddons.includes(addonId)) {
-        setSelectedAddons([...selectedAddons, addonId]);
+      const isAlreadyChecked = selectedAddons.some(id => String(id) === String(targetId));
+      if (isAlreadyChecked) {
+        setSelectedAddons(prev => prev.filter(id => String(id) !== String(targetId)));
+      } else {
+        setSelectedAddons(prev => [...prev, targetId]);
       }
       return;
     }
 
-    if (selectedAddons.includes(addonId)) {
-      setSelectedAddons(selectedAddons.filter(id => id !== addonId));
+    const isAlreadyChecked = selectedAddons.some(id => String(id) === String(targetId));
+    if (isAlreadyChecked) {
+      setSelectedAddons(prev => prev.filter(id => String(id) !== String(targetId)));
     } else {
-      setSelectedAddons([...selectedAddons, addonId]);
+      setSelectedAddons(prev => [...prev, targetId]);
     }
   };
 
@@ -594,8 +599,8 @@ export default function CustomerBookingPage() {
       total += calculatePackagePrice(selectedPackage.basePrice);
     }
     selectedAddons.forEach(addonId => {
-      const addon = addonServices.find(a => a.id === addonId);
-      if (addon) total += addon.price;
+      const addon = addonServices.find(a => String(a.id || a.serviceId) === String(addonId));
+      if (addon) total += Number(addon.price || 0);
     });
     return total;
   };
@@ -1244,7 +1249,8 @@ export default function CustomerBookingPage() {
                     Không có dịch vụ thêm nào khả dụng.
                   </div>
                 ) : sortedAddonServices.map(addon => {
-                  const isChecked = selectedAddons.includes(addon.id);
+                  const addonIdStr = String(addon.id || addon.serviceId);
+                  const isChecked = selectedAddons.some(id => String(id) === addonIdStr);
                   const isIncludedInPkg = selectedPackage && isAddonInPackage(addon, selectedPackage);
 
                   return (
@@ -1409,7 +1415,7 @@ export default function CustomerBookingPage() {
                   <span className="text-slate-400 font-medium">Tiện ích cộng thêm:</span>
                   <span className="text-slate-800 font-bold text-right">
                     {selectedAddons.length > 0
-                      ? selectedAddons.map(id => addonServices.find(a => a.id === id)?.name).join(', ')
+                      ? selectedAddons.map(id => addonServices.find(a => String(a.id || a.serviceId) === String(id))?.name).filter(Boolean).join(', ')
                       : 'Không chọn'}
                   </span>
                 </div>
@@ -2094,7 +2100,7 @@ export default function CustomerBookingPage() {
               <div className="flex justify-between items-start py-1.5 border-b border-dashed border-slate-100">
                 <span className="text-slate-400 font-medium shrink-0">Dịch vụ chính:</span>
                 <span className="text-slate-800 font-bold text-right">
-                  {selectedPackage.name}
+                  {selectedPackage ? selectedPackage.name : 'Gói custom'}
                 </span>
               </div>
 
@@ -2102,7 +2108,7 @@ export default function CustomerBookingPage() {
                 <div className="flex justify-between items-start py-1.5 border-b border-dashed border-slate-100">
                   <span className="text-slate-400 font-medium shrink-0">Dịch vụ kèm:</span>
                   <span className="text-slate-800 font-bold text-right">
-                    {selectedAddons.map(id => addonServices.find(a => a.id === id)?.name).join(', ')}
+                    {selectedAddons.map(id => addonServices.find(a => String(a.id || a.serviceId) === String(id))?.name).filter(Boolean).join(', ')}
                   </span>
                 </div>
               )}
