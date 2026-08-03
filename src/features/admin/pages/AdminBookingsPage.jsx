@@ -1388,12 +1388,14 @@ export default function AdminBookingsPage() {
     setShowSuccessModal(true);
     setRefreshTrigger(prev => prev + 1); // Trigger an explicit re-fetch of the bookings list
     setSelectedDate(selectedDate);
+    setIsOpenDetail(true);
     setViewMode('list');
   };
 
   const handleCloseSuccessModal = () => {
     setShowSuccessModal(false);
     setSuccessModalData(null);
+    setIsOpenDetail(true);
     setViewMode('list');
   };
 
@@ -1426,6 +1428,7 @@ export default function AdminBookingsPage() {
     });
     setIsCanceling(false);
     setCancelReasonText('');
+    setIsOpenDetail(true);
     setViewMode('list');
   };
 
@@ -1485,7 +1488,7 @@ export default function AdminBookingsPage() {
         </div>
 
         {/* Date Selector */}
-        {isOpenDetail && (<div className="flex items-center gap-2 self-end sm:self-auto">
+        {viewMode === 'list' && (<div className="flex items-center gap-2 self-end sm:self-auto">
 
           <button
             onClick={handlePrevDate}
