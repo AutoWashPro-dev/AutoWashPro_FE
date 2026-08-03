@@ -122,9 +122,54 @@ export default function VIPCard({ customer }) {
         <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/15 to-transparent opacity-80 pointer-events-none z-0"></div>
         <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-white/10 rounded-full blur-xl pointer-events-none z-0"></div>
 
-        {/* Galaxy Star Dots Overlay for Platinum Tier */}
+        {/* 1. MEMBER: Soft Sapphire Water Wave Aura */}
+        {currentTierKey === 'MEMBER' && (
+          <div className="absolute inset-0 pointer-events-none overflow-hidden z-0 opacity-40">
+            <div className="absolute -top-12 -left-12 w-48 h-48 bg-blue-400/25 rounded-full blur-2xl animate-pulse"></div>
+            <div className="absolute -bottom-8 -right-8 w-40 h-40 bg-indigo-400/20 rounded-full blur-xl"></div>
+          </div>
+        )}
+
+        {/* 2. SILVER: Chrome Metallic Glare & Silver Dust */}
+        {currentTierKey === 'SILVER' && (
+          <div className="absolute inset-0 pointer-events-none overflow-hidden z-0 opacity-70">
+            <div className="absolute -top-10 -right-10 w-44 h-44 bg-slate-200/20 rounded-full blur-2xl"></div>
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-slate-100/25 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+            <svg className="absolute inset-0 w-full h-full opacity-35 mix-blend-overlay" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="20%" cy="30%" r="1" fill="#E2E8F0" />
+              <circle cx="45%" cy="20%" r="1.2" fill="#FFFFFF" />
+              <circle cx="70%" cy="40%" r="0.9" fill="#E2E8F0" />
+              <circle cx="30%" cy="70%" r="1.1" fill="#FFFFFF" />
+              <circle cx="80%" cy="75%" r="1" fill="#E2E8F0" />
+            </svg>
+          </div>
+        )}
+
+        {/* 3. GOLD: Royal 24K Gold Sparkles & Golden Ray Aura */}
+        {currentTierKey === 'GOLD' && (
+          <div className="absolute inset-0 pointer-events-none overflow-hidden z-0 opacity-90">
+            <div className="absolute -top-16 -left-16 w-56 h-56 bg-amber-400/20 rounded-full blur-3xl animate-pulse"></div>
+            <div className="absolute -bottom-10 -right-10 w-44 h-44 bg-yellow-500/15 rounded-full blur-2xl"></div>
+            <div className="absolute top-4 left-1/3 w-1.5 h-1.5 bg-[#FFF0B3] rounded-full shadow-[0_0_8px_#FFE58F] animate-pulse"></div>
+            <div className="absolute bottom-6 left-12 w-1 h-1 bg-[#FCE482] rounded-full shadow-[0_0_6px_#FFE58F]" style={{ animationDuration: '3s' }}></div>
+            <div className="absolute top-1/2 right-12 w-1.5 h-1.5 bg-amber-200 rounded-full shadow-[0_0_8px_#F5D061] animate-pulse" style={{ animationDuration: '2s' }}></div>
+            <svg className="absolute inset-0 w-full h-full opacity-50 mix-blend-color-dodge" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="15%" cy="20%" r="1.2" fill="#FFE58F" />
+              <circle cx="40%" cy="15%" r="1.5" fill="#FFF0B3" />
+              <circle cx="65%" cy="35%" r="1" fill="#FFE58F" />
+              <circle cx="85%" cy="25%" r="1.4" fill="#FFF0B3" />
+              <circle cx="25%" cy="75%" r="1" fill="#FFE58F" />
+              <circle cx="55%" cy="80%" r="1.3" fill="#FFF0B3" />
+              <circle cx="75%" cy="65%" r="1.1" fill="#FFE58F" />
+            </svg>
+          </div>
+        )}
+
+        {/* 4. PLATINUM: Cosmic Galaxy Nebula & Twinkling Star Constellations */}
         {currentTierKey === 'PLATINUM' && (
           <div className="absolute inset-0 pointer-events-none overflow-hidden z-0 opacity-85">
+            <div className="absolute -top-16 -right-16 w-60 h-60 bg-purple-600/20 rounded-full blur-3xl animate-pulse"></div>
+            <div className="absolute -bottom-12 -left-12 w-48 h-48 bg-indigo-600/20 rounded-full blur-2xl"></div>
             <div className="absolute top-3 left-8 w-1 h-1 bg-white rounded-full shadow-[0_0_6px_#fff] animate-pulse"></div>
             <div className="absolute top-10 left-1/4 w-1.5 h-1.5 bg-white/90 rounded-full shadow-[0_0_8px_#fff]"></div>
             <div className="absolute top-6 right-1/3 w-1 h-1 bg-purple-200/80 rounded-full"></div>
