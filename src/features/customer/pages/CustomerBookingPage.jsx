@@ -33,7 +33,7 @@ export default function CustomerBookingPage() {
   const tierTheme = getTierTheme(customer?.tierName);
 
   useEffect(() => {
-    customerApi.getProfile().then(data => setCustomer(data)).catch(() => {});
+    customerApi.getProfile().then(data => setCustomer(data)).catch(() => { });
   }, []);
 
   useEffect(() => {
@@ -1238,52 +1238,51 @@ export default function CustomerBookingPage() {
                     return (a.price || 0) - (b.price || 0);
                   });
                   return sortedAddons.map(addon => {
-                  const isIncludedInPackage = includedIds.includes(addon.id);
-                  const isChecked = selectedAddons.includes(addon.id);
+                    const isIncludedInPackage = includedIds.includes(addon.id);
+                    const isChecked = selectedAddons.includes(addon.id);
 
-                  return (
-                    <div
-                      key={addon.id}
-                      onClick={() => !isIncludedInPackage && handleToggleAddon(addon.id)}
-                      className={`border rounded-xl p-4 transition-all flex justify-between items-center ${
-                        isIncludedInPackage
+                    return (
+                      <div
+                        key={addon.id}
+                        onClick={() => !isIncludedInPackage && handleToggleAddon(addon.id)}
+                        className={`border rounded-xl p-4 transition-all flex justify-between items-center ${isIncludedInPackage
                           ? 'border-emerald-300 bg-emerald-50/40 cursor-default opacity-75'
                           : isChecked
                             ? 'border-blue-500 bg-blue-50/15 cursor-pointer'
                             : 'border-slate-200 hover:border-blue-300 cursor-pointer'
-                      }`}
-                    >
-                      <div className="flex items-center gap-3">
-                        {isIncludedInPackage ? (
-                          <div className="w-4 h-4 rounded bg-emerald-500 flex items-center justify-center shrink-0">
-                            <Check className="w-3 h-3 text-white" />
+                          }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          {isIncludedInPackage ? (
+                            <div className="w-4 h-4 rounded bg-emerald-500 flex items-center justify-center shrink-0">
+                              <Check className="w-3 h-3 text-white" />
+                            </div>
+                          ) : (
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => { }}
+                              className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 border-slate-300 pointer-events-none"
+                            />
+                          )}
+                          <div>
+                            <h4 className={`font-bold text-xs ${isIncludedInPackage ? 'text-emerald-700' : 'text-slate-800'}`}>{addon.name}</h4>
+                            <p className="text-[10px] text-slate-400 mt-0.5">{addon.description}</p>
                           </div>
-                        ) : (
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={() => { }}
-                            className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4 border-slate-300 pointer-events-none"
-                          />
-                        )}
-                        <div>
-                          <h4 className={`font-bold text-xs ${isIncludedInPackage ? 'text-emerald-700' : 'text-slate-800'}`}>{addon.name}</h4>
-                          <p className="text-[10px] text-slate-400 mt-0.5">{addon.description}</p>
                         </div>
+                        {isIncludedInPackage ? (
+                          <span className="text-[10px] font-bold text-emerald-600 bg-emerald-100 px-2.5 py-1 rounded-lg shrink-0 flex items-center gap-1">
+                            <CheckCircle className="w-3 h-3" />
+                            Đã bao gồm trong gói chính
+                          </span>
+                        ) : (
+                          <span className="font-mono text-xs font-bold text-slate-700 shrink-0">
+                            +{formatVnd(addon.price)}
+                          </span>
+                        )}
                       </div>
-                      {isIncludedInPackage ? (
-                        <span className="text-[10px] font-bold text-emerald-600 bg-emerald-100 px-2.5 py-1 rounded-lg shrink-0 flex items-center gap-1">
-                          <CheckCircle className="w-3 h-3" />
-                          Đã bao gồm trong gói chính
-                        </span>
-                      ) : (
-                        <span className="font-mono text-xs font-bold text-slate-700 shrink-0">
-                          +{formatVnd(addon.price)}
-                        </span>
-                      )}
-                    </div>
-                  );
-                });
+                    );
+                  });
                 })()}
               </div>
             </section>
@@ -1427,11 +1426,6 @@ export default function CustomerBookingPage() {
                         <span className="text-slate-400 font-bold block uppercase text-[10px]">
                           Ưu đãi & Voucher của bạn:
                         </span>
-                        {bestVoucher && (
-                          <span className="text-[9px] font-extrabold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1">
-                            <Sparkles size={10} className="text-emerald-600" /> Đã chọn mã tốt nhất
-                          </span>
-                        )}
                       </div>
 
                       {availableVouchers && availableVouchers.length > 0 ? (

@@ -369,6 +369,9 @@ export default function CustomerDashboardPage() {
               Mở Ví Ưu Đãi
             </button>
           </div>
+
+        </div>
+      </div>
       {/* GỢI Ý DỊCH VỤ XE MÁY DƯỚI CÙNG */}
       <div className="space-y-4 text-left">
         <div className="flex justify-between items-center">
