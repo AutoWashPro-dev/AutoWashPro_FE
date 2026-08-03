@@ -30,8 +30,8 @@ const TIER_THEMES = {
   GOLD: {
     name: 'HẠNG VÀNG (GOLD VIP)',
     voucherAccess: 'Voucher độc quyền Hạng Vàng + Tất cả Voucher từ Hạng Vàng trở xuống',
-    cardGradient: 'bg-[radial-gradient(ellipse_at_top_left,_var(--tw-gradient-stops))] from-[#FFE58F] via-[#C8963E] via-45% to-[#3D2702] text-amber-50 border-[#FCE482]/60 shadow-2xl shadow-amber-950/40',
-    headerBg: 'from-[#3D2702] via-[#8C6219] to-[#E2B755]',
+    cardGradient: 'bg-gradient-to-br from-[#F5D061] via-[#E2B755] via-[#C8963E] to-[#4A3205] text-amber-50 border-[#FCE482]/60 shadow-2xl shadow-amber-950/30',
+    headerBg: 'from-[#4D3505] via-[#8C6219] to-[#E2B755]',
     badgeBg: 'bg-gradient-to-r from-[#FFF0B3] via-[#E2B755] to-[#B38728] text-slate-950 font-black border border-[#FFF8D6] shadow-md',
     highlightBorder: 'border-amber-400',
     accentColor: 'text-amber-700',
@@ -40,9 +40,9 @@ const TIER_THEMES = {
     iconBox: 'bg-amber-100 text-amber-800'
   },
   PLATINUM: {
-    name: 'HẠNG BẠCH KIM (PLATINUM)',
+    name: 'HẠNG BẠCH KIM (PLATINUM VIP)',
     voucherAccess: 'Đặc quyền Voucher Platinum tối thượng + Mọi Voucher toàn hệ thống',
-    cardGradient: 'bg-gradient-to-br from-slate-900 via-purple-950 to-zinc-950 text-purple-100 border-purple-500/50',
+    cardGradient: 'bg-gradient-to-br from-slate-950 via-purple-950 to-zinc-950 text-purple-100 border-purple-500/50 shadow-2xl shadow-purple-950/50',
     headerBg: 'from-purple-950 via-slate-900 to-zinc-950',
     badgeBg: 'bg-purple-100 text-purple-900 border-purple-300',
     highlightBorder: 'border-purple-500',
@@ -119,8 +119,37 @@ export default function VIPCard({ customer }) {
         className={`rounded-2xl p-6 border shadow-lg relative overflow-hidden transition-all duration-300 transform hover:scale-[1.015] hover:shadow-2xl cursor-pointer group ${theme.cardGradient}`}
       >
         {/* Shimmer Light Reflection Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/15 to-transparent opacity-80 pointer-events-none"></div>
-        <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-white/10 rounded-full blur-xl pointer-events-none"></div>
+        <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/15 to-transparent opacity-80 pointer-events-none z-0"></div>
+        <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-white/10 rounded-full blur-xl pointer-events-none z-0"></div>
+
+        {/* Galaxy Star Dots Overlay for Platinum Tier */}
+        {currentTierKey === 'PLATINUM' && (
+          <div className="absolute inset-0 pointer-events-none overflow-hidden z-0 opacity-85">
+            <div className="absolute top-3 left-8 w-1 h-1 bg-white rounded-full shadow-[0_0_6px_#fff] animate-pulse"></div>
+            <div className="absolute top-10 left-1/4 w-1.5 h-1.5 bg-white/90 rounded-full shadow-[0_0_8px_#fff]"></div>
+            <div className="absolute top-6 right-1/3 w-1 h-1 bg-purple-200/80 rounded-full"></div>
+            <div className="absolute bottom-8 left-12 w-1.5 h-1.5 bg-white/80 rounded-full shadow-[0_0_6px_#fff] animate-pulse" style={{ animationDuration: '3s' }}></div>
+            <div className="absolute top-1/2 left-10 w-0.5 h-0.5 bg-white/70 rounded-full"></div>
+            <div className="absolute bottom-12 right-10 w-1 h-1 bg-white/90 rounded-full shadow-[0_0_6px_#fff]"></div>
+            <div className="absolute top-4 right-8 w-1.5 h-1.5 bg-white/90 rounded-full shadow-[0_0_8px_#fff] animate-pulse" style={{ animationDuration: '2s' }}></div>
+            <div className="absolute bottom-4 left-1/3 w-1 h-1 bg-white/70 rounded-full"></div>
+            <div className="absolute top-12 right-1/4 w-0.5 h-0.5 bg-white/80 rounded-full"></div>
+            <div className="absolute bottom-10 right-1/3 w-1.5 h-1.5 bg-amber-200/80 rounded-full shadow-[0_0_6px_#fde68a]"></div>
+            <svg className="absolute inset-0 w-full h-full opacity-45 mix-blend-screen" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="15%" cy="25%" r="1" fill="#ffffff" />
+              <circle cx="35%" cy="15%" r="1.5" fill="#ffffff" />
+              <circle cx="55%" cy="30%" r="0.8" fill="#ffffff" />
+              <circle cx="75%" cy="18%" r="1.2" fill="#ffffff" />
+              <circle cx="88%" cy="40%" r="1.5" fill="#ffffff" />
+              <circle cx="22%" cy="65%" r="1" fill="#ffffff" />
+              <circle cx="48%" cy="75%" r="1.3" fill="#ffffff" />
+              <circle cx="68%" cy="60%" r="0.8" fill="#ffffff" />
+              <circle cx="82%" cy="80%" r="1.1" fill="#ffffff" />
+              <circle cx="92%" cy="20%" r="0.7" fill="#ffffff" />
+              <circle cx="10%" cy="85%" r="1.4" fill="#ffffff" />
+            </svg>
+          </div>
+        )}
 
         {/* Top hint badge */}
         <div className="flex justify-between items-start mb-6 relative z-10">
