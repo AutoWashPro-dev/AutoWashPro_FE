@@ -387,32 +387,35 @@ export default function CustomerDashboardPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {recommendedServices.map((service, idx) => (
-            <div key={service.id || idx} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between group relative overflow-hidden">
-              <div>
-                <div className="flex justify-between items-center mb-3">
-                  <span className={`text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider shadow-2xs ${
-                    idx === 0 ? 'bg-blue-100 text-blue-900 border border-blue-200' :
-                    idx === 1 ? 'bg-amber-100 text-amber-950 border border-amber-300' :
-                    'bg-purple-100 text-purple-950 border border-purple-300'
-                  }`}>
-                    {service.tag || (idx === 0 ? 'PHỔ BIẾN' : idx === 1 ? 'BÁN CHẠY' : 'GÓI HOT VIP')}
-                  </span>
-                  <span className="font-mono font-black text-slate-900 text-base">
-                    {Number(service.price || 0).toLocaleString('vi-VN')} đ
-                  </span>
+          {recommendedServices.map((service, idx) => {
+            const isBestSeller = (service.title && service.title.toLowerCase().includes('cao cấp')) || idx === 1 || service.tag === 'BÁN CHẠY';
+            return (
+              <div key={service.id || idx} className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm hover:shadow-md transition-all flex flex-col justify-between group relative overflow-hidden">
+                <div>
+                  <div className="flex justify-between items-center mb-3">
+                    {isBestSeller ? (
+                      <span className="text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider bg-amber-400 text-slate-950 border border-amber-300 shadow-xs flex items-center gap-1">
+                        🔥 BÁN CHẠY
+                      </span>
+                    ) : (
+                      <div></div>
+                    )}
+                    <span className="font-mono font-black text-slate-900 text-base">
+                      {Number(service.price || 0).toLocaleString('vi-VN')} đ
+                    </span>
+                  </div>
+                  <h4 className="font-extrabold text-slate-900 text-sm leading-snug group-hover:text-blue-700 transition-colors">{service.title}</h4>
+                  <p className="text-xs text-slate-500 mt-2 leading-relaxed font-medium">{service.description}</p>
                 </div>
-                <h4 className="font-extrabold text-slate-900 text-sm leading-snug group-hover:text-blue-700 transition-colors">{service.title}</h4>
-                <p className="text-xs text-slate-500 mt-2 leading-relaxed font-medium">{service.description}</p>
+                <button
+                  onClick={() => navigate('/customer/book', { state: { autoSelectServiceId: service.id || service.serviceId } })}
+                  className={`mt-5 w-full py-2.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${tierTheme.btnOutline}`}
+                >
+                  Đặt dịch vụ này
+                </button>
               </div>
-              <button
-                onClick={() => navigate('/customer/book', { state: { autoSelectServiceId: service.id || service.serviceId } })}
-                className={`mt-5 w-full py-2.5 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${tierTheme.btnOutline}`}
-              >
-                Đặt dịch vụ này
-              </button>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 
