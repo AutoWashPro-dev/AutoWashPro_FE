@@ -525,22 +525,22 @@ export default function CustomerBookingPage() {
     const inc = pkg.includedServices || [];
     if (!Array.isArray(inc) || inc.length === 0) return false;
 
-    const addonId = addon.id || addon.serviceId;
+    const addonIdStr = String(addon.id || addon.serviceId || '');
     const addonName = String(addon.name || addon.serviceName || '').toLowerCase().trim();
     const addonCode = String(addon.serviceCode || addon.code || '').toLowerCase().trim();
 
     return inc.some(item => {
       if (typeof item === 'string') {
         const itemLower = item.toLowerCase().trim();
-        return (addonName && (itemLower.includes(addonName) || addonName.includes(itemLower))) ||
-               (addonCode && (itemLower.includes(addonCode) || addonCode.includes(itemLower)));
+        return (addonName && itemLower === addonName) ||
+               (addonCode && itemLower === addonCode);
       }
-      const itemId = item.id || item.serviceId;
+      const itemIdStr = String(item.id || item.serviceId || '');
       const itemName = String(item.serviceNameSnapshot || item.serviceName || item.name || '').toLowerCase().trim();
       const itemCode = String(item.serviceCode || item.code || '').toLowerCase().trim();
 
-      if (addonId && itemId && Number(addonId) === Number(itemId)) return true;
-      if (addonName && itemName && (addonName.includes(itemName) || itemName.includes(addonName))) return true;
+      if (addonIdStr && itemIdStr && addonIdStr === itemIdStr) return true;
+      if (addonName && itemName && addonName === itemName) return true;
       if (addonCode && itemCode && addonCode === itemCode) return true;
       return false;
     });
@@ -723,7 +723,9 @@ export default function CustomerBookingPage() {
 
   // Handler khi click chọn gói rửa
   const handleSelectPackage = (pkg) => {
-    if (selectedPackage && (selectedPackage.id === pkg.id || selectedPackage.serviceId === pkg.serviceId)) {
+    const pkgIdStr = String(pkg.id || pkg.serviceId);
+    const selPkgIdStr = selectedPackage ? String(selectedPackage.id || selectedPackage.serviceId) : '';
+    if (selectedPackage && selPkgIdStr === pkgIdStr) {
       // Toggle off main package
       setSelectedPackage(null);
       return;
@@ -734,7 +736,7 @@ export default function CustomerBookingPage() {
     // Tự động bỏ chọn các gói add-on đã có sẵn trong gói chính vừa chọn
     if (pkg && Array.isArray(selectedAddons) && selectedAddons.length > 0) {
       setSelectedAddons(prev => prev.filter(addonId => {
-        const addonObj = addonServices.find(a => a.id === addonId);
+        const addonObj = addonServices.find(a => String(a.id || a.serviceId) === String(addonId));
         return !isAddonInPackage(addonObj, pkg);
       }));
     }
@@ -1164,7 +1166,9 @@ export default function CustomerBookingPage() {
                   </div>
                 ) : corePackages.map(pkg => {
                   const currentPrice = calculatePackagePrice(pkg.basePrice);
-                  const isSelected = selectedPackage?.id === pkg.id;
+                  const pkgIdStr = String(pkg.id || pkg.serviceId);
+                  const selPkgIdStr = selectedPackage ? String(selectedPackage.id || selectedPackage.serviceId) : '';
+                  const isSelected = Boolean(selectedPackage && selPkgIdStr === pkgIdStr);
 
                   // Kiểm tra xem có voucher nào khóa riêng cho gói rửa này không
                   const exclusiveVoucher = availableVouchers.find(v => {
