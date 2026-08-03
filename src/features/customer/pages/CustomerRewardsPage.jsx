@@ -246,7 +246,6 @@ export default function CustomerRewardsPage() {
     .filter(i => i.pointsCost > 0)
     .sort((a, b) => (a.isGrayscale === b.isGrayscale ? 0 : a.isGrayscale ? 1 : -1));
 
-  return (
   // Cấu hình theme banner chào mừng phân biệt theo từng Hạng VIP
   const getRewardsHeaderTheme = (tierName) => {
     const t = String(tierName || '').toUpperCase();
