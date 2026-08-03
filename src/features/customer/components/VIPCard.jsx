@@ -111,41 +111,57 @@ export default function VIPCard({ customer }) {
     `Đặc quyền dịch vụ & hỗ trợ chăm sóc VIP tại trạm dọn xe`
   ];
 
+  // Helper dynamic hover shadow & scale based on Tier
+  const getTierHoverStyle = (tierKey) => {
+    switch (tierKey) {
+      case 'PLATINUM':
+        return 'hover:scale-[1.035] hover:shadow-[0_25px_50px_rgba(168,85,247,0.5)] hover:border-purple-400/80';
+      case 'GOLD':
+        return 'hover:scale-[1.03] hover:shadow-[0_20px_45px_rgba(212,175,55,0.45)] hover:border-amber-300';
+      case 'SILVER':
+        return 'hover:scale-[1.02] hover:shadow-[0_15px_35px_rgba(148,163,184,0.35)] hover:border-slate-300';
+      default:
+        return 'hover:scale-[1.015] hover:shadow-[0_10px_25px_rgba(59,130,246,0.25)] hover:border-blue-400';
+    }
+  };
+
   return (
     <>
       {/* THẺ LOYALTY CARD KHÁCH HÀNG (CÓ THỂ CLICK) */}
       <div
         onClick={() => setIsModalOpen(true)}
-        className={`rounded-2xl p-6 border shadow-lg relative overflow-hidden transition-all duration-300 transform hover:scale-[1.015] hover:shadow-2xl cursor-pointer group ${theme.cardGradient}`}
+        className={`rounded-2xl p-6 border shadow-lg relative overflow-hidden transition-all duration-500 transform cursor-pointer group ${theme.cardGradient} ${getTierHoverStyle(currentTierKey)}`}
       >
         {/* Shimmer Light Reflection Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/15 to-transparent opacity-80 pointer-events-none z-0"></div>
-        <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-white/10 rounded-full blur-xl pointer-events-none z-0"></div>
+        <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent opacity-60 pointer-events-none z-0 group-hover:opacity-90 transition-opacity duration-500"></div>
+        <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-white/5 rounded-full blur-xl pointer-events-none z-0 group-hover:scale-125 transition-transform duration-700"></div>
 
-        {/* Shimmer Light Reflection Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/10 to-transparent opacity-60 pointer-events-none z-0"></div>
-        <div className="absolute -right-10 -bottom-10 w-40 h-40 bg-white/5 rounded-full blur-xl pointer-events-none z-0"></div>
-
-        {/* LEVEL 1. MEMBER: Clean & Simple Entry Card (Minimal, no extra particles) */}
-
-        {/* LEVEL 2. SILVER: Subtle Chrome Metallic Light Sheen Sweep on Hover */}
-        {currentTierKey === 'SILVER' && (
-          <div className="absolute inset-0 pointer-events-none overflow-hidden z-0 opacity-70">
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-out"></div>
+        {/* LEVEL 1. MEMBER: Soft Sapphire Water Wave Aura on Hover */}
+        {currentTierKey === 'MEMBER' && (
+          <div className="absolute inset-0 pointer-events-none overflow-hidden z-0 opacity-40 group-hover:opacity-70 transition-opacity">
+            <div className="absolute -top-12 -left-12 w-48 h-48 bg-blue-400/25 rounded-full blur-2xl animate-pulse"></div>
+            <div className="absolute -bottom-8 -right-8 w-40 h-40 bg-indigo-400/20 rounded-full blur-xl"></div>
           </div>
         )}
 
-        {/* LEVEL 3. GOLD: Royal 24K Gold Sparkles & Golden Ray Aura */}
+        {/* LEVEL 2. SILVER: Metallic Chrome Sheen Sweep on Hover */}
+        {currentTierKey === 'SILVER' && (
+          <div className="absolute inset-0 pointer-events-none overflow-hidden z-0 opacity-70">
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-out"></div>
+          </div>
+        )}
+
+        {/* LEVEL 3. GOLD: Royal 24K Gold Ray Swell & Golden Sparkles */}
         {currentTierKey === 'GOLD' && (
           <div className="absolute inset-0 pointer-events-none overflow-hidden z-0 opacity-90">
-            {/* Golden Ray Aura */}
-            <div className="absolute -top-16 -left-16 w-56 h-56 bg-amber-400/25 rounded-full blur-3xl animate-pulse"></div>
-            <div className="absolute -bottom-10 -right-10 w-44 h-44 bg-yellow-500/20 rounded-full blur-2xl"></div>
+            {/* Golden Ray Aura expanding on hover */}
+            <div className="absolute -top-16 -left-16 w-56 h-56 bg-amber-400/25 rounded-full blur-3xl group-hover:scale-125 transition-transform duration-700"></div>
+            <div className="absolute -bottom-10 -right-10 w-44 h-44 bg-yellow-500/20 rounded-full blur-2xl group-hover:scale-125 transition-transform duration-700"></div>
             {/* Golden dust sparkles */}
             <div className="absolute top-4 left-1/3 w-1.5 h-1.5 bg-[#FFF0B3] rounded-full shadow-[0_0_8px_#FFE58F] animate-pulse"></div>
             <div className="absolute bottom-6 left-12 w-1 h-1 bg-[#FCE482] rounded-full shadow-[0_0_6px_#FFE58F]" style={{ animationDuration: '3s' }}></div>
             <div className="absolute top-1/2 right-12 w-1.5 h-1.5 bg-amber-200 rounded-full shadow-[0_0_8px_#F5D061] animate-pulse" style={{ animationDuration: '2s' }}></div>
-            <svg className="absolute inset-0 w-full h-full opacity-40 mix-blend-color-dodge" xmlns="http://www.w3.org/2000/svg">
+            <svg className="absolute inset-0 w-full h-full opacity-40 group-hover:opacity-75 transition-opacity mix-blend-color-dodge" xmlns="http://www.w3.org/2000/svg">
               <circle cx="15%" cy="20%" r="1.2" fill="#FFE58F" />
               <circle cx="40%" cy="15%" r="1.5" fill="#FFF0B3" />
               <circle cx="65%" cy="35%" r="1" fill="#FFE58F" />
@@ -156,12 +172,12 @@ export default function VIPCard({ customer }) {
           </div>
         )}
 
-        {/* LEVEL 4. PLATINUM (ULTIMATE): Cosmic Galaxy Nebula & Twinkling Constellation Stars */}
+        {/* LEVEL 4. PLATINUM (ULTIMATE): Cosmic Purple Nebula Burst & Star Constellations */}
         {currentTierKey === 'PLATINUM' && (
           <div className="absolute inset-0 pointer-events-none overflow-hidden z-0 opacity-90">
-            {/* Pulsing Purple Cosmic Nebula */}
-            <div className="absolute -top-16 -right-16 w-64 h-64 bg-purple-600/30 rounded-full blur-3xl animate-pulse"></div>
-            <div className="absolute -bottom-12 -left-12 w-52 h-52 bg-indigo-600/25 rounded-full blur-2xl"></div>
+            {/* Pulsing Purple Cosmic Nebula expanding on hover */}
+            <div className="absolute -top-16 -right-16 w-64 h-64 bg-purple-600/30 rounded-full blur-3xl group-hover:scale-135 group-hover:bg-purple-600/45 transition-all duration-700"></div>
+            <div className="absolute -bottom-12 -left-12 w-52 h-52 bg-indigo-600/25 rounded-full blur-2xl group-hover:scale-125 transition-transform duration-700"></div>
             {/* Multi-layered 3D Twinkling Star Constellations */}
             <div className="absolute top-3 left-8 w-1 h-1 bg-white rounded-full shadow-[0_0_6px_#fff] animate-pulse"></div>
             <div className="absolute top-10 left-1/4 w-1.5 h-1.5 bg-white/95 rounded-full shadow-[0_0_8px_#fff]"></div>
@@ -173,7 +189,7 @@ export default function VIPCard({ customer }) {
             <div className="absolute bottom-4 left-1/3 w-1 h-1 bg-white/80 rounded-full"></div>
             <div className="absolute top-12 right-1/4 w-0.5 h-0.5 bg-white/80 rounded-full"></div>
             <div className="absolute bottom-10 right-1/3 w-1.5 h-1.5 bg-amber-200/90 rounded-full shadow-[0_0_6px_#fde68a]"></div>
-            <svg className="absolute inset-0 w-full h-full opacity-50 mix-blend-screen" xmlns="http://www.w3.org/2000/svg">
+            <svg className="absolute inset-0 w-full h-full opacity-50 group-hover:opacity-90 transition-opacity mix-blend-screen" xmlns="http://www.w3.org/2000/svg">
               <circle cx="15%" cy="25%" r="1" fill="#ffffff" />
               <circle cx="35%" cy="15%" r="1.5" fill="#ffffff" />
               <circle cx="55%" cy="30%" r="0.8" fill="#ffffff" />
@@ -196,8 +212,21 @@ export default function VIPCard({ customer }) {
             <h3 className="text-xl font-extrabold font-mono tracking-wider mt-0.5 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.95)]">{customer?.fullName?.toUpperCase() || 'KHÁCH HÀNG'}</h3>
           </div>
           <div className="flex flex-col items-end gap-1.5">
-            <span className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider shadow-md flex items-center gap-1 ${currentTierKey === 'GOLD' ? 'bg-gradient-to-r from-[#FFF0B3] via-[#E2B755] to-[#B38728] text-slate-950 border border-[#FFF8D6]' : 'bg-white/20 backdrop-blur-md border border-white/20 text-white'}`}>
-              <Crown className={`w-3.5 h-3.5 ${currentTierKey === 'GOLD' ? 'text-slate-950' : 'text-amber-300'}`} />
+            <span className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider shadow-md flex items-center gap-1 transition-all duration-300 ${
+              currentTierKey === 'GOLD' 
+                ? 'bg-gradient-to-r from-[#FFF0B3] via-[#E2B755] to-[#B38728] text-slate-950 border border-[#FFF8D6] group-hover:scale-110 group-hover:shadow-[0_0_15px_#fde68a]' 
+                : currentTierKey === 'PLATINUM'
+                ? 'bg-gradient-to-r from-purple-300 via-purple-400 to-indigo-300 text-purple-950 border border-purple-200 group-hover:scale-110 group-hover:shadow-[0_0_20px_#e9d5ff]'
+                : currentTierKey === 'SILVER'
+                ? 'bg-gradient-to-r from-slate-100 via-slate-200 to-slate-300 text-slate-950 border border-white group-hover:scale-105 group-hover:shadow-[0_0_10px_#e2e8f0]'
+                : 'bg-white/20 backdrop-blur-md border border-white/20 text-white group-hover:scale-105'
+            }`}>
+              <Crown className={`w-3.5 h-3.5 transition-transform duration-300 ${
+                currentTierKey === 'GOLD' ? 'text-slate-950 group-hover:rotate-12' :
+                currentTierKey === 'PLATINUM' ? 'text-purple-950 group-hover:-rotate-12' :
+                currentTierKey === 'SILVER' ? 'text-slate-900 group-hover:rotate-6' :
+                'text-amber-300'
+              }`} />
               {currentTierKey}
             </span>
             <span className="text-[10px] bg-black/40 hover:bg-black/60 px-2 py-0.5 rounded-full text-white font-semibold transition flex items-center gap-1 group-hover:scale-105 border border-white/20 shadow-sm backdrop-blur-sm">
