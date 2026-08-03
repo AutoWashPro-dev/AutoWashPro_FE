@@ -84,7 +84,7 @@ export default function CustomerGaragePage() {
       const bPlate = String(b.vehicle?.plate || b.vehicle?.licensePlate || b.licensePlate || b.plate || '').toLowerCase().replace(/[^a-z0-9]/g, '');
       const rawStatus = String(b.status || b.rawStatus || '').toUpperCase();
       const isStatusMatch = rawStatus === 'COMPLETED' || rawStatus === 'FINISHED' || rawStatus === 'PAID';
-      
+
       const isIdMatch = vehId && bVehId && vehId === bVehId;
       const isPlateMatch = vehPlate && bPlate && vehPlate === bPlate;
 
@@ -169,10 +169,10 @@ export default function CustomerGaragePage() {
 
     const isFirstVehicle = vehicles.length === 0;
 
-    const payload = { 
-      model: trimmedModel, 
-      licensePlate: trimmedPlate, 
-      isDefault: isFirstVehicle ? true : isDefault 
+    const payload = {
+      model: trimmedModel,
+      licensePlate: trimmedPlate,
+      isDefault: isFirstVehicle ? true : isDefault
     };
 
     setVehiclePayloadToConfirm(payload);
@@ -194,21 +194,21 @@ export default function CustomerGaragePage() {
         if (vehiclePayloadToConfirm.isDefault) {
           updatedVehicles = updatedVehicles.map(v => ({ ...v, isDefault: false }));
         }
-        setVehicles(updatedVehicles.map(v => 
-          v.vehicleId === editingVehicle.vehicleId 
-            ? { ...v, model: trimmedModel, licensePlate: trimmedPlate, vehicleType, isDefault: vehiclePayloadToConfirm.isDefault } 
+        setVehicles(updatedVehicles.map(v =>
+          v.vehicleId === editingVehicle.vehicleId
+            ? { ...v, model: trimmedModel, licensePlate: trimmedPlate, vehicleType, isDefault: vehiclePayloadToConfirm.isDefault }
             : v
         ));
         showAlert('Cập nhật xe thành công!', 'success', 'Thành công');
       } else {
         // Thêm xe mới qua API
         const newVeh = await customerApi.addVehicle(vehiclePayloadToConfirm);
-        
+
         let updatedVehicles = [...vehicles];
         if (isFirstVehicle || vehiclePayloadToConfirm.isDefault) {
           updatedVehicles = updatedVehicles.map(v => ({ ...v, isDefault: false }));
         }
-        
+
         // Enforce fallback for the new vehicle data
         const safeVeh = {
           ...newVeh,
@@ -221,7 +221,7 @@ export default function CustomerGaragePage() {
           vehicleType: newVeh.vehicleType || vehicleType || 'N/A',
           isDefault: isFirstVehicle ? true : vehiclePayloadToConfirm.isDefault
         };
-        
+
         setVehicles([...updatedVehicles, safeVeh]);
         showAlert('Đăng ký xe mới thành công!', 'success', 'Thành công');
       }
@@ -284,7 +284,7 @@ export default function CustomerGaragePage() {
     try {
       const vehicleId = veh.vehicleId || veh.id;
       await customerApi.setDefaultVehicle(vehicleId);
-      
+
       // Optimistic UI Update
       setVehicles(vehicles.map(v => ({
         ...v,
@@ -299,7 +299,7 @@ export default function CustomerGaragePage() {
 
   return (
     <div className="space-y-8 pb-12">
-      
+
       {/* KHU VỰC THÔNG TIN TIÊU ĐỀ */}
       <div className="flex justify-between items-center">
         <div>
@@ -317,9 +317,9 @@ export default function CustomerGaragePage() {
         </div>
       ) : vehicles.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          
+
           {/* Card đăng ký xe nhanh (Dạng nét đứt) */}
-          <div 
+          <div
             onClick={handleOpenAddModal}
             className="border-2 border-dashed border-slate-350 hover:border-blue-500 rounded-xl p-6 flex flex-col justify-center items-center gap-2 cursor-pointer transition-all hover:bg-blue-50/5 h-44 group"
           >
@@ -331,12 +331,12 @@ export default function CustomerGaragePage() {
 
           {/* Render danh sách xe */}
           {vehicles.map(veh => (
-            <div 
-              key={veh.vehicleId} 
+            <div
+              key={veh.vehicleId}
               className="relative group cursor-pointer"
               onClick={() => setDetailVehicleModal(veh)}
             >
-              <VehicleCard 
+              <VehicleCard
                 vehicle={veh}
                 isDefault={veh.isDefault}
                 isSelectable={true}
@@ -355,7 +355,7 @@ export default function CustomerGaragePage() {
             <Car size={24} />
           </div>
           <p>Ga-ra của bạn đang trống trơn. Hãy đăng ký chiếc xe đầu tiên của mình nhé!</p>
-          <button 
+          <button
             onClick={handleOpenAddModal}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg text-xs font-bold"
           >
@@ -368,13 +368,13 @@ export default function CustomerGaragePage() {
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl w-full max-w-md overflow-hidden shadow-2xl relative p-6">
-            
+
             {/* Header Modal */}
             <div className="flex justify-between items-center border-b pb-4 mb-4">
               <h3 className="font-bold text-slate-800 text-base">
                 {editingVehicle ? 'Cập nhật thông tin xe máy' : 'Đăng ký xe máy mới'}
               </h3>
-              <button 
+              <button
                 onClick={() => setIsModalOpen(false)}
                 className="p-1.5 text-slate-400 hover:text-slate-700 hover:bg-slate-50 rounded-full"
               >
@@ -384,12 +384,12 @@ export default function CustomerGaragePage() {
 
             {/* Form */}
             <form onSubmit={handleSaveVehicle} className="space-y-4">
-              
+
               {/* Tên xe */}
               <div>
                 <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">Tên/Dòng xe máy</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={model}
                   onChange={(e) => setModel(e.target.value)}
                   placeholder="Ví dụ: Honda SH 150i, Yamaha Exciter..."
@@ -400,8 +400,8 @@ export default function CustomerGaragePage() {
 
               <div>
                 <label className="block text-[10px] font-bold text-slate-400 uppercase mb-1.5">Biển số xe</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   value={licensePlate}
                   onChange={handleLicensePlateChange}
                   onBlur={handleLicensePlateChange}
@@ -417,8 +417,8 @@ export default function CustomerGaragePage() {
 
               {/* Checkbox đặt mặc định */}
               <div className="flex items-center gap-2 pt-2">
-                <input 
-                  type="checkbox" 
+                <input
+                  type="checkbox"
                   id="isDefault"
                   checked={isDefault}
                   onChange={(e) => setIsDefault(e.target.checked)}
@@ -439,14 +439,14 @@ export default function CustomerGaragePage() {
 
               {/* Nút hành động */}
               <div className="flex justify-end gap-2 pt-4 border-t mt-6">
-                <button 
+                <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
                   className="px-4 py-2 border border-slate-200 hover:bg-slate-50 rounded-xl text-xs font-bold text-slate-500"
                 >
                   Hủy bỏ
                 </button>
-                <button 
+                <button
                   type="submit"
                   disabled={!model.trim() || !licensePlate.trim() || !!licensePlateError}
                   className="px-5 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold shadow-sm disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed"
@@ -461,7 +461,7 @@ export default function CustomerGaragePage() {
       )}
       {/* 4. Add New Vehicle Confirmation Modal */}
       {isVehicleConfirmModalOpen && vehiclePayloadToConfirm && (
-        <div 
+        <div
           className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4"
           onClick={(e) => { if (e.target === e.currentTarget) setIsVehicleConfirmModalOpen(false); }}
         >
@@ -471,7 +471,7 @@ export default function CustomerGaragePage() {
             </div>
 
             <h3 className="text-base font-extrabold text-slate-800 mb-3 text-center">Xác nhận đăng ký phương tiện</h3>
-            
+
             <div className="w-full bg-slate-50 rounded-xl p-4 mb-5 text-xs text-left space-y-2.5 border border-slate-100">
               <div className="flex justify-between">
                 <span className="text-slate-400 font-medium">Tên/Dòng xe máy:</span>
@@ -587,16 +587,16 @@ export default function CustomerGaragePage() {
 
       {/* POPUP MODAL THÔNG TIN & THỐNG KÊ CHI TIẾT CỦA XE */}
       {detailVehicleModal && (
-        <div 
+        <div
           className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/70 backdrop-blur-md p-4 animate-fade-in text-left"
           onClick={(e) => { if (e.target === e.currentTarget) setDetailVehicleModal(null); }}
         >
           <div className="w-full max-w-md rounded-3xl bg-white shadow-2xl border border-slate-100 flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            
+
             {/* Header Modal */}
             <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 p-6 text-white relative overflow-hidden shrink-0">
               <div className="absolute top-0 right-0 w-36 h-36 bg-blue-500/10 rounded-full blur-2xl pointer-events-none"></div>
-              
+
               <div className="flex items-center justify-between relative z-10">
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-blue-500 to-indigo-600 flex items-center justify-center text-2xl shadow-lg shadow-blue-500/20 shrink-0 border border-white/20">
@@ -629,7 +629,7 @@ export default function CustomerGaragePage() {
 
             {/* Body Modal */}
             <div className="p-6 space-y-5 overflow-y-auto">
-              
+
               {/* Thống kê lịch sử rửa xe của xe này */}
               <div className="space-y-2">
                 <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block">Thống kê dịch vụ tại NovaWash</span>
@@ -656,10 +656,6 @@ export default function CustomerGaragePage() {
 
               {/* Thông tin phương tiện */}
               <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 space-y-2.5 text-xs text-left">
-                <div className="flex justify-between items-center border-b border-slate-200/60 pb-2">
-                  <span className="text-slate-500 font-medium">Loại phương tiện:</span>
-                  <span className="font-extrabold text-slate-800">{detailVehicleModal.vehicleType || 'Xe máy'}</span>
-                </div>
                 <div className="flex justify-between items-center border-b border-slate-200/60 pb-2">
                   <span className="text-slate-500 font-medium">Tên dòng xe:</span>
                   <span className="font-extrabold text-slate-800">{detailVehicleModal.model}</span>

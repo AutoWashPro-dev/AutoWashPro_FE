@@ -536,7 +536,7 @@ export default function AdminCustomersLoyaltyPage() {
         { label: 'Mã voucher', value: campaignForm.code.toUpperCase() },
         { label: 'Tên voucher', value: campaignForm.name },
         { label: 'Mức giảm', value: discountLabel },
-        { label: 'Điểm yêu cầu', value: pointsRequired > 0 ? `${pointsRequired} Pts` : 'Miễn phí' },
+        { label: 'Cơ chế quy đổi', value: pointsRequired === -1 ? 'Tặng trực tiếp (-1)' : pointsRequired === 0 ? 'Miễn phí (0 Pts)' : `${pointsRequired} Pts (Đổi điểm)` },
         { label: 'Hạng tối thiểu', value: campaignForm.minTier },
         { label: 'Số ngày chưa ghé trạm', value: `${campaignForm.minRecencyDays} ngày` }
       ],
@@ -557,8 +557,8 @@ export default function AdminCustomersLoyaltyPage() {
 
             let promoTargetCount = 0;
 
-            // 2. Nếu là Campaign Marketing (Cost Points = 0), phát hành trực tiếp
-            if (pointsRequired === 0) {
+            // 2. Nếu là Tặng trực tiếp (Cost Points = -1), phát hành trực tiếp vào ví khách
+            if (pointsRequired === -1) {
               const targetList = customers.filter(c => {
                 const customerLevel = tierLevels[c.tier] ?? 0;
                 const targetLevel = tierLevels[campaignForm.minTier] ?? 0;
@@ -584,8 +584,10 @@ export default function AdminCustomersLoyaltyPage() {
 
             setNotificationModal({
               title: 'Tạo mới thành công!',
-              content: pointsRequired === 0
-                ? `Đã phát hành chiến dịch Voucher tiếp thị ${campaignForm.code.toUpperCase()}! Voucher đã được tặng trực tiếp vào ví của ${promoTargetCount} khách hàng thỏa mãn điều kiện.`
+              content: pointsRequired === -1
+                ? `Đã phát hành chiến dịch Voucher tiếp thị ${campaignForm.code.toUpperCase()}! Voucher đã được tặng trực tiếp (-1) vào ví của ${promoTargetCount} khách hàng thỏa mãn điều kiện.`
+                : pointsRequired === 0
+                ? `Đã phát hành Voucher miễn phí (0 Pts) ${campaignForm.code.toUpperCase()}! Khách hàng có thể lấy miễn phí tại Kho Voucher.`
                 : `Đã khởi tạo quy định đổi điểm cho Voucher ${campaignForm.code.toUpperCase()}! Voucher trị giá ${discountLabel} (cần ${pointsRequired} Pts) đã xuất hiện tại Shop quy đổi.`,
               type: 'success'
             });
@@ -1147,8 +1149,20 @@ export default function AdminCustomersLoyaltyPage() {
                               </div>
                             </div>
                           </td>
-                          <td className="py-3 px-3 font-black text-amber-600">
-                            {camp.costPoints > 0 ? `${camp.costPoints} Pts` : 'Miễn phí'}
+                          <td className="py-3 px-3 font-black">
+                            {Number(camp.costPoints) === -1 ? (
+                              <span className="px-2 py-0.5 bg-purple-100 text-purple-800 rounded font-black text-[10px] border border-purple-200">
+                                Tặng trực tiếp (-1)
+                              </span>
+                            ) : Number(camp.costPoints) === 0 ? (
+                              <span className="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded font-black text-[10px] border border-emerald-200">
+                                Miễn phí (0 Pts)
+                              </span>
+                            ) : (
+                              <span className="text-amber-600 font-mono font-extrabold text-xs">
+                                {camp.costPoints} Pts
+                              </span>
+                            )}
                           </td>
                           <td className="py-3 px-3">
                             <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded text-[9px] font-bold">
@@ -1961,12 +1975,12 @@ export default function AdminCustomersLoyaltyPage() {
               <div className="bg-indigo-50/20 border border-indigo-100/40 p-4 rounded-xl space-y-3">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <label className="font-bold text-indigo-800 block mb-1">Cài đặt quy đổi điểm ví</label>
+                    <label className="font-bold text-indigo-800 block mb-1">Cài đặt quy đổi điểm ví *</label>
                     <input
                       type="number"
                       required
-                      min="0"
-                      placeholder="Nhập 0 nếu phát miễn phí"
+                      min="-1"
+                      placeholder="Nhập -1: Tặng trực tiếp, 0: Miễn phí, >0: Đổi điểm"
                       value={campaignForm.costPoints}
                       onChange={e => {
                         const pts = e.target.value;
@@ -1985,7 +1999,9 @@ export default function AdminCustomersLoyaltyPage() {
                       }}
                       className="w-full px-3 py-2 bg-white border border-indigo-200 rounded-lg text-slate-700 text-xs font-black text-center focus:ring-indigo-500 focus:border-indigo-500"
                     />
-                    <span className="text-[9px] text-slate-400 block mt-1">Nhập `0` để **tặng trực tiếp**. Nhập `{'>'} 0` nếu muốn khách **đổi điểm**.</span>
+                    <span className="text-[9px] text-slate-500 block mt-1.5 leading-normal text-left">
+                      Nhập <strong className="text-purple-700 font-black">'-1'</strong> để <strong className="text-purple-700 font-extrabold">"tặng trực tiếp"</strong>. Nhập <strong className="text-emerald-700 font-black">'0'</strong> để <strong className="text-emerald-700 font-extrabold">"miễn phí"</strong>. Nhập <strong className="text-amber-700 font-black">'{'>'} 0'</strong> nếu muốn khách <strong className="text-amber-700 font-extrabold">"đổi điểm"</strong>.
+                    </span>
                   </div>
                   <div>
                     <label className="font-bold text-slate-600 block mb-1">Tổng ngân sách (vouchers)</label>

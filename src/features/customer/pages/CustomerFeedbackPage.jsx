@@ -319,8 +319,8 @@ export default function CustomerFeedbackPage() {
                         key={b.bookingId}
                         onClick={() => setSelectedBookingId(b.bookingId)}
                         className={`relative p-3.5 rounded-2xl border text-left transition-all duration-200 cursor-pointer ${isSelected
-                            ? 'border-2 border-blue-600 bg-gradient-to-br from-blue-50/90 via-sky-50/50 to-white shadow-md ring-2 ring-blue-500/20 scale-[1.01]'
-                            : 'border-slate-200/80 bg-slate-50/60 hover:bg-white hover:border-blue-300 hover:shadow-sm'
+                          ? 'border-2 border-blue-600 bg-gradient-to-br from-blue-50/90 via-sky-50/50 to-white shadow-md ring-2 ring-blue-500/20 scale-[1.01]'
+                          : 'border-slate-200/80 bg-slate-50/60 hover:bg-white hover:border-blue-300 hover:shadow-sm'
                           }`}
                       >
                         {isSelected && (
@@ -403,13 +403,6 @@ export default function CustomerFeedbackPage() {
                     ></textarea>
                   </div>
 
-                  {/* Chú thích AI Sentiment */}
-                  <div className="flex items-start gap-2 bg-blue-50/50 border border-blue-100 p-3 rounded-xl text-[10px] text-slate-500 leading-relaxed">
-                    <ShieldAlert size={14} className="text-blue-500 shrink-0 mt-0.5" />
-                    <span>
-                      * Ý kiến đóng góp của bạn được phân tích tự động bằng AI Sentiment để chấm điểm chất lượng trạm rửa xe. Admin có quyền gửi tặng voucher đền bù nếu dịch vụ phát sinh lỗi không mong muốn.
-                    </span>
-                  </div>
 
                   {/* Nút gửi */}
                   <button
@@ -616,8 +609,8 @@ export default function CustomerFeedbackPage() {
                 onClick={handleConfirmSubmitFeedback}
                 disabled={isSubmitting}
                 className={`py-2.5 px-4 text-white rounded-xl text-xs font-extrabold shadow-md transition cursor-pointer flex items-center justify-center gap-1.5 ${rating >= 4
-                    ? 'bg-gradient-to-r from-blue-600 via-sky-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-blue-500/20'
-                    : 'bg-gradient-to-r from-amber-600 to-rose-600 hover:from-amber-700 hover:to-rose-700 shadow-rose-500/20'
+                  ? 'bg-gradient-to-r from-blue-600 via-sky-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 shadow-blue-500/20'
+                  : 'bg-gradient-to-r from-amber-600 to-rose-600 hover:from-amber-700 hover:to-rose-700 shadow-rose-500/20'
                   }`}
               >
                 {isSubmitting ? (
