@@ -1110,20 +1110,18 @@ const handleDeleteClosure = (closureId) => {
                 <div className="space-y-1">
                   <div className="flex justify-between items-center">
                     <label className="font-bold text-slate-600 block">Thời lượng (phút) *</label>
-                    {serviceForm.type === 'core' && (
-                      <span className="text-[10px] text-blue-600 font-extrabold bg-blue-50 px-2 py-0.5 rounded">
-                        ⚡ Tự động cộng
-                      </span>
-                    )}
+                    <span className="text-[10px] text-indigo-700 font-extrabold bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
+                      ⏱️ Staff tùy chỉnh thời gian
+                    </span>
                   </div>
                   <input
                     type="number"
                     required
-                    readOnly={serviceForm.type === 'core' && (serviceForm.includedServiceIds || []).length > 0}
-                    placeholder="Ví dụ: 20"
+                    min="1"
+                    placeholder="Ví dụ: 15"
                     value={serviceForm.duration}
                     onChange={e => setServiceForm({...serviceForm, duration: e.target.value})}
-                    className={`w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-700 ${serviceForm.type === 'core' && (serviceForm.includedServiceIds || []).length > 0 ? 'bg-slate-100 cursor-not-allowed text-blue-600 font-black' : ''}`}
+                    className="w-full px-3.5 py-2.5 bg-white border border-indigo-200 focus:border-indigo-600 rounded-xl font-black text-indigo-900 text-sm shadow-xs focus:ring-2 focus:ring-indigo-500/20"
                   />
                 </div>
               </div>
@@ -1165,7 +1163,7 @@ const handleDeleteClosure = (closureId) => {
                     </span>
                   </div>
                   <p className="text-[10px] text-slate-500 font-medium leading-relaxed">
-                    Tích chọn các dịch vụ Add-on. Thời lượng gói chính sẽ <strong>tự động cộng dồn</strong> từ tổng số phút của các dịch vụ Add-on được chọn.
+                    Tích chọn các dịch vụ Add-on thành phần. Staff có thể <strong>tự do thay đổi và tùy chỉnh lại thời lượng (phút)</strong> của gói dịch vụ ở ô nhập phía trên.
                   </p>
 
                   <div className="max-h-48 overflow-y-auto space-y-1.5 p-2 bg-slate-50 border border-slate-200 rounded-xl">
