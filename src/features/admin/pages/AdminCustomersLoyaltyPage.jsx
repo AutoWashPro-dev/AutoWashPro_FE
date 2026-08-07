@@ -30,7 +30,8 @@ import {
   Edit,
   Trash2,
   Lock,
-  Unlock
+  Unlock,
+  Tag
 } from 'lucide-react';
 import { loyaltyApi } from '../services/loyaltyApi';
 import { promotionApi } from '../services/promotionApi';
@@ -1575,23 +1576,29 @@ export default function AdminCustomersLoyaltyPage() {
                           ) : (
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                               {selectedCustVouchers.map((vch, idx) => (
-                                <div key={idx} className="bg-slate-50 border border-slate-200/60 rounded-xl p-3.5 flex items-center justify-between shadow-sm relative overflow-hidden">
-                                  <div className="absolute left-0 top-1/2 -translate-y-1/2 w-3.5 h-3.5 bg-white rounded-full border-r border-slate-200/60" />
-                                  <div className="absolute right-0 top-1/2 -translate-y-1/2 w-3.5 h-3.5 bg-white rounded-full border-l border-slate-200/60" />
-
-                                  <div className="pl-2 space-y-1">
-                                    <div className="font-black text-slate-800 flex items-center gap-1.5">
-                                      {vch.code}
-                                    </div>
-                                    <p className="text-[10px] text-slate-400 font-bold">{vch.name}</p>
+                                <div key={idx} className="bg-white border border-slate-200/80 rounded-2xl flex items-stretch shadow-sm relative overflow-hidden">
+                                  {/* Left Ticket Stub Accent */}
+                                  <div className="w-16 bg-gradient-to-br from-rose-500 via-rose-600 to-pink-600 text-white flex flex-col items-center justify-center p-2 shrink-0 relative">
+                                    <span className="text-[8px] uppercase font-extrabold text-white/80 tracking-tighter">VOUCHER</span>
+                                    <Tag className="w-3.5 h-3.5 text-white mt-0.5" />
                                   </div>
 
-                                  <span className={`px-2 py-0.5 rounded text-[8px] font-black mr-2 ${vch.status === 'ISSUED' ? 'bg-indigo-50 text-indigo-700 border border-indigo-100' :
-                                    vch.status === 'USED' ? 'bg-slate-200 text-slate-550' : 'bg-rose-50 text-rose-500'
-                                    }`}>
-                                    {vch.status === 'ISSUED' ? 'Có thể dùng' :
-                                      vch.status === 'USED' ? 'Đã dùng' : 'Hết hạn'}
-                                  </span>
+                                  {/* Right Ticket Body */}
+                                  <div className="flex-1 p-3 flex items-center justify-between min-w-0">
+                                    <div className="space-y-0.5 min-w-0 pr-1 text-left">
+                                      <div className="font-mono font-black text-slate-800 text-xs truncate">
+                                        {vch.code}
+                                      </div>
+                                      <p className="text-[10px] text-slate-500 font-medium truncate">{vch.name}</p>
+                                    </div>
+
+                                    <span className={`px-2 py-0.5 rounded-lg text-[9px] font-black shrink-0 ${vch.status === 'ISSUED' ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' :
+                                      vch.status === 'USED' ? 'bg-slate-100 text-slate-500 border border-slate-200' : 'bg-rose-50 text-rose-600 border border-rose-200'
+                                      }`}>
+                                      {vch.status === 'ISSUED' ? 'Có thể dùng' :
+                                        vch.status === 'USED' ? 'Đã dùng' : 'Hết hạn'}
+                                    </span>
+                                  </div>
                                 </div>
                               ))}
                             </div>

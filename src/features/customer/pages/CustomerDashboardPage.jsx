@@ -163,20 +163,20 @@ export default function CustomerDashboardPage() {
       }
 
       if (Array.isArray(servicesData) && servicesData.length > 0) {
-        const mainPackages = servicesData.filter(s => s.serviceType === 'PACKAGE');
+        const mainPackages = servicesData.filter(s => s.serviceType === 'PACKAGE' || (s.serviceCode && s.serviceCode.startsWith('PKG-')));
         const sortedServices = [...mainPackages].sort((a, b) => Number(a.price || 0) - Number(b.price || 0));
         setRecommendedServices(sortedServices.slice(0, 3).map((s, idx) => ({
           id: s.serviceId || s.id,
           title: s.serviceName || s.name,
           price: s.price || 0,
-          description: s.description || 'Dịch vụ chăm sóc xe chuyên nghiệp.',
+          description: s.description || s.desc || 'Dịch vụ chăm sóc xe chuyên nghiệp.',
           tag: s.tagLabel || s.tag || (idx === 0 ? 'PHỔ BIẾN' : idx === 1 ? 'BÁN CHẠY' : 'GÓI HOT VIP')
         })));
       } else {
         setRecommendedServices([
-          { id: 1, title: "Rửa xe bọt tuyết Siêu Sạch (Basic)", price: 50000, description: "Rửa sườn, xịt gầm, làm sạch bánh xe và thổi khô gas-đầy đủ.", tag: "PHỔ BIẾN" },
-          { id: 2, title: "Phủ bóng Wax bóng bảo vệ sơn (Premium)", price: 90000, description: "Rửa xe cao cấp kết hợp phủ sáp siêu bóng bảo vệ dàn nhựa xe ga.", tag: "BÁN CHẠY" },
-          { id: 3, title: "Dọn rửa Chi tiết Côn tay / PKL (Deluxe)", price: 150000, description: "Tẩy ố lazang, vệ sinh sên đĩa xích, dưỡng bóng dàn áo xe phân khối lớn.", tag: "GÓI HOT VIP" }
+          { id: 1, title: "Gói Rửa Xe Tiêu Chuẩn", price: 30000, description: "Quy trình rửa sạch nhanh toàn thân xe, thổi khô kiệt nước và lau bóng chuẩn tiệm.", tag: "PHỔ BIẾN" },
+          { id: 2, title: "Gói Chăm Sóc Cao Cấp", price: 60000, description: "Rửa bọt tuyết kết hợp tẩy rửa dầu nhờn gầm máy, quét dưỡng đen lốp và tra mỡ xích.", tag: "BÁN CHẠY" },
+          { id: 3, title: "Gói Chăm Sóc Siêu Cấp & Bảo Dưỡng VIP", price: 110000, description: "Gói bảo dưỡng toàn diện từ chi tiết khoang máy đến dọn xích nhông đĩa, phục hồi nhựa nhám dàn áo.", tag: "GÓI HOT VIP" }
         ]);
       }
 

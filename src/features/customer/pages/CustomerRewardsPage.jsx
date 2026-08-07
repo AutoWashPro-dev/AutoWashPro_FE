@@ -793,7 +793,7 @@ export default function CustomerRewardsPage() {
         {/* Cánh trái: Hiển thị Mệnh giá */}
         <div className={`w-28 self-stretch flex flex-col justify-center items-center text-white p-3 relative shrink-0 ${voucher.isExpired
           ? 'bg-slate-400'
-          : 'bg-gradient-to-b from-indigo-600 via-blue-600 to-indigo-700 shadow-md shadow-indigo-500/10'
+          : 'bg-gradient-to-b from-rose-500 via-rose-600 to-pink-600 shadow-md shadow-rose-500/10'
           }`}>
           {/* Semicircles Cutouts */}
           <div className="absolute top-0 right-0 w-3 h-3 bg-slate-50 rounded-bl-full pointer-events-none"></div>
@@ -819,7 +819,7 @@ export default function CustomerRewardsPage() {
           <div className="space-y-2 text-left">
             <div className="flex justify-between items-start gap-2">
               <h4 className="font-extrabold text-slate-800 text-sm leading-snug line-clamp-1">{voucher.title}</h4>
-              <span className="text-[9px] font-black text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100">
+              <span className="text-[9px] font-black text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-100">
                 Khả dụng
               </span>
             </div>
@@ -859,10 +859,12 @@ export default function CustomerRewardsPage() {
             <button
               disabled={voucher.isExpired}
               onClick={onUse}
-              className={`px-4 py-1.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-[10px] font-black tracking-wider uppercase shadow transition-all active:scale-[0.98] ${voucher.isExpired ? 'bg-slate-200 text-slate-400 cursor-not-allowed shadow-none' : 'cursor-pointer'
+              className={`px-4 py-1.5 text-xs font-black rounded-full transition-all active:scale-[0.98] ${voucher.isExpired
+                ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed shadow-none'
+                : 'bg-gradient-to-r from-rose-500 via-rose-600 to-pink-600 hover:from-rose-600 hover:to-pink-700 text-white shadow-md shadow-rose-600/20 cursor-pointer'
                 }`}
             >
-              Sử dụng
+              SỬ DỤNG
             </button>
           </div>
         </div>

@@ -235,11 +235,31 @@ export const customerApi = {
   getActiveServices: async () => {
     try {
       const res = await api.get('/customer/bookings/services');
-      return res.data || [];
+      if (Array.isArray(res.data) && res.data.length > 0) {
+        return res.data;
+      }
     } catch (err) {
-      console.warn('API getActiveServices error:', err.message);
-      return [];
+      console.warn('API getActiveServices error, using demo fallback:', err.message);
     }
+    const srvFoamStd = { id: 'SRV-10', serviceId: 10, serviceCode: 'SRV-FOAM-STD', serviceName: 'Rửa bọt tuyết tiêu chuẩn', price: 15000, durationMinutes: 10, serviceType: 'SINGLE_SERVICE', description: 'Làm sạch bụi bẩn toàn thân xe bằng bọt tuyết trung tính PH7 chuyên dụng' };
+    const srvDryAir = { id: 'SRV-11', serviceId: 11, serviceCode: 'SRV-DRY-AIR', serviceName: 'Xịt khô vòi khí nén', price: 10000, durationMinutes: 5, serviceType: 'SINGLE_SERVICE', description: 'Thổi sạch nước đọng lốc máy, công tắc và các khe kẽ bằng khí nén áp lực cao' };
+    const srvWipeShine = { id: 'SRV-12', serviceId: 12, serviceCode: 'SRV-WIPE-SHINE', serviceName: 'Lau khô & lau bóng dàn áo', price: 10000, durationMinutes: 5, serviceType: 'SINGLE_SERVICE', description: 'Lau khô kiệt nước và lau bóng dàn áo bằng khăn microfiber mịn chống trầy sơn' };
+    const srvDegreaseEng = { id: 'SRV-13', serviceId: 13, serviceCode: 'SRV-DEGREASE-ENG', serviceName: 'Tẩy nhờn lốc máy & gầm xe', price: 20000, durationMinutes: 10, serviceType: 'SINGLE_SERVICE', description: 'Tẩy sạch mảng bám dầu nhớt bẩn lâu ngày dưới gầm và lốc máy xe' };
+    const srvWashDetail = { id: 'SRV-14', serviceId: 14, serviceCode: 'SRV-WASH-DETAIL', serviceName: 'Rửa chi tiết khoang máy & phuộc', price: 35000, durationMinutes: 15, serviceType: 'SINGLE_SERVICE', description: 'Vệ sinh cẩn thận từng ngóc ngách, con ốc, gắp sau và ti phuộc xe máy' };
+
+    const addTyreDress = { id: 'SRV-20', serviceId: 20, serviceCode: 'ADD-TYRE-DRESS', serviceName: 'Quét mỡ dưỡng bóng đen lốp xe', price: 15000, durationMinutes: 5, serviceType: 'ADDON', description: 'Bảo vệ cao su lốp chống nứt nẻ, tạo độ bóng đen tự nhiên như xe mới xuất xưởng' };
+    const addChainClean = { id: 'SRV-21', serviceId: 21, serviceCode: 'ADD-CHAIN-CLEAN', serviceName: 'Tẩy rửa nhông sên dĩa (xích)', price: 25000, durationMinutes: 15, serviceType: 'ADDON', description: 'Tẩy sạch cặn mỡ đen, rỉ sét bám trên xích sên bằng chai xịt dung dịch chuyên dụng' };
+    const addChainLube = { id: 'SRV-22', serviceId: 22, serviceCode: 'ADD-CHAIN-LUBE', serviceName: 'Tra mỡ bôi trơn xích Motul VIP', price: 15000, durationMinutes: 5, serviceType: 'ADDON', description: 'Tra dung dịch bôi trơn kết dính cao giúp xích êm ái, giảm ma sát và chống văng mỡ' };
+    const addPlasticRestore = { id: 'SRV-23', serviceId: 23, serviceCode: 'ADD-PLASTIC-RESTORE', serviceName: 'Phục hồi nhựa nhám dàn áo', price: 20000, durationMinutes: 10, serviceType: 'ADDON', description: 'Dưỡng phục hồi các chi tiết nhựa nhám bị ố trắng, bạc màu do nắng mưa' };
+    const addHelmetSan = { id: 'SRV-24', serviceId: 24, serviceCode: 'ADD-HELMET-SAN', serviceName: 'Vệ sinh sấy khử khuẩn mũ bảo hiểm', price: 15000, durationMinutes: 10, serviceType: 'ADDON', description: 'Diệt khuẩn nấm mốc lót mũ bằng bọt nano và sấy khô bằng tia UV khử mùi' };
+    const addWaxProtect = { id: 'SRV-25', serviceId: 25, serviceCode: 'ADD-WAX-PROTECT', serviceName: 'Phủ sáp bóng Gloss Shield bảo vệ sơn', price: 30000, durationMinutes: 10, serviceType: 'ADDON', description: 'Tạo lớp phủ bóng kháng nước nhẹ, chống bám bụi và bảo vệ lớp sơn bóng/sơn mờ' };
+
+    return [
+      { id: 'S-01', serviceId: 1, serviceCode: 'PKG-STD', serviceName: 'Gói Rửa Xe Tiêu Chuẩn', price: 30000, durationMinutes: 15, serviceType: 'PACKAGE', description: 'Quy trình rửa sạch nhanh toàn thân xe, thổi khô kiệt nước và lau bóng chuẩn tiệm', includedServices: [srvFoamStd, srvDryAir, srvWipeShine] },
+      { id: 'S-02', serviceId: 2, serviceCode: 'PKG-DELUXE', serviceName: 'Gói Chăm Sóc Cao Cấp', price: 60000, durationMinutes: 25, serviceType: 'PACKAGE', description: 'Rửa bọt tuyết kết hợp tẩy rửa dầu nhờn gầm máy, quét dưỡng đen lốp và tra mỡ xích', includedServices: [srvFoamStd, srvDegreaseEng, addTyreDress, addChainLube] },
+      { id: 'S-03', serviceId: 3, serviceCode: 'PKG-ULTIMATE', serviceName: 'Gói Chăm Sóc Siêu Cấp & Bảo Dưỡng VIP', price: 110000, durationMinutes: 40, serviceType: 'PACKAGE', description: 'Gói bảo dưỡng toàn diện từ chi tiết khoang máy đến dọn xích nhông đĩa, phục hồi nhựa nhám dàn áo và phủ bóng lốp', includedServices: [srvWashDetail, addChainClean, addChainLube, addPlasticRestore, addTyreDress] },
+      srvFoamStd, srvDryAir, srvWipeShine, srvDegreaseEng, srvWashDetail, addTyreDress, addChainClean, addChainLube, addPlasticRestore, addHelmetSan, addWaxProtect
+    ];
   },
 
   // Get available slots for a given date

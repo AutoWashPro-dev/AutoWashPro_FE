@@ -43,51 +43,65 @@ export const serviceCatalogApi = {
   getAllServices: async (activeOnly = false) => {
     try {
       const res = await api.get(`/admin/services?activeOnly=${activeOnly}`);
-      return res.data.map((item, idx) => ({
-        ...item,
-        id: item.serviceCode || `S-0${idx + 1}`,
-        serviceId: item.serviceId,
-        name: item.serviceName || item.name,
-        price: item.price,
-        duration: item.durationMinutes || item.duration || 15,
-        type: (item.serviceType === 'PACKAGE' || item.type === 'core') ? 'core' : 'addons',
-        serviceType: item.serviceType || (item.type === 'core' ? 'PACKAGE' : 'ADDON'),
-        desc: item.description || item.desc || '',
-        isActive: item.isActive !== undefined ? item.isActive : true,
-        includedServices: item.includedServices || []
-      }));
+      return res.data.map((item, idx) => {
+        const code = item.serviceCode || '';
+        let resolvedType = 'single';
+        if (item.serviceType === 'PACKAGE') {
+          resolvedType = 'combo';
+        } else if (item.serviceType === 'ADDON') {
+          resolvedType = 'addons';
+        } else {
+          resolvedType = 'single';
+        }
+
+        return {
+          ...item,
+          id: item.serviceCode || `S-0${idx + 1}`,
+          serviceId: item.serviceId,
+          name: item.serviceName || item.name,
+          price: item.price,
+          duration: item.durationMinutes || item.duration || 15,
+          type: resolvedType,
+          serviceType: item.serviceType || resolvedServiceType,
+          desc: item.description || item.desc || '',
+          isActive: item.isActive !== undefined ? item.isActive : true,
+          includedServices: item.includedServices || []
+        };
+      });
     } catch (err) {
       console.warn('API /admin/services offline or error, using full catalog fallback:', err.message);
-      const srvFoamSpec = { id: 'SRV-10', serviceId: 10, serviceCode: 'SRV-FOAM-SPEC', name: 'Rửa bọt tuyết chuyên dụng', price: 10000, duration: 5, type: 'addons', serviceType: 'ADDON', desc: 'Xịt bọt tuyết làm sạch cặn bẩn toàn thân xe chuyên dụng', isActive: true };
-      const srvDry = { id: 'SRV-11', serviceId: 11, serviceCode: 'SRV-DRY', name: 'Xịt khô', price: 10000, duration: 5, type: 'addons', serviceType: 'ADDON', desc: 'Xịt khô kiệt nước bằng súng hơi cao áp', isActive: true };
-      const srvShine = { id: 'SRV-12', serviceId: 12, serviceCode: 'SRV-SHINE', name: 'Lau bóng', price: 10000, duration: 5, type: 'addons', serviceType: 'ADDON', desc: 'Lau bóng mặt sơn bằng khăn microfiber chuyên dụng', isActive: true };
+      // 1. Dịch vụ đơn lẻ (SINGLE_SERVICE)
+      const srvFoamStd = { id: 'SRV-10', serviceId: 10, serviceCode: 'SRV-FOAM-STD', name: 'Rửa bọt tuyết tiêu chuẩn', price: 15000, duration: 10, type: 'single', serviceType: 'SINGLE_SERVICE', desc: 'Làm sạch bụi bẩn toàn thân xe bằng bọt tuyết trung tính PH7 chuyên dụng', isActive: true };
+      const srvDryAir = { id: 'SRV-11', serviceId: 11, serviceCode: 'SRV-DRY-AIR', name: 'Xịt khô vòi khí nén', price: 10000, duration: 5, type: 'single', serviceType: 'SINGLE_SERVICE', desc: 'Thổi sạch nước đọng lốc máy, công tắc và các khe kẽ bằng khí nén áp lực cao', isActive: true };
+      const srvWipeShine = { id: 'SRV-12', serviceId: 12, serviceCode: 'SRV-WIPE-SHINE', name: 'Lau khô & lau bóng dàn áo', price: 10000, duration: 5, type: 'single', serviceType: 'SINGLE_SERVICE', desc: 'Lau khô kiệt nước và lau bóng dàn áo bằng khăn microfiber mịn chống trầy sơn', isActive: true };
+      const srvDegreaseEng = { id: 'SRV-13', serviceId: 13, serviceCode: 'SRV-DEGREASE-ENG', name: 'Tẩy nhờn lốc máy & gầm xe', price: 20000, duration: 10, type: 'single', serviceType: 'SINGLE_SERVICE', desc: 'Tẩy sạch mảng bám dầu nhớt bẩn lâu ngày dưới gầm và lốc máy xe', isActive: true };
+      const srvWashDetail = { id: 'SRV-14', serviceId: 14, serviceCode: 'SRV-WASH-DETAIL', name: 'Rửa chi tiết khoang máy & phuộc', price: 35000, duration: 15, type: 'single', serviceType: 'SINGLE_SERVICE', desc: 'Vệ sinh cẩn thận từng ngóc ngách, con ốc, gắp sau và ti phuộc xe máy', isActive: true };
 
-      const srvFoam = { id: 'SRV-13', serviceId: 13, serviceCode: 'SRV-FOAM', name: 'Rửa bọt tuyết', price: 15000, duration: 10, type: 'addons', serviceType: 'ADDON', desc: 'Rửa bọt tuyết toàn thân xe máy', isActive: true };
-      const srvDegrease = { id: 'SRV-14', serviceId: 14, serviceCode: 'SRV-DEGREASE', name: 'Tẩy nhờn lốc máy', price: 20000, duration: 10, type: 'addons', serviceType: 'ADDON', desc: 'Tẩy sạch mảng bám dầu nhờn lốc máy và gầm xe', isActive: true };
-      const srvTyre = { id: 'SRV-15', serviceId: 15, serviceCode: 'SRV-TYRE', name: 'Dưỡng bóng lốp', price: 15000, duration: 5, type: 'addons', serviceType: 'ADDON', desc: 'Quét lớp dưỡng đen bảo vệ lốp xe', isActive: true };
-
-      const srvDetail = { id: 'SRV-16', serviceId: 16, serviceCode: 'SRV-DETAIL', name: 'Rửa chi tiết toàn diện', price: 35000, duration: 15, type: 'addons', serviceType: 'ADDON', desc: 'Vệ sinh từng ngóc ngách chi tiết toàn thân xe', isActive: true };
-      const srvChainClean = { id: 'SRV-17', serviceId: 17, serviceCode: 'SRV-CHAIN-CLEAN', name: 'Tẩy ố xích chíp', price: 20000, duration: 10, type: 'addons', serviceType: 'ADDON', desc: 'Tẩy cặn bẩn rỉ ố trên xích nhông đĩa', isActive: true };
-      const srvPlastic = { id: 'SRV-18', serviceId: 18, serviceCode: 'SRV-PLASTIC', name: 'Dưỡng nhựa nhám', price: 15000, duration: 10, type: 'addons', serviceType: 'ADDON', desc: 'Phục hồi màu nhựa nhám chống bạc màu do nắng', isActive: true };
-      const srvChainLube = { id: 'SRV-19', serviceId: 19, serviceCode: 'SRV-CHAIN-LUBE', name: 'Tra dầu xích', price: 10000, duration: 5, type: 'addons', serviceType: 'ADDON', desc: 'Tra mỡ bôi trơn chuyên dụng giúp xích vận hành êm ái', isActive: true };
+      // 2. Dịch vụ đi kèm / Add-on (ADDON)
+      const addTyreDress = { id: 'SRV-20', serviceId: 20, serviceCode: 'ADD-TYRE-DRESS', name: 'Quét mỡ dưỡng bóng đen lốp xe', price: 15000, duration: 5, type: 'addons', serviceType: 'ADDON', desc: 'Bảo vệ cao su lốp chống nứt nẻ, tạo độ bóng đen tự nhiên như xe mới xuất xưởng', isActive: true };
+      const addChainClean = { id: 'SRV-21', serviceId: 21, serviceCode: 'ADD-CHAIN-CLEAN', name: 'Tẩy rửa nhông sên dĩa (xích)', price: 25000, duration: 15, type: 'addons', serviceType: 'ADDON', desc: 'Tẩy sạch cặn mỡ đen, rỉ sét bám trên xích sên bằng chai xịt dung dịch chuyên dụng', isActive: true };
+      const addChainLube = { id: 'SRV-22', serviceId: 22, serviceCode: 'ADD-CHAIN-LUBE', name: 'Tra mỡ bôi trơn xích Motul VIP', price: 15000, duration: 5, type: 'addons', serviceType: 'ADDON', desc: 'Tra dung dịch bôi trơn kết dính cao giúp xích êm ái, giảm ma sát và chống văng mỡ', isActive: true };
+      const addPlasticRestore = { id: 'SRV-23', serviceId: 23, serviceCode: 'ADD-PLASTIC-RESTORE', name: 'Phục hồi nhựa nhám dàn áo', price: 20000, duration: 10, type: 'addons', serviceType: 'ADDON', desc: 'Dưỡng phục hồi các chi tiết nhựa nhám bị ố trắng, bạc màu do nắng mưa', isActive: true };
+      const addHelmetSan = { id: 'SRV-24', serviceId: 24, serviceCode: 'ADD-HELMET-SAN', name: 'Vệ sinh sấy khử khuẩn mũ bảo hiểm', price: 15000, duration: 10, type: 'addons', serviceType: 'ADDON', desc: 'Diệt khuẩn nấm mốc lót mũ bằng bọt nano và sấy khô bằng tia UV khử mùi', isActive: true };
+      const addWaxProtect = { id: 'SRV-25', serviceId: 25, serviceCode: 'ADD-WAX-PROTECT', name: 'Phủ sáp bóng Gloss Shield bảo vệ sơn', price: 30000, duration: 10, type: 'addons', serviceType: 'ADDON', desc: 'Tạo lớp phủ bóng kháng nước nhẹ, chống bám bụi và bảo vệ lớp sơn bóng/sơn mờ', isActive: true };
 
       return [
-        { id: 'S-01', serviceId: 1, serviceCode: 'PKG-STD', name: 'Rửa xe máy tiêu chuẩn', price: 30000, duration: 15, type: 'core', serviceType: 'PACKAGE', desc: 'Rửa bọt tuyết chuyên dụng, xịt khô, lau bóng', isActive: true, includedServices: [srvFoamSpec, srvDry, srvShine] },
-        { id: 'S-02', serviceId: 2, serviceCode: 'PKG-DELUXE', name: 'Rửa xe máy cao cấp', price: 50000, duration: 25, type: 'core', serviceType: 'PACKAGE', desc: 'Rửa bọt tuyết, tẩy nhờn lốc máy, dưỡng bóng lốp', isActive: true, includedServices: [srvFoam, srvDegrease, srvTyre] },
-        { id: 'S-03', serviceId: 3, serviceCode: 'PKG-ULTIMATE', name: 'Rửa xe máy siêu cấp & bảo dưỡng', price: 80000, duration: 40, type: 'core', serviceType: 'PACKAGE', desc: 'Rửa chi tiết toàn diện, tẩy ố xích chíp, dưỡng nhựa nhám, tra dầu xích', isActive: true, includedServices: [srvDetail, srvChainClean, srvPlastic, srvChainLube] },
-        srvFoamSpec, srvDry, srvShine, srvFoam, srvDegrease, srvTyre, srvDetail, srvChainClean, srvPlastic, srvChainLube,
-        { id: 'A-01', serviceId: 4, serviceCode: 'ADD-CHAIN', name: 'Tẩy rửa và dưỡng xích (sên)', price: 20000, duration: 10, type: 'addons', serviceType: 'ADDON', desc: 'Tẩy sạch cặn bẩn xích, tra dầu bôi trơn chuyên dụng', isActive: true },
-        { id: 'A-02', serviceId: 5, serviceCode: 'ADD-HELMET', name: 'Vệ sinh mũ bảo hiểm khử khuẩn', price: 15000, duration: 10, type: 'addons', serviceType: 'ADDON', desc: 'Khử mùi bọt nano, sấy khô mũ bảo hiểm', isActive: true }
+        { id: 'S-01', serviceId: 1, serviceCode: 'PKG-STD', name: 'Gói Rửa Xe Tiêu Chuẩn', price: 30000, duration: 15, type: 'combo', serviceType: 'PACKAGE', desc: 'Quy trình rửa sạch nhanh toàn thân xe, thổi khô kiệt nước và lau bóng chuẩn tiệm', isActive: true, includedServices: [srvFoamStd, srvDryAir, srvWipeShine] },
+        { id: 'S-02', serviceId: 2, serviceCode: 'PKG-DELUXE', name: 'Gói Chăm Sóc Cao Cấp', price: 60000, duration: 25, type: 'combo', serviceType: 'PACKAGE', desc: 'Rửa bọt tuyết kết hợp tẩy rửa dầu nhờn gầm máy, quét dưỡng đen lốp và tra mỡ xích', isActive: true, includedServices: [srvFoamStd, srvDegreaseEng, addTyreDress, addChainLube] },
+        { id: 'S-03', serviceId: 3, serviceCode: 'PKG-ULTIMATE', name: 'Gói Chăm Sóc Siêu Cấp & Bảo Dưỡng VIP', price: 110000, duration: 40, type: 'combo', serviceType: 'PACKAGE', desc: 'Gói bảo dưỡng toàn diện từ chi tiết khoang máy đến dọn xích nhông đĩa, phục hồi nhựa nhám dàn áo và phủ bóng lốp', isActive: true, includedServices: [srvWashDetail, addChainClean, addChainLube, addPlasticRestore, addTyreDress] },
+        srvFoamStd, srvDryAir, srvWipeShine, srvDegreaseEng, srvWashDetail, addTyreDress, addChainClean, addChainLube, addPlasticRestore, addHelmetSan, addWaxProtect
       ];
     }
   },
 
   createService: async (data) => {
     try {
+      const resolvedServiceType = data.serviceType || (data.type === 'combo' ? 'PACKAGE' : (data.type === 'single' ? 'SINGLE_SERVICE' : 'ADDON'));
+      const prefix = resolvedServiceType === 'PACKAGE' ? 'PKG' : (resolvedServiceType === 'SINGLE_SERVICE' ? 'SRV' : 'ADD');
       const payload = {
-        serviceCode: data.type === 'core' ? `PKG-${Date.now().toString().slice(-4)}` : `ADD-${Date.now().toString().slice(-4)}`,
+        serviceCode: data.serviceCode || `${prefix}-${Date.now().toString().slice(-4)}`,
         serviceName: data.name,
-        serviceType: data.type === 'core' ? 'PACKAGE' : 'ADDON',
+        serviceType: resolvedServiceType,
         price: Number(data.price),
         durationMinutes: Number(data.duration),
         description: data.desc,
@@ -102,7 +116,8 @@ export const serviceCatalogApi = {
         name: res.data.serviceName || data.name,
         price: res.data.price || data.price,
         duration: res.data.durationMinutes || data.duration,
-        type: data.type,
+        type: res.data.serviceType === 'PACKAGE' ? 'combo' : (res.data.serviceType === 'SINGLE_SERVICE' ? 'single' : 'addons'),
+        serviceType: res.data.serviceType || resolvedServiceType,
         desc: res.data.description || data.desc,
         isActive: true,
         includedServices: res.data.includedServices || []
@@ -115,10 +130,11 @@ export const serviceCatalogApi = {
 
   updateService: async (id, data) => {
     try {
+      const resolvedServiceType = data.serviceType || (data.type === 'combo' ? 'PACKAGE' : (data.type === 'single' ? 'SINGLE_SERVICE' : 'ADDON'));
       const payload = {
-        serviceCode: data.id || `PKG-${id}`,
+        serviceCode: data.serviceCode || data.id || `SRV-${id}`,
         serviceName: data.name,
-        serviceType: data.type === 'core' ? 'PACKAGE' : 'ADDON',
+        serviceType: resolvedServiceType,
         price: Number(data.price),
         durationMinutes: Number(data.duration),
         description: data.desc,
@@ -128,7 +144,7 @@ export const serviceCatalogApi = {
       };
       const actualId = data.serviceId || id;
       const res = await api.put(`/admin/services/${actualId}`, payload);
-      return { ...data, id, serviceId: actualId, includedServices: res.data.includedServices || [] };
+      return { ...data, id, serviceId: actualId, serviceType: resolvedServiceType, includedServices: res.data.includedServices || [] };
     } catch (err) {
       console.warn('API updateService fallback:', err.message);
       return { ...data, id, serviceId: id };

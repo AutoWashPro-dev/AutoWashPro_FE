@@ -14,7 +14,8 @@ import {
   TrendingUp,
   Cpu,
   Calendar,
-  Trash2
+  Trash2,
+  Sparkles
 } from 'lucide-react';
 import { serviceCatalogApi } from '../services/serviceCatalogApi';
 import { hasPermission } from '../../../utils/rbac';
@@ -86,7 +87,7 @@ export default function AdminServicesSlotsPage() {
 
   // 1. Navigation Active Tab
   const [activeTab, setActiveTab] = useState('catalog'); // 'catalog' or 'slots'
-  const [catalogSubTab, setCatalogSubTab] = useState('core'); // 'core' or 'addons'
+  const [catalogSubTab, setCatalogSubTab] = useState('combo'); // 'combo' | 'single' | 'addons'
 
   // 2. Mock Databases
   const [services, setServices] = useState([]);
@@ -386,13 +387,13 @@ export default function AdminServicesSlotsPage() {
     });
   };
 
-  const handleOpenAddService = (type) => {
+  const handleOpenAddService = () => {
     setCurrentService(null);
     setServiceForm({
       name: '',
       price: '',
-      duration: type === 'core' ? '15' : '10',
-      type: type,
+      duration: catalogSubTab === 'combo' ? '25' : (catalogSubTab === 'single' ? '15' : '10'),
+      type: catalogSubTab,
       desc: '',
       includedServiceIds: []
     });
@@ -402,11 +403,14 @@ export default function AdminServicesSlotsPage() {
   const handleOpenEditService = (service) => {
     setCurrentService(service);
     const incIds = (service.includedServices || []).map(s => s.serviceId || s.id);
+    const sType = service.type === 'combo' || service.serviceType === 'PACKAGE' || service.type === 'core'
+      ? 'combo'
+      : (service.type === 'single' || service.serviceType === 'SINGLE_SERVICE' ? 'single' : 'addons');
     setServiceForm({
       name: service.name,
       price: service.price,
       duration: service.duration,
-      type: service.type,
+      type: sType,
       desc: service.desc,
       includedServiceIds: incIds
     });
@@ -829,13 +833,22 @@ export default function AdminServicesSlotsPage() {
             <div className="flex flex-col sm:flex-row gap-3 items-center justify-between shrink-0">
               <div className="bg-white border border-slate-200/80 rounded-2xl p-1 flex gap-1 text-xs text-slate-600 shadow-sm w-full sm:w-auto">
                 <button
-                  onClick={() => setCatalogSubTab('core')}
-                  className={`px-4 py-2 rounded-xl text-center font-extrabold transition-all cursor-pointer whitespace-nowrap ${catalogSubTab === 'core'
+                  onClick={() => setCatalogSubTab('combo')}
+                  className={`px-4 py-2 rounded-xl text-center font-extrabold transition-all cursor-pointer whitespace-nowrap ${catalogSubTab === 'combo'
                       ? 'bg-slate-900 text-white shadow-md'
                       : 'hover:text-slate-900 hover:bg-slate-50'
                     }`}
                 >
-                  Gói dịch vụ chính ({services.filter(s => s.type === 'core').length})
+                  Gói Combo ({services.filter(s => s.type === 'combo').length})
+                </button>
+                <button
+                  onClick={() => setCatalogSubTab('single')}
+                  className={`px-4 py-2 rounded-xl text-center font-extrabold transition-all cursor-pointer whitespace-nowrap ${catalogSubTab === 'single'
+                      ? 'bg-slate-900 text-white shadow-md'
+                      : 'hover:text-slate-900 hover:bg-slate-50'
+                    }`}
+                >
+                  Dịch vụ đơn lẻ ({services.filter(s => s.type === 'single').length})
                 </button>
                 <button
                   onClick={() => setCatalogSubTab('addons')}
@@ -1065,162 +1078,267 @@ export default function AdminServicesSlotsPage() {
 
         {/* MODAL: ADD & EDIT SERVICE */}
         {serviceModalOpen && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-150">
-                <h3 className="font-extrabold text-slate-850 flex items-center gap-1.5">
-                  <Wrench className="w-5 h-5 text-indigo-655" />
-                  {currentService ? `Chỉnh sửa: ${currentService.id}` : 'Thêm mới Dịch vụ'}
-                </h3>
-                <button onClick={() => setServiceModalOpen(false)} className="p-1.5 text-slate-400 hover:text-slate-700 rounded-lg">
+          <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+            <div className="bg-white rounded-3xl max-w-2xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh] border border-slate-100">
+              
+              {/* Modal Header */}
+              <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white px-6 py-4.5 flex items-center justify-between shrink-0 shadow-md">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-indigo-300 shrink-0">
+                    {serviceForm.type === 'combo' ? <Layers className="w-5 h-5 text-indigo-400" /> : serviceForm.type === 'single' ? <Wrench className="w-5 h-5 text-blue-400" /> : <Sparkles className="w-5 h-5 text-amber-400" />}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-extrabold text-base tracking-tight text-white">
+                        {currentService ? `Chỉnh sửa dịch vụ` : 'Thêm dịch vụ mới'}
+                      </h3>
+                      {currentService && (
+                        <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-indigo-500/30 border border-indigo-400/40 text-indigo-200 font-mono">
+                          {currentService.serviceCode || currentService.id}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-300 font-medium">Cấu hình danh mục rửa xe, bảng giá và các gói thành phần</p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setServiceModalOpen(false)}
+                  className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center transition-all cursor-pointer"
+                >
                   <X className="w-4.5 h-4.5" />
                 </button>
               </div>
 
-              <form onSubmit={handleSaveService} className="space-y-4 text-xs">
-                <div className="space-y-1">
-                  <label className="font-bold text-slate-600 block">Tên dịch vụ *</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="Ví dụ: Rửa xe bọt tuyết..."
-                    value={serviceForm.name}
-                    onChange={e => setServiceForm({ ...serviceForm, name: e.target.value })}
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="font-bold text-slate-600 block">Giá dịch vụ (đ) *</label>
-                    <input
-                      type="number"
-                      required
-                      placeholder="Ví dụ: 70000"
-                      value={serviceForm.price}
-                      onChange={e => setServiceForm({ ...serviceForm, price: e.target.value })}
-                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-700"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <div className="flex justify-between items-center">
-                      <label className="font-bold text-slate-600 block">Thời lượng (phút) *</label>
-                      <span className="text-[10px] text-indigo-700 font-extrabold bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100">
-                        ⏱️ Staff tùy chỉnh thời gian
-                      </span>
-                    </div>
-                    <input
-                      type="number"
-                      required
-                      min="1"
-                      placeholder="Ví dụ: 15"
-                      value={serviceForm.duration}
-                      onChange={e => setServiceForm({ ...serviceForm, duration: e.target.value })}
-                      className="w-full px-3.5 py-2.5 bg-white border border-indigo-200 focus:border-indigo-600 rounded-xl font-black text-indigo-900 text-sm shadow-xs focus:ring-2 focus:ring-indigo-500/20"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <label className="font-bold text-slate-600 block">Phân loại dịch vụ *</label>
-                  <div className="flex gap-2">
+              {/* Form Content Body */}
+              <form onSubmit={handleSaveService} className="flex-1 overflow-y-auto p-6 space-y-6 text-xs no-scrollbar">
+                
+                {/* Section 1: Phân loại Dịch vụ */}
+                <div className="space-y-2">
+                  <label className="font-black text-slate-800 uppercase tracking-wider text-[11px] flex items-center gap-1.5">
+                    <span>Phân loại dịch vụ *</span>
+                    {currentService && ['PKG-STD', 'PKG-DELUXE', 'PKG-ULTIMATE'].includes(currentService.serviceCode || currentService.id) && (
+                      <span className="text-[10px] text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md font-extrabold border border-amber-200">🔒 Gói hệ thống cố định</span>
+                    )}
+                  </label>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {/* Option 1: Combo */}
                     <button
                       type="button"
                       disabled={currentService && ['PKG-STD', 'PKG-DELUXE', 'PKG-ULTIMATE'].includes(currentService.serviceCode || currentService.id)}
-                      onClick={() => setServiceForm({ ...serviceForm, type: 'core' })}
-                      className={`flex-1 py-2 rounded-xl border font-bold text-center transition-all ${currentService && ['PKG-STD', 'PKG-DELUXE', 'PKG-ULTIMATE'].includes(currentService.serviceCode || currentService.id) ? 'cursor-not-allowed opacity-70 bg-slate-100 text-slate-400 border-slate-200' : serviceForm.type === 'core' ? 'bg-slate-900 text-white border-slate-900' : 'bg-slate-50 border-slate-200 text-slate-600'}`}
+                      onClick={() => setServiceForm({ ...serviceForm, type: 'combo' })}
+                      className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer relative overflow-hidden flex flex-col justify-between ${currentService && ['PKG-STD', 'PKG-DELUXE', 'PKG-ULTIMATE'].includes(currentService.serviceCode || currentService.id) ? 'cursor-not-allowed opacity-60 bg-slate-50 border-slate-200' : (serviceForm.type === 'combo' || serviceForm.type === 'core') ? 'bg-indigo-50/90 border-indigo-500 ring-2 ring-indigo-500/20 shadow-sm' : 'bg-white hover:bg-slate-50/80 border-slate-200'}`}
                     >
-                      Gói chính
+                      <div className="flex items-center justify-between mb-2">
+                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${serviceForm.type === 'combo' ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                          <Layers className="w-4 h-4" />
+                        </div>
+                        {(serviceForm.type === 'combo' || serviceForm.type === 'core') && <CheckCircle className="w-4 h-4 text-indigo-600" />}
+                      </div>
+                      <div>
+                        <span className="font-extrabold text-slate-900 text-xs block">Gói Combo</span>
+                        <span className="text-[10px] text-slate-500 font-medium block mt-0.5">Ghép nhiều dịch vụ con</span>
+                      </div>
                     </button>
+
+                    {/* Option 2: Single Service */}
+                    <button
+                      type="button"
+                      disabled={currentService && ['PKG-STD', 'PKG-DELUXE', 'PKG-ULTIMATE'].includes(currentService.serviceCode || currentService.id)}
+                      onClick={() => setServiceForm({ ...serviceForm, type: 'single' })}
+                      className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer relative overflow-hidden flex flex-col justify-between ${currentService && ['PKG-STD', 'PKG-DELUXE', 'PKG-ULTIMATE'].includes(currentService.serviceCode || currentService.id) ? 'cursor-not-allowed opacity-60 bg-slate-50 border-slate-200' : serviceForm.type === 'single' ? 'bg-blue-50/90 border-blue-500 ring-2 ring-blue-500/20 shadow-sm' : 'bg-white hover:bg-slate-50/80 border-slate-200'}`}
+                    >
+                      <div className="flex items-center justify-between mb-2">
+                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${serviceForm.type === 'single' ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                          <Wrench className="w-4 h-4" />
+                        </div>
+                        {serviceForm.type === 'single' && <CheckCircle className="w-4 h-4 text-blue-600" />}
+                      </div>
+                      <div>
+                        <span className="font-extrabold text-slate-900 text-xs block">Dịch vụ đơn lẻ</span>
+                        <span className="text-[10px] text-slate-500 font-medium block mt-0.5">Đặt lẻ rửa/tẩy độc lập</span>
+                      </div>
+                    </button>
+
+                    {/* Option 3: Add-on */}
                     <button
                       type="button"
                       disabled={currentService && ['PKG-STD', 'PKG-DELUXE', 'PKG-ULTIMATE'].includes(currentService.serviceCode || currentService.id)}
                       onClick={() => setServiceForm({ ...serviceForm, type: 'addons' })}
-                      className={`flex-1 py-2 rounded-xl border font-bold text-center transition-all ${currentService && ['PKG-STD', 'PKG-DELUXE', 'PKG-ULTIMATE'].includes(currentService.serviceCode || currentService.id) ? 'cursor-not-allowed opacity-70 bg-slate-100 text-slate-400 border-slate-200' : serviceForm.type === 'addons' ? 'bg-slate-900 text-white border-slate-900' : 'bg-slate-50 border-slate-200 text-slate-600'}`}
+                      className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer relative overflow-hidden flex flex-col justify-between ${currentService && ['PKG-STD', 'PKG-DELUXE', 'PKG-ULTIMATE'].includes(currentService.serviceCode || currentService.id) ? 'cursor-not-allowed opacity-60 bg-slate-50 border-slate-200' : serviceForm.type === 'addons' ? 'bg-amber-50/90 border-amber-500 ring-2 ring-amber-500/20 shadow-sm' : 'bg-white hover:bg-slate-50/80 border-slate-200'}`}
                     >
-                      Add-on
+                      <div className="flex items-center justify-between mb-2">
+                        <div className={`w-8 h-8 rounded-xl flex items-center justify-center ${serviceForm.type === 'addons' ? 'bg-amber-600 text-white' : 'bg-slate-100 text-slate-500'}`}>
+                          <Sparkles className="w-4 h-4" />
+                        </div>
+                        {serviceForm.type === 'addons' && <CheckCircle className="w-4 h-4 text-amber-600" />}
+                      </div>
+                      <div>
+                        <span className="font-extrabold text-slate-900 text-xs block">Dịch vụ Add-on</span>
+                        <span className="text-[10px] text-slate-500 font-medium block mt-0.5">Tiện ích dưỡng/khử khuẩn</span>
+                      </div>
                     </button>
                   </div>
-                  {currentService && ['PKG-STD', 'PKG-DELUXE', 'PKG-ULTIMATE'].includes(currentService.serviceCode || currentService.id) && (
-                    <span className="text-[10px] text-slate-450 block mt-1">🔒 Gói dịch vụ hệ thống cố định</span>
-                  )}
                 </div>
 
-                {serviceForm.type === 'core' && (
-                  <div className="space-y-2 border-t border-b border-slate-150 py-3 my-2 text-left">
-                    <div className="flex items-center justify-between">
-                      <label className="font-extrabold text-slate-800 flex items-center gap-1 text-xs">
-                        <Layers className="w-4 h-4 text-blue-600" />
-                        <span>Chọn các gói Add-on thành phần *</span>
-                      </label>
-                      <span className="text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded-lg border border-blue-100">
-                        ⏱️ Tổng: {services.filter(s => s.type === 'addons').filter(s => (serviceForm.includedServiceIds || []).includes(s.serviceId || s.id)).reduce((acc, c) => acc + Number(c.durationMinutes || c.duration || 0), 0)} phút
-                      </span>
-                    </div>
-                    <p className="text-[10px] text-slate-500 font-medium leading-relaxed">
-                      Tích chọn các dịch vụ Add-on thành phần. Staff có thể <strong>tự do thay đổi và tùy chỉnh lại thời lượng (phút)</strong> của gói dịch vụ ở ô nhập phía trên.
-                    </p>
+                {/* Section 2: Thông tin tên, giá, thời lượng */}
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-4">
+                  <div className="sm:col-span-6 space-y-1.5">
+                    <label className="font-bold text-slate-700 block">Tên dịch vụ / Gói dọn xe *</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="Ví dụ: Gói Rửa Xe Chuyên Sâu..."
+                      value={serviceForm.name}
+                      onChange={e => setServiceForm({ ...serviceForm, name: e.target.value })}
+                      className="w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:border-indigo-600 rounded-xl font-bold text-slate-800 text-xs outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all"
+                    />
+                  </div>
 
-                    <div className="max-h-48 overflow-y-auto space-y-1.5 p-2 bg-slate-50 border border-slate-200 rounded-xl">
-                      {services.filter(s => s.type === 'addons').length > 0 ? (
-                        services.filter(s => s.type === 'addons').map((srv) => {
+                  <div className="sm:col-span-3 space-y-1.5">
+                    <label className="font-bold text-slate-700 block">Giá niêm yết (VNĐ) *</label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        required
+                        min="0"
+                        placeholder="70000"
+                        value={serviceForm.price}
+                        onChange={e => setServiceForm({ ...serviceForm, price: e.target.value })}
+                        className="w-full pl-4 pr-7 py-3 bg-slate-50 border border-slate-200 focus:border-indigo-600 rounded-xl font-black text-indigo-900 text-xs outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all"
+                      />
+                      <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-[11px]">đ</span>
+                    </div>
+                  </div>
+
+                  <div className="sm:col-span-3 space-y-1.5">
+                    <div className="flex justify-between items-center">
+                      <label className="font-bold text-slate-700 block">Thời lượng (phút) *</label>
+                    </div>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        required
+                        min="1"
+                        placeholder="25"
+                        value={serviceForm.duration}
+                        onChange={e => setServiceForm({ ...serviceForm, duration: e.target.value })}
+                        className="w-full pl-8 pr-3 py-3 bg-white border border-indigo-300 focus:border-indigo-600 rounded-xl font-black text-indigo-950 text-xs outline-none focus:ring-2 focus:ring-indigo-500/20 shadow-xs transition-all"
+                      />
+                      <Clock className="w-4 h-4 text-indigo-500 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section 3: Cấu hình Gói Combo (Gói con thành phần) */}
+                {(serviceForm.type === 'combo' || serviceForm.type === 'core') && (
+                  <div className="bg-gradient-to-br from-indigo-50/60 via-blue-50/40 to-slate-50 border border-indigo-100 rounded-2xl p-4.5 space-y-3.5">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-indigo-100/80 pb-3">
+                      <div>
+                        <h4 className="font-extrabold text-slate-900 flex items-center gap-2 text-xs">
+                          <Layers className="w-4 h-4 text-indigo-600" />
+                          <span>Chọn các Dịch vụ con cấu thành Combo này</span>
+                        </h4>
+                        <p className="text-[10px] text-slate-500 font-medium mt-0.5">
+                          Tích chọn các dịch vụ con lẻ. Thời lượng gói có thể điều chỉnh tự do ở ô nhập phía trên.
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-[10px] font-black text-indigo-800 bg-white px-2.5 py-1 rounded-xl border border-indigo-200 shadow-xs">
+                          Đã chọn: {(serviceForm.includedServiceIds || []).length} dịch vụ
+                        </span>
+                        <span className="text-[10px] font-black text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-xl border border-emerald-200">
+                          ⏱️ Gợi ý: {services.filter(s => s.type !== 'combo' && s.type !== 'core').filter(s => (serviceForm.includedServiceIds || []).includes(s.serviceId || s.id)).reduce((acc, c) => acc + Number(c.durationMinutes || c.duration || 0), 0)} phút
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Sub-services Grid List */}
+                    <div className="max-h-56 overflow-y-auto pr-1 grid grid-cols-1 sm:grid-cols-2 gap-3 no-scrollbar">
+                      {services.filter(s => s.type !== 'combo' && s.type !== 'core').length > 0 ? (
+                        services.filter(s => s.type !== 'combo' && s.type !== 'core').map((srv) => {
                           const srvId = srv.serviceId || srv.id;
                           const isChecked = (serviceForm.includedServiceIds || []).includes(srvId);
                           return (
-                            <label key={srvId} className={`flex items-center justify-between p-2 rounded-xl cursor-pointer transition-all border ${isChecked ? 'bg-blue-50/60 border-blue-400 shadow-sm' : 'bg-white hover:bg-slate-50 border-slate-200'}`}>
-                              <div className="flex items-center gap-2">
-                                <input
-                                  type="checkbox"
-                                  checked={isChecked}
-                                  onChange={(e) => {
-                                    const current = serviceForm.includedServiceIds || [];
-                                    const next = e.target.checked
-                                      ? [...current, srvId]
-                                      : current.filter(id => id !== srvId);
-                                    const addonItems = services.filter(s => s.type === 'addons');
-                                    const newDuration = addonItems.filter(s => next.includes(s.serviceId || s.id)).reduce((acc, c) => acc + Number(c.durationMinutes || c.duration || 0), 0);
-                                    setServiceForm({
-                                      ...serviceForm,
-                                      includedServiceIds: next,
-                                      duration: newDuration > 0 ? newDuration : serviceForm.duration
-                                    });
-                                  }}
-                                  className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 accent-blue-600 cursor-pointer"
-                                />
-                                <div>
-                                  <span className="font-bold text-slate-800 text-xs block">{srv.name || srv.serviceName}</span>
-                                  {srv.desc && <span className="text-[10px] text-slate-400 font-normal block">{srv.desc}</span>}
-                                </div>
+                            <div
+                              key={srvId}
+                              onClick={() => {
+                                const current = serviceForm.includedServiceIds || [];
+                                const next = !isChecked
+                                  ? [...current, srvId]
+                                  : current.filter(id => id !== srvId);
+                                const subItems = services.filter(s => s.type !== 'combo' && s.type !== 'core');
+                                const newDuration = subItems.filter(s => next.includes(s.serviceId || s.id)).reduce((acc, c) => acc + Number(c.durationMinutes || c.duration || 0), 0);
+                                setServiceForm({
+                                  ...serviceForm,
+                                  includedServiceIds: next,
+                                  duration: newDuration > 0 ? newDuration : serviceForm.duration
+                                });
+                              }}
+                              className={`p-3.5 rounded-2xl cursor-pointer select-none transition-all duration-200 ease-out border flex items-start gap-3.5 transform active:scale-[0.98] ${isChecked
+                                  ? 'bg-white border-indigo-600 ring-2 ring-indigo-500/20 shadow-md shadow-indigo-500/10'
+                                  : 'bg-white/90 hover:bg-white border-slate-200 hover:border-slate-300 hover:shadow-xs'
+                                }`}
+                            >
+                              <div className={`w-5 h-5 rounded-lg flex items-center justify-center transition-all duration-200 mt-0.5 shrink-0 ${isChecked ? 'bg-indigo-600 text-white shadow-sm scale-100' : 'border-2 border-slate-300 bg-white'}`}>
+                                {isChecked && <CheckCircle className="w-3.5 h-3.5 stroke-[2.5]" />}
                               </div>
-                              <span className="text-[10px] font-extrabold text-blue-700 bg-blue-100/60 px-2 py-0.5 rounded-md shrink-0">
-                                ⏱️ {srv.durationMinutes || srv.duration || 5} phút
-                              </span>
-                            </label>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between gap-1">
+                                  <span className={`font-extrabold text-xs transition-colors duration-200 ${isChecked ? 'text-indigo-950' : 'text-slate-800'}`}>
+                                    {srv.name || srv.serviceName}
+                                  </span>
+                                  <span className={`text-[10px] font-black px-2 py-0.5 rounded-lg border shrink-0 transition-all duration-200 ${isChecked ? 'text-indigo-700 bg-indigo-50 border-indigo-200' : 'text-slate-500 bg-slate-100 border-slate-200'}`}>
+                                    {srv.durationMinutes || srv.duration || 5}'
+                                  </span>
+                                </div>
+                                {srv.desc && (
+                                  <p className="text-[10px] text-slate-500 font-medium line-clamp-1 mt-1 leading-normal" title={srv.desc}>
+                                    {srv.desc}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
                           );
                         })
                       ) : (
-                        <div className="text-center py-3 text-slate-400 text-[11px]">
-                          Không tìm thấy gói Add-on nào.
+                        <div className="col-span-2 text-center py-6 text-slate-400 text-xs">
+                          Chưa có dịch vụ đơn lẻ hoặc add-on nào sẵn sàng.
                         </div>
                       )}
                     </div>
                   </div>
                 )}
 
-                <div className="space-y-1">
-                  <label className="font-bold text-slate-600 block">Mô tả ngắn</label>
+                {/* Section 4: Mô tả ngắn */}
+                <div className="space-y-1.5">
+                  <label className="font-bold text-slate-700 block">Mô tả ngắn & Quy trình dọn rửa</label>
                   <textarea
-                    placeholder="Mô tả quy trình..."
+                    placeholder="Mô tả chi tiết các bước quy trình rửa bọt tuyết, xịt khô, bảo vệ sơn..."
                     value={serviceForm.desc}
                     onChange={e => setServiceForm({ ...serviceForm, desc: e.target.value })}
                     rows="3"
-                    className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-700 resize-none"
+                    className="w-full px-4 py-3 bg-slate-50 border border-slate-200 focus:border-indigo-600 rounded-xl font-medium text-slate-700 text-xs outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all resize-none"
                   />
                 </div>
 
-                <div className="flex gap-2.5 pt-2 justify-end">
-                  <button type="button" onClick={() => setServiceModalOpen(false)} className="px-4 py-2.5 bg-slate-100 text-slate-600 font-bold rounded-xl">Hủy</button>
-                  <button type="submit" className="px-4.5 py-2.5 bg-indigo-600 text-white font-black rounded-xl">Lưu</button>
+                {/* Modal Footer Actions */}
+                <div className="pt-2 flex items-center justify-end gap-3 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => setServiceModalOpen(false)}
+                    className="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl transition-all cursor-pointer text-xs"
+                  >
+                    Hủy bỏ
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-6 py-2.5 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-black rounded-xl transition-all shadow-md hover:shadow-indigo-500/20 cursor-pointer text-xs flex items-center gap-1.5"
+                  >
+                    <CheckCircle className="w-4 h-4" />
+                    <span>{currentService ? 'Cập nhật dịch vụ' : 'Tạo mới dịch vụ'}</span>
+                  </button>
                 </div>
               </form>
             </div>
